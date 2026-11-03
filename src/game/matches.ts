@@ -1,5 +1,6 @@
 import { ageAt, clamp, hash, random } from './random';
 import { overall } from './ratings';
+import { clubById, findPlayer, isNpc, npcSquad, npcState } from './npc';
 import {
   formations,
   type Career,
@@ -10,12 +11,16 @@ import {
   type World,
 } from './types';
 
+export const stateOf = (career: Career, id: string) =>
+  career.players[id] || (isNpc(id) ? npcState : undefined);
+
 export const available = (career: Career, id: string) => {
-  const p = career.players[id];
+  const p = stateOf(career, id);
   return p && p.injuryDays === 0 && p.suspension === 0 && p.fitness >= 30;
 };
 
 export function squad(career: Career, world: World, clubId = career.clubId) {
+  if (isNpc(clubId)) return npcSquad(clubId);
   return world.players.filter((p) => career.players[p.id]?.clubId === clubId);
 }
 
@@ -27,13 +32,19 @@ export function bestLineup(
 ) {
   const pool = squad(career, world, clubId).filter((p) => available(career, p.id));
   const chosen: string[] = [];
+  // Clubes controlados pela engine poupam atletas desgastados quando há alternativa.
+  const rest = clubId !== career.clubId;
+  const score = (p: Player, role: string) => {
+    const s = stateOf(career, p.id)!;
+    return overall(p, role, s) - (rest && s.fitness < 65 ? 10 : 0);
+  };
   for (const role of formations[formation]) {
     const best = pool
       .filter((p) => !chosen.includes(p.id))
       .sort(
         (a, b) =>
-          overall(b, role, career.players[b.id]) - overall(a, role, career.players[a.id]) ||
-          career.players[b.id].fitness - career.players[a.id].fitness,
+          score(b, role) - score(a, role) ||
+          stateOf(career, b.id)!.fitness - stateOf(career, a.id)!.fitness,
       )[0];
     if (best) chosen.push(best.id);
   }
@@ -120,14 +131,14 @@ function power(
   spent: Record<string, number>,
 ) {
   const players = ids.flatMap((id, i) => {
-    const player = world.players.find((p) => p.id === id);
+    const player = findPlayer(world, id);
     return player ? [{ player, role: formations[tactic.formation][i] || 'CM' }] : [];
   });
   const score = (roles: string[]) => {
     const values = players
       .filter(({ role }) => roles.includes(role))
       .map(({ player: p, role }) => {
-        const s = career.players[p.id];
+        const s = stateOf(career, p.id)!;
         const fatigue = clamp(s.fitness - (spent[p.id] || 0), 25, 100) / 100;
         return overall(p, role, s) * (0.65 + fatigue * 0.25 + s.morale / 1000);
       });
@@ -195,13 +206,11 @@ export function stepMatch(career: Career, world: World, current: Match): Match {
   const isHome = rng() < share;
   const ids = isHome ? match.homeLineup : match.awayLineup;
   const clubId = isHome ? fixture.homeId : fixture.awayId;
-  const club = world.clubs.find((c) => c.id === clubId)!;
+  const club = clubById(world, clubId);
   const attack = isHome ? home : away;
   const defense = isHome ? away : home;
   const tactic = isHome ? ht : at;
-  const players = ids
-    .map((id) => world.players.find((p) => p.id === id))
-    .filter((p): p is Player => Boolean(p));
+  const players = ids.map((id) => findPlayer(world, id)).filter((p): p is Player => Boolean(p));
   const attackers = players
     .filter((p) => p.position !== 'GK')
     .sort((a, b) => b.attributes.finishing - a.attributes.finishing);
@@ -251,7 +260,7 @@ export function stepMatch(career: Career, world: World, current: Match): Match {
       text: `Cartão amarelo para ${athlete.name}.`,
     });
   }
-  if (athlete && rng() < 0.0015 + Math.max(0, 65 - career.players[athlete.id].fitness) * 0.0002) {
+  if (athlete && rng() < 0.0015 + Math.max(0, 65 - stateOf(career, athlete.id)!.fitness) * 0.0002) {
     match.events.push({
       minute,
       type: 'injury',

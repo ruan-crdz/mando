@@ -5,26 +5,30 @@
 
 ## Estado real da implementação
 
-Esta versão é um **primeiro ciclo jogável de 2026**, não a implementação de todo o
-roadmap. Não exige conta para experimentar.
+Esta versão é uma **carreira jogável de várias temporadas a partir de 01/01/2026**,
+com todas as competições de clubes do calendário brasileiro, mas não a implementação
+de todo o roadmap. Não exige conta para experimentar.
 
-| Sistema       | Implementado                                                                                            |
-| ------------- | ------------------------------------------------------------------------------------------------------- |
-| Carreira      | Manager, escolha entre 40 clubes, dificuldades e sete desafios                                          |
-| Mundo demo    | 1.120 atletas **sintéticos**, atributos e finanças demonstrativos                                       |
-| Mundo oficial | Importação de CSV autorizado, validação e snapshot imutável                                             |
-| Série A/B     | 38 rodadas, ida/volta, classificação, playoffs de acesso da B                                           |
-| Partidas      | Engine determinística por seed, minuto a minuto, pausas, 1×/2×/4×, cinco substituições, ajustes táticos |
-| Elenco        | Campo com troca por controle ou arrastar, overall por posição, condição, lesões, suspensões e contratos |
-| Mercado       | Filtros combinados, dinheiro + jogador, salário, propostas NPC, decisão matemática e renovação          |
-| Clube         | Mensagens, respostas com consequências, memórias, confiança, objetivos, folha, caixa e gráficos         |
-| Save          | IndexedDB, exportação/importação JSON e sincronização manual autenticada com conflito de revisão        |
-| IA            | Quatro Edge Functions, Responses API com JSON Schema, retrato, cache e limites de uso                   |
-| Plataforma    | Gamepad centralizado, teclado virtual, teclado/mouse, PWA e workflow GitHub Pages                       |
+| Sistema       | Implementado                                                                                               |
+| ------------- | ---------------------------------------------------------------------------------------------------------- |
+| Carreira      | Manager, escolha entre 40 clubes, dificuldades e sete desafios                                             |
+| Mundo demo    | 1.120 atletas **sintéticos**, atributos e finanças demonstrativos                                          |
+| Mundo oficial | Importação de CSV autorizado, validação e snapshot imutável                                                |
+| Série A/B     | 38 rodadas, ida/volta, classificação, playoffs de acesso da B                                              |
+| Copas         | Estaduais, Supercopa, Copa do Brasil (64 clubes), Libertadores e Sul-Americana (grupos + mata-mata)        |
+| Clubes NPC    | Nível B: clubes brasileiros por estado; nível C: clubes sul-americanos — força, reputação e elenco simples |
+| Temporadas    | Campeões, acesso/rebaixamento, vagas continentais, aposentadorias, renovações, base e novo calendário      |
+| Partidas      | Engine determinística por seed, minuto a minuto, pausas, 1×/2×/4×, cinco substituições, ajustes táticos    |
+| Elenco        | Campo com troca por controle ou arrastar, overall por posição, condição, lesões, suspensões e contratos    |
+| Mercado       | Filtros combinados, dinheiro + jogador, salário, propostas NPC, decisão matemática e renovação             |
+| Clube         | Mensagens, respostas com consequências, memórias, confiança, objetivos, folha, caixa e gráficos            |
+| Save          | IndexedDB, exportação/importação JSON e sincronização manual autenticada com conflito de revisão           |
+| IA            | Quatro Edge Functions, Responses API com JSON Schema, retrato, cache e limites de uso                      |
+| Plataforma    | Gamepad centralizado, teclado virtual, teclado/mouse, PWA e workflow GitHub Pages                          |
 
-**Ainda não implementado:** partidas de estaduais, Copa do Brasil, Supercopa e
-torneios continentais; clubes NPC adicionais; temporadas posteriores a 2026;
-demissão/troca de emprego; contratação de staff; categorias de base completas;
+**Ainda não implementado:** Série C (por isso ninguém cai da Série B);
+fases preliminares da Libertadores e playoffs entre Libertadores/Sul-Americana;
+elencos detalhados dos clubes NPC; demissão/troca de emprego; contratação de staff; categorias de base completas;
 instruções individuais; motor específico de bola parada; memória vetorial;
 realtime/fila de geração de histórias e entrevistas. A visão 2D exibe posições
 ilustrativas, não trajetórias físicas da bola/jogadores. Responsabilidades são
@@ -299,6 +303,25 @@ também pode depender do seletor nativo do sistema.
   critérios de desempate da simulação; não é uma cópia da tabela oficial.
   O formato dos playoffs deve ser validado contra o REC antes de lançar
   uma base oficial. A nota pública da CBF confirma os confrontos 3º/6º e 4º/5º.
+- **Competições.** Estaduais: turno único com clubes principais do estado e
+  convidados NPC, semifinal e final em jogo único. Copa do Brasil: 40 clubes das
+  Séries A/B + 24 convidados; 1ª e 2ª fases em jogo único, oitavas em diante ida e
+  volta; empates vão aos pênaltis. Libertadores/Sul-Americana: 8 grupos de 4, dois
+  avançam, mata-mata ida e volta e final única. Supercopa: campeão brasileiro ×
+  campeão da Copa do Brasil. Novas fases são sorteadas/agendadas quando a anterior
+  termina, sempre sem dois jogos do mesmo clube no mesmo dia.
+- **Vagas.** Em 2026 a ordem do snapshot na Série A representa a campanha de 2025.
+  Depois disso: G6 + campeão da Copa do Brasil (completado até 7) vão à
+  Libertadores; os seis seguintes à Sul-Americana.
+- **Virada de temporada.** Ao fim do ano o jogo registra campeões e histórico,
+  aplica acesso/rebaixamento, renova ou libera contratos dos clubes da engine,
+  aposenta veteranos, cria três atletas de base por clube e gera o calendário
+  seguinte. Atletas da base e divisões atuais ficam no save; o snapshot base
+  continua imutável.
+- Partidas simuladas em segundo plano guardam apenas placar e gols para manter
+  o save abaixo do limite de 10 MB da nuvem (os testes exigem menos de 4 MB após uma temporada completa).
+- Saves criados antes desta versão continuam válidos; as copas passam a valer a
+  partir da temporada seguinte desses saves.
 - A simulação solo roda no cliente: os saves são validados, mas não são
   anticheat nem adequados a rankings competitivos.
 - IA é uma camada opcional de apresentação. O modelo não calcula gols,

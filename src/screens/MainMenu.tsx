@@ -32,7 +32,7 @@ export function MainMenu({
     <div className="menu-screen screen-enter">
       <div className="menu-heading">
         <p className="eyebrow">
-          <span className="live-dot" /> FUTEBOL BRASILEIRO · TEMPORADA 2026
+          <span className="live-dot" /> FUTEBOL BRASILEIRO · CARREIRAS A PARTIR DE 2026
         </p>
         <h1>
           O clube é seu.

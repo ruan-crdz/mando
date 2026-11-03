@@ -10,6 +10,8 @@ import {
   Volume2,
 } from 'lucide-react';
 import { available, stepMatch } from '../game/matches';
+import { fixtureLabel } from '../game/calendar';
+import { clubById, findPlayer } from '../game/npc';
 import { formations, type Career, type Tactic, type World } from '../game/types';
 import { Badge, Modal, SectionTitle } from '../components/ui';
 
@@ -40,12 +42,13 @@ export function MatchScreen({
   latest.current = c;
   const match = c.activeMatch!;
   const fixture = c.fixtures.find((f) => f.id === match.fixtureId)!;
-  const home = world.clubs.find((club) => club.id === fixture.homeId)!;
-  const away = world.clubs.find((club) => club.id === fixture.awayId)!;
+  const home = clubById(world, fixture.homeId);
+  const away = clubById(world, fixture.awayId);
+  const label = fixtureLabel(fixture);
   const ownLineup = fixture.homeId === c.clubId ? match.homeLineup : match.awayLineup;
   const bench = world.players.filter(
     (p) =>
-      c.players[p.id].clubId === c.clubId &&
+      c.players[p.id]?.clubId === c.clubId &&
       !ownLineup.includes(p.id) &&
       !match.replaced.includes(p.id) &&
       available(c, p.id),
@@ -80,7 +83,7 @@ export function MatchScreen({
   return (
     <div className="screen-enter match-screen">
       <SectionTitle
-        kicker={`BRASILEIRÃO SÉRIE ${fixture.league} / ${fixture.playoff ? 'PLAYOFF DE ACESSO' : `RODADA ${fixture.round}`}`}
+        kicker={`${label.name.toUpperCase()} / ${label.stage.toUpperCase()}`}
         title="O plano encontra o jogo."
       >
         <span className="weather">{home.stadium}</span>
@@ -237,7 +240,7 @@ export function MatchScreen({
                 .slice(0, 5)
                 .map(([id, rating]) => (
                   <div key={id}>
-                    <span>{world.players.find((p) => p.id === id)!.name}</span>
+                    <span>{findPlayer(world, id)!.name}</span>
                     <strong>{rating.toFixed(1)}</strong>
                   </div>
                 ))}
@@ -274,7 +277,7 @@ export function MatchScreen({
                 <option value="">Escolher titular</option>
                 {ownLineup.map((id) => (
                   <option key={id} value={id}>
-                    {world.players.find((p) => p.id === id)!.name}
+                    {findPlayer(world, id)!.name}
                   </option>
                 ))}
               </select>
@@ -368,7 +371,7 @@ export function MatchScreen({
           >
             {ownLineup.map((id) => (
               <option key={id} value={id}>
-                {world.players.find((p) => p.id === id)!.name}
+                {findPlayer(world, id)!.name}
               </option>
             ))}
           </select>

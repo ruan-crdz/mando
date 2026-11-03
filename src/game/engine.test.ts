@@ -113,9 +113,10 @@ describe('calendário nacional', () => {
       date: f.date <= '2026-02-01' ? '2026-02-02' : f.date,
     }));
     career.players[career.lineup[0]].fitness = 50;
+    const before = career.finances[career.clubId].history.length;
     const next = advanceDay(career, world);
     expect(next.date).toBe('2026-02-01');
-    expect(next.finances[career.clubId].history).toHaveLength(1);
+    expect(next.finances[career.clubId].history).toHaveLength(before + 1);
     expect(next.players[career.lineup[0]].fitness).toBe(54);
     expect(career.players[career.lineup[0]].fitness).toBe(50);
   });
@@ -183,13 +184,14 @@ describe('engine matemática da partida', () => {
     expect(updated.players[outgoing].fitness).toBeGreaterThan(updated.players[incoming].fitness);
   });
   it('registra resultado, gols, finanças e classificação uma única vez', () => {
-    const f = career.fixtures.find((f) => f.homeId === career.clubId)!;
+    const f = career.fixtures.find((f) => f.homeId === career.clubId && f.league === 'A')!;
+    const before = career.finances[career.clubId].history.length;
     career.date = f.date;
     career.activeMatch = simulateMatch(career, world, f);
     const c = finishMatch(career, world);
     expect(c.fixtures.find((fixture) => fixture.id === f.id)?.result).toBeDefined();
     expect(standings(c, world, 'A').find((r) => r.clubId === career.clubId)!.played).toBe(1);
-    expect(c.finances[career.clubId].history).toHaveLength(1);
+    expect(c.finances[career.clubId].history).toHaveLength(before + 1);
     expect(() => finishMatch(c, world)).toThrow('não terminou');
     expect(career.activeMatch).toBeDefined();
   });
@@ -295,6 +297,8 @@ describe('mercado e relações', () => {
 
 describe('playoffs da Série B', () => {
   it('cria duas séries de ida e volta entre 3º/6º e 4º/5º', () => {
+    // Isola o Brasileirão: as copas têm testes próprios em season.test.ts.
+    career.fixtures = career.fixtures.filter((f) => f.league);
     for (const f of career.fixtures) {
       f.result = {
         fixtureId: f.id,
@@ -327,6 +331,7 @@ describe('playoffs da Série B', () => {
     const final = advanceDay(c, world);
     expect(final.promoted).toEqual(table.slice(0, 4).map((r) => r.clubId));
     expect(final.seasonEnded).toBe(true);
-    expect(final.relegated).toHaveLength(8);
+    // Série C não é simulada: só a Série A tem rebaixamento efetivo.
+    expect(final.relegated).toHaveLength(4);
   });
 });

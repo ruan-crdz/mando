@@ -18,7 +18,8 @@ import {
   SectionTitle,
   Tile,
 } from '../components/ui';
-import { nextFixture } from '../game/calendar';
+import { fixtureLabel, nextFixture } from '../game/calendar';
+import { clubById } from '../game/npc';
 import { addDays } from '../game/random';
 import { squad } from '../game/matches';
 import { standings } from '../game/engine';
@@ -31,6 +32,7 @@ export function CareerCentral({
   onAdvance,
   onMatch,
   onTab,
+  onNewSeason,
   busy,
 }: {
   career: Career;
@@ -38,12 +40,14 @@ export function CareerCentral({
   onAdvance: () => void;
   onMatch: () => void;
   onTab: (tab: number) => void;
+  onNewSeason: () => void;
   busy: boolean;
 }) {
   const club = world.clubs.find((club) => club.id === c.clubId)!;
   const fixture = nextFixture(c);
-  const home = fixture && world.clubs.find((club) => club.id === fixture.homeId)!;
-  const away = fixture && world.clubs.find((club) => club.id === fixture.awayId)!;
+  const home = fixture && clubById(world, fixture.homeId);
+  const away = fixture && clubById(world, fixture.awayId);
+  const label = fixture && fixtureLabel(fixture);
   const position = standings(c, world, club.league).findIndex((r) => r.clubId === c.clubId) + 1;
   const players = squad(c, world);
   const average = Math.round(
@@ -55,7 +59,7 @@ export function CareerCentral({
   return (
     <div className="screen-enter">
       <SectionTitle
-        kicker={`TEMPORADA 2026 / ${c.date < '2026-01-28' ? 'PRÉ-TEMPORADA' : 'CARREIRA EM ANDAMENTO'}`}
+        kicker={`TEMPORADA ${c.season} / ${c.seasonEnded ? 'TEMPORADA ENCERRADA' : c.date < `${c.season}-01-11` ? 'PRÉ-TEMPORADA' : 'CARREIRA EM ANDAMENTO'}`}
         title={`Bom trabalho, ${c.manager.firstName}`}
       >
         <span className="weather">
@@ -68,13 +72,7 @@ export function CareerCentral({
             <p className="eyebrow">
               <Radio size={14} /> {isMatchDay ? 'HOJE É DIA DE JOGO' : 'PRÓXIMO COMPROMISSO'}
             </p>
-            <span className="pill">
-              {fixture?.playoff
-                ? 'PLAYOFF'
-                : fixture
-                  ? `RODADA ${fixture.round.toString().padStart(2, '0')}`
-                  : 'FIM DA TEMPORADA'}
-            </span>
+            <span className="pill">{label ? label.stage.toUpperCase() : 'FIM DA TEMPORADA'}</span>
           </div>
           {fixture && home && away ? (
             <>
@@ -90,7 +88,7 @@ export function CareerCentral({
                 </div>
               </div>
               <div className="fixture-meta">
-                <span>BRASILEIRÃO SÉRIE {fixture.league}</span>
+                <span>{label!.name.toUpperCase()}</span>
                 <span>
                   {dateLabel(fixture.date)} · {home.stadium}
                 </span>
@@ -99,7 +97,7 @@ export function CareerCentral({
           ) : (
             <div className="season-complete">
               <Trophy size={64} />
-              <h2>O apito final de 2026.</h2>
+              <h2>O apito final de {c.season}.</h2>
               <p>Veja como ficou a sua história.</p>
             </div>
           )}
@@ -111,18 +109,34 @@ export function CareerCentral({
         <div className="advance-column">
           <button
             className={`advance-tile ${isMatchDay ? 'match-day' : ''}`}
-            disabled={busy || c.seasonEnded}
-            onClick={pending.length ? () => onTab(3) : isMatchDay ? onMatch : onAdvance}
+            disabled={busy}
+            onClick={
+              pending.length
+                ? () => onTab(3)
+                : c.seasonEnded
+                  ? onNewSeason
+                  : isMatchDay
+                    ? onMatch
+                    : onAdvance
+            }
           >
             <p className="eyebrow">
               {pending.length
                 ? 'UMA DECISÃO ESPERA POR VOCÊ'
-                : isMatchDay
-                  ? 'O ESTÁDIO ESTÁ PRONTO'
-                  : 'O CLUBE NÃO PARA'}
+                : c.seasonEnded
+                  ? 'FÉRIAS ACABARAM'
+                  : isMatchDay
+                    ? 'O ESTÁDIO ESTÁ PRONTO'
+                    : 'O CLUBE NÃO PARA'}
             </p>
             <h2>
-              {pending.length ? 'Abrir escritório' : isMatchDay ? 'Dia de jogo' : 'Avançar dia'}
+              {pending.length
+                ? 'Abrir escritório'
+                : c.seasonEnded
+                  ? `Iniciar ${c.season + 1}`
+                  : isMatchDay
+                    ? 'Dia de jogo'
+                    : 'Avançar dia'}
             </h2>
             <div className="advance-dates">
               <span>
@@ -148,7 +162,9 @@ export function CareerCentral({
                 ? 'Processando…'
                 : pending.length
                   ? `${pending.length} ação necessária`
-                  : 'Um novo dia. Uma nova história.'}
+                  : c.seasonEnded
+                    ? 'Acesso, vagas continentais e base aplicados.'
+                    : 'Um novo dia. Uma nova história.'}
             </span>
           </button>
           <div className="quick-stats">

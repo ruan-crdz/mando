@@ -2493,6 +2493,33 @@ tbody tr.your-club td {
   font-size: 12px;
   color: #476a7d;
 }
+.cup-group,
+.cup-stage {
+  margin-top: 18px;
+}
+.cup-group table {
+  margin-top: 6px;
+}
+.tie-row {
+  gap: 12px;
+  font-size: 12px;
+}
+.tie-row > span {
+  flex: 1;
+}
+.tie-row > span:last-child {
+  text-align: right;
+}
+.tie-row strong {
+  white-space: nowrap;
+}
+.tie-row .winner {
+  color: #0d3a52;
+  font-weight: 700;
+}
+.tie-row.your-club {
+  background: #eef7fc;
+}
 .rules-panel h3 {
   font-weight: 550;
   font-size: 21px;

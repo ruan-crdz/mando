@@ -20,7 +20,7 @@ export function Badge({
   club,
   size = 'normal',
 }: {
-  club: Club;
+  club: Pick<Club, 'name' | 'short' | 'color'>;
   size?: 'normal' | 'large' | 'small';
 }) {
   return (

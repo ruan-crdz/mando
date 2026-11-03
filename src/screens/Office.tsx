@@ -14,6 +14,7 @@ import {
 import { type Career, type Message, type World } from '../game/types';
 import { squad } from '../game/matches';
 import { standings } from '../game/engine';
+import { competitionName } from '../game/calendar';
 import { dateLabel, ManagerPortrait, Metric, money, SectionTitle } from '../components/ui';
 
 export function Office({
@@ -50,6 +51,22 @@ export function Office({
   const table = standings(c, world, club.league);
   const rank = table.findIndex((r) => r.clubId === club.id) + 1;
   const points = table.find((r) => r.clubId === club.id)!.points;
+  const own = c.fixtures.filter((f) => f.cup && (f.homeId === c.clubId || f.awayId === c.clubId));
+  const cups = [...new Set(own.map((f) => f.cup!))].map((cup) => {
+    const done = c.honours.find((h) => h.season === c.season && h.competition === cup);
+    const latest = c.fixtures.filter((f) => f.cup === cup).at(-1)?.stage;
+    const mine = own.filter((f) => f.cup === cup);
+    return {
+      cup,
+      status:
+        done?.clubId === c.clubId
+          ? 'Campeão'
+          : !done && mine.some((f) => f.stage === latest)
+            ? 'Em disputa'
+            : 'Eliminado',
+      stage: mine.at(-1)?.stage || '',
+    };
+  });
   const history = finance.history;
   const balances = history.map((h) => h.balance);
   const low = Math.min(0, ...balances),
@@ -315,7 +332,7 @@ export function Office({
           <section className="panel objectives">
             <p className="eyebrow">O QUE ESPERAM DE VOCÊ</p>
             <h2>
-              <Target size={23} /> Objetivos de 2026
+              <Target size={23} /> Objetivos de {c.season}
             </h2>
             <div>
               <span>Brasileirão Série {club.league}</span>
@@ -337,10 +354,13 @@ export function Office({
                 <p>{money(c.sales)} de R$ 10 milhões em vendas</p>
               )}
             </div>
-            <p className="muted small">
-              Estaduais, copas e torneios continentais não estão ativos nesta versão. Nenhum
-              resultado dessas competições é inventado.
-            </p>
+            {cups.map(({ cup, status, stage }) => (
+              <div key={cup}>
+                <span>{competitionName(cup)}</span>
+                <strong>{status}</strong>
+                <p>Última fase disputada: {stage}</p>
+              </div>
+            ))}
           </section>
         </div>
       )}

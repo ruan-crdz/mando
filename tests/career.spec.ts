@@ -130,8 +130,10 @@ test('partida completa registra placar e volta à tabela sem duplicar resultado'
         .click();
     }
   };
+  // O primeiro compromisso é o estadual (a partir de 11/01).
   for (let i = 0; i < 27; i++) {
     await resolvePending();
+    if (await page.getByRole('button', { name: /O ESTÁDIO ESTÁ PRONTO/ }).isVisible()) break;
     await page.getByRole('button', { name: /Avançar dia/ }).click();
     await expect(page.locator('.club-header')).toContainText(String(i + 2).padStart(2, '0'));
   }
@@ -152,6 +154,7 @@ test('partida completa registra placar e volta à tabela sem duplicar resultado'
     .getByRole('navigation')
     .getByRole('button', { name: /TEMPORADA/ })
     .click();
+  await page.getByRole('button', { name: 'PAULISTÃO', exact: true }).click();
   const row = page.getByRole('row').filter({ hasText: 'São Paulo' });
   await expect(row.locator('td').nth(3)).toHaveText('1');
 });
@@ -161,6 +164,10 @@ test('layout móvel não cria rolagem horizontal', async ({ page }) => {
   await createCareer(page);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.getByRole('navigation').getByRole('button', { name: /TIME/ }).click();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.getByRole('navigation').getByRole('button', { name: /TEMPORADA/ }).click();
+  await page.getByRole('button', { name: 'LIB', exact: true }).click();
+  await expect(page.getByText('GRUPO A', { exact: true })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });
 

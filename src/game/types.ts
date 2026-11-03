@@ -177,6 +177,7 @@ export const playerStateSchema = z.object({
   contractEnd: isoDate,
   relationship: percent,
   benchGames: z.number().int().nonnegative(),
+  retired: z.boolean().optional(),
 });
 export type PlayerState = z.infer<typeof playerStateSchema>;
 export const tacticSchema = z.object({
@@ -232,14 +233,25 @@ export const matchSchema = z.object({
   energySpent: z.record(z.string(), z.number().nonnegative()).default({}),
 });
 export type Match = z.infer<typeof matchSchema>;
+export const cupIds = ['EST', 'CDB', 'SUP', 'LIB', 'SUL'] as const;
 export const fixtureSchema = z.object({
   id: z.string(),
   date: isoDate,
-  league: z.enum(['A', 'B']),
+  /** Presente apenas em partidas do Brasileirão. */
+  league: z.enum(['A', 'B']).optional(),
+  /** Competição de copa: EST-SP, CDB, SUP, LIB ou SUL. */
+  cup: z.string().optional(),
+  stage: z.string().optional(),
+  group: z.string().optional(),
+  tie: z.string().optional(),
+  leg: z.number().int().min(1).max(2).optional(),
   round: z.number().int(),
   homeId: z.string(),
   awayId: z.string(),
   playoff: z.boolean().default(false),
+  penalties: z
+    .object({ home: z.number().int().nonnegative(), away: z.number().int().nonnegative() })
+    .optional(),
   result: matchSchema.optional(),
 });
 export type Fixture = z.infer<typeof fixtureSchema>;
@@ -309,6 +321,25 @@ export const careerSchema = z.object({
   seasonEnded: z.boolean(),
   promoted: z.array(z.string()),
   relegated: z.array(z.string()),
+  season: z.number().int().min(2026).default(2026),
+  /** Divisão atual de cada clube após acessos e rebaixamentos (o snapshot base nunca muda). */
+  leagues: z.record(z.string(), z.enum(['A', 'B'])).default({}),
+  /** Atletas criados pela carreira (categorias de base), fora do snapshot imutável. */
+  youth: z.array(playerSchema).default([]),
+  honours: z
+    .array(z.object({ season: z.number().int(), competition: z.string(), clubId: z.string() }))
+    .default([]),
+  history: z
+    .array(
+      z.object({
+        season: z.number().int(),
+        league: z.enum(['A', 'B']),
+        position: z.number().int(),
+        confidence: z.number(),
+        trophies: z.array(z.string()),
+      }),
+    )
+    .default([]),
 });
 export type Career = z.infer<typeof careerSchema>;
 export type TableRow = {

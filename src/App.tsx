@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowLeft,
   ArrowRight,
@@ -31,12 +31,14 @@ import { MatchScreen } from './screens/Match';
 import { createDemoWorld } from './game/world';
 import {
   advanceDay,
+  startNextSeason,
   createCareer,
   finishMatch,
   respondMessage,
   validateCareerForWorld,
 } from './game/engine';
 import { bestLineup, beginMatch, substitute } from './game/matches';
+import { careerWorld } from './game/live';
 import { nextFixture } from './game/calendar';
 import { answerIncoming, createOffer, renewContract } from './game/transfers';
 import { type Career, type Message, type Player, type World } from './game/types';
@@ -67,6 +69,11 @@ function Game() {
   const [screen, setScreen] = useState<'menu' | 'create' | 'career'>('menu');
   const [world, setWorld] = useState<World | null>(null);
   const [career, setCareer] = useState<Career | null>(null);
+  // Mundo da carreira: snapshot imutável + divisões atuais e atletas da base.
+  const live = useMemo(
+    () => (world && career ? careerWorld(world, career) : world),
+    [world, career],
+  );
   const [saves, setSaves] = useState<SavedCareer[]>([]);
   const [cloudSaves, setCloudSaves] = useState<CloudRecord[]>([]);
   const [user, setUser] = useState<User | null>(null);
@@ -232,7 +239,7 @@ function Game() {
           nextTab: () => switchTab(1),
           secondary: () => {
             if (career && screen === 'career' && !career.activeMatch && !popup)
-              act(() => setCareer(advanceDay(career, world!)));
+              act(() => setCareer(advanceDay(career, live!)));
           },
           info: () => {
             if (!popup) setPopup('connection');
@@ -292,7 +299,7 @@ function Game() {
             <i />
             <span>
               {dateLabel(career.date)}
-              <small>TEMPORADA 2026</small>
+              <small>TEMPORADA {career.season}</small>
             </span>
             <i />
             <span>
@@ -415,18 +422,18 @@ function Game() {
           (career.activeMatch ? (
             <MatchScreen
               career={career}
-              world={world}
+              world={live!}
               onChange={setCareer}
               onError={fail}
               paused={Boolean(popup) || busy}
               onFinish={() =>
                 act(() => {
-                  setCareer(finishMatch(career, world));
+                  setCareer(finishMatch(career, live!));
                   setTab(0);
                 })
               }
               onSubstitute={(outId, inId) =>
-                act(() => setCareer(substitute(career, world, outId, inId)))
+                act(() => setCareer(substitute(career, live!, outId, inId)))
               }
             />
           ) : (
@@ -440,9 +447,9 @@ function Game() {
               {tab === 0 && (
                 <CareerCentral
                   career={career}
-                  world={world}
+                  world={live!}
                   busy={busy}
-                  onAdvance={() => act(() => setCareer(advanceDay(career, world)))}
+                  onAdvance={() => act(() => setCareer(advanceDay(career, live!)))}
                   onMatch={() => {
                     const f = nextFixture(career);
                     if (career.messages.some((m) => m.important && !m.resolved)) setTab(3);
@@ -450,19 +457,27 @@ function Game() {
                     else setTab(4);
                   }}
                   onTab={setTab}
+                  onNewSeason={() =>
+                    act(() => {
+                      setCareer(startNextSeason(career, live!));
+                      setNotice(
+                        `Temporada ${career.season + 1} iniciada. Confira elenco e objetivos.`,
+                      );
+                    })
+                  }
                 />
               )}
               {tab === 1 && (
                 <Squad
                   career={career}
-                  world={world}
+                  world={live!}
                   onChange={setCareer}
                   detail={detail}
                   setDetail={setDetail}
                   onError={fail}
                   onRenew={(id) =>
                     act(() => {
-                      setCareer(renewContract(career, world, id));
+                      setCareer(renewContract(career, live!, id));
                       setNotice('Contrato renovado. Luvas debitadas do caixa.');
                     })
                   }
@@ -471,17 +486,17 @@ function Game() {
               {tab === 2 && (
                 <Transfers
                   career={career}
-                  world={world}
+                  world={live!}
                   onOffer={(id, fee, wage, exchange) =>
                     act(() => {
-                      setCareer(createOffer(career, world, id, fee, wage, exchange));
+                      setCareer(createOffer(career, live!, id, fee, wage, exchange));
                       setNotice('Proposta enviada. A resposta chega em dois dias.');
                     })
                   }
                   onAnswer={(id, accept) =>
                     act(() => {
-                      const updated = answerIncoming(career, world, id, accept);
-                      const lineup = bestLineup(updated, world);
+                      const updated = answerIncoming(career, live!, id, accept);
+                      const lineup = bestLineup(updated, live!);
                       if (lineup.length === 11) updated.lineup = lineup;
                       setCareer(updated);
                     })
@@ -491,7 +506,7 @@ function Game() {
               {tab === 3 && (
                 <Office
                   career={career}
-                  world={world}
+                  world={live!}
                   busy={busy}
                   aiAvailable={Boolean(user)}
                   onMessage={(id, choice) =>
@@ -518,7 +533,7 @@ function Game() {
                   }
                 />
               )}
-              {tab === 4 && <Season career={career} world={world} />}
+              {tab === 4 && <Season career={career} world={live!} />}
             </>
           ))}
       </main>
@@ -692,7 +707,7 @@ function Game() {
                   const fixture = nextFixture(career);
                   if (!fixture || fixture.date !== career.date)
                     throw new Error('Não há partida hoje.');
-                  setCareer({ ...career, activeMatch: beginMatch(career, world, fixture) });
+                  setCareer({ ...career, activeMatch: beginMatch(career, live!, fixture) });
                   setPopup(null);
                 })
               }
