@@ -300,9 +300,7 @@ export function CreateManager({
           <Badge club={club} size="small" />
           <span>
             {club.name}
-            <small>
-              01 JAN 2026 · {world.mode === 'demo' ? 'Demonstração' : 'Snapshot oficial'}
-            </small>
+            <small>01 JAN 2026 · {world.mode === 'demo' ? 'Demonstração' : 'Elencos 2026'}</small>
           </span>
         </div>
         <button className="primary" onClick={next}>

@@ -1,7 +1,7 @@
 import { type Attributes, type Player, type PlayerState, type Position } from './types';
 import { clamp } from './random';
 
-const weights: Record<Position, Partial<Record<keyof Attributes, number>>> = {
+export const weights: Record<Position, Partial<Record<keyof Attributes, number>>> = {
   GK: { reflexes: 30, handling: 25, diving: 25, positioning: 10, composure: 5, shortPass: 5 },
   CB: {
     marking: 22,

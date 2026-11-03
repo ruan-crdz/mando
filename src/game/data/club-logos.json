@@ -1,0 +1,242 @@
+{
+  "flamengo": {
+    "file": "flamengo.svg",
+    "source": "ge",
+    "url": "https://s.sde.globo.com/media/organizations/2018/04/10/Flamengo-2018.svg",
+    "bytes": 2474
+  },
+  "palmeiras": {
+    "file": "palmeiras.svg",
+    "source": "ge",
+    "url": "https://s.sde.globo.com/media/organizations/2019/07/06/Palmeiras.svg",
+    "bytes": 12890
+  },
+  "cruzeiro": {
+    "file": "cruzeiro.svg",
+    "source": "ge",
+    "url": "https://s.sde.globo.com/media/organizations/2021/02/13/cruzeiro_2021.svg",
+    "bytes": 6459
+  },
+  "mirassol": {
+    "file": "mirassol.svg",
+    "source": "ge",
+    "url": "https://s.sde.globo.com/media/organizations/2026/07/17/MIrassol.svg",
+    "bytes": 254154
+  },
+  "fluminense": {
+    "file": "fluminense.svg",
+    "source": "ge",
+    "url": "https://s.sde.globo.com/media/organizations/2018/03/11/fluminense.svg",
+    "bytes": 6223
+  },
+  "botafogo": {
+    "file": "botafogo.svg",
+    "source": "ge",
+    "url": "https://s.sde.globo.com/media/organizations/2019/02/04/botafogo-svg.svg",
+    "bytes": 1389
+  },
+  "bahia": {
+    "file": "bahia.svg",
+    "source": "ge",
+    "url": "https://s.sde.globo.com/media/organizations/2018/03/11/bahia.svg",
+    "bytes": 14290
+  },
+  "sao-paulo": {
+    "file": "sao-paulo.svg",
+    "source": "ge",
+    "url": "https://s.sde.globo.com/media/organizations/2018/03/11/sao-paulo.svg",
+    "bytes": 2085
+  },
+  "gremio": {
+    "file": "gremio.svg",
+    "source": "ge",
+    "url": "https://s.sde.globo.com/media/organizations/2018/03/12/gremio.svg",
+    "bytes": 8033
+  },
+  "bragantino": {
+    "file": "bragantino.svg",
+    "source": "ge",
+    "url": "https://s.sde.globo.com/media/organizations/2021/06/28/bragantino.svg",
+    "bytes": 25963
+  },
+  "atletico-mg": {
+    "file": "atletico-mg.svg",
+    "source": "ge",
+    "url": "https://s.sde.globo.com/media/organizations/2018/03/10/atletico-mg.svg",
+    "bytes": 6052
+  },
+  "santos": {
+    "file": "santos.svg",
+    "source": "ge",
+    "url": "https://s.sde.globo.com/media/organizations/2018/03/12/santos.svg",
+    "bytes": 6934
+  },
+  "corinthians": {
+    "file": "corinthians.svg",
+    "source": "ge",
+    "url": "https://s.sde.globo.com/media/organizations/2024/10/09/Corinthians_2024_Q4ahot4.svg",
+    "bytes": 30556
+  },
+  "vasco": {
+    "file": "vasco.svg",
+    "source": "ge",
+    "url": "https://s.sde.globo.com/media/organizations/2021/09/04/vasco_SVG.svg",
+    "bytes": 12490
+  },
+  "vitoria": {
+    "file": "vitoria.svg",
+    "source": "ge",
+    "url": "https://s.sde.globo.com/media/organizations/2025/12/18/Vitoria_2025.svg",
+    "bytes": 3831
+  },
+  "internacional": {
+    "file": "internacional.svg",
+    "source": "ge",
+    "url": "https://s.sde.globo.com/media/organizations/2018/03/11/internacional.svg",
+    "bytes": 11630
+  },
+  "coritiba": {
+    "file": "coritiba.svg",
+    "source": "ge",
+    "url": "https://s.sde.globo.com/media/organizations/2018/03/11/coritiba.svg",
+    "bytes": 18329
+  },
+  "athletico": {
+    "file": "athletico.svg",
+    "source": "ge",
+    "url": "https://s.sde.globo.com/media/organizations/2026/01/07/Athletico-PR.svg",
+    "bytes": 2087
+  },
+  "chapecoense": {
+    "file": "chapecoense.svg",
+    "source": "ge",
+    "url": "https://s.sde.globo.com/media/organizations/2021/06/21/CHAPECOENSE-2018.svg",
+    "bytes": 66284
+  },
+  "remo": {
+    "file": "remo.svg",
+    "source": "ge",
+    "url": "https://s.sde.globo.com/media/organizations/2021/02/25/Remo-PA.svg",
+    "bytes": 12553
+  },
+  "sport": {
+    "file": "sport.svg",
+    "source": "ge",
+    "url": "https://s.sde.globo.com/media/organizations/2018/03/11/sport.svg",
+    "bytes": 45045
+  },
+  "fortaleza": {
+    "file": "fortaleza.svg",
+    "source": "ge",
+    "url": "https://s.sde.globo.com/media/organizations/2021/09/19/Fortaleza_2021_1.svg",
+    "bytes": 4365
+  },
+  "ceara": {
+    "file": "ceara.svg",
+    "source": "ge",
+    "url": "https://s.sde.globo.com/media/organizations/2019/10/10/ceara.svg",
+    "bytes": 16991
+  },
+  "juventude": {
+    "file": "juventude.svg",
+    "source": "ge",
+    "url": "https://s.sde.globo.com/media/organizations/2021/04/29/Juventude-2021-01.svg",
+    "bytes": 9187
+  },
+  "atletico-go": {
+    "file": "atletico-go.svg",
+    "source": "ge",
+    "url": "https://s.sde.globo.com/media/organizations/2020/07/02/atletico-go-2020.svg",
+    "bytes": 5829
+  },
+  "goias": {
+    "file": "goias.svg",
+    "source": "ge",
+    "url": "https://s.sde.globo.com/media/organizations/2021/03/01/GOIAS-2021.svg",
+    "bytes": 41448
+  },
+  "cuiaba": {
+    "file": "cuiaba.svg",
+    "source": "ge",
+    "url": "https://s.sde.globo.com/media/organizations/2018/12/26/Cuiaba_EC.svg",
+    "bytes": 20503
+  },
+  "america": {
+    "file": "america.svg",
+    "source": "ge",
+    "url": "https://s.sde.globo.com/media/organizations/2024/05/07/America-MG-branco.svg",
+    "bytes": 2522
+  },
+  "novorizontino": {
+    "file": "novorizontino.svg",
+    "source": "ge",
+    "url": "https://s.sde.globo.com/media/organizations/2019/01/08/Novohorizontino.svg",
+    "bytes": 24912
+  },
+  "crb": {
+    "file": "crb.svg",
+    "source": "ge",
+    "url": "https://s.sde.globo.com/media/organizations/2018/03/11/crb.svg",
+    "bytes": 3739
+  },
+  "avai": {
+    "file": "avai.svg",
+    "source": "ge",
+    "url": "https://s.sde.globo.com/media/organizations/2024/05/12/avaí.svg",
+    "bytes": 3182
+  },
+  "vila-nova": {
+    "file": "vila-nova.svg",
+    "source": "ge",
+    "url": "https://s.sde.globo.com/media/organizations/2021/04/07/vilanova.svg",
+    "bytes": 5367
+  },
+  "operario": {
+    "file": "operario.svg",
+    "source": "ge",
+    "url": "https://s.sde.globo.com/media/organizations/2018/12/27/Operário-PR.svg",
+    "bytes": 24118
+  },
+  "athletic": {
+    "file": "athletic.svg",
+    "source": "ge",
+    "url": "https://s.sde.globo.com/media/organizations/2025/01/22/Athletic_Club-mineiro.svg",
+    "bytes": 4725
+  },
+  "botafogo-sp": {
+    "file": "botafogo-sp.svg",
+    "source": "ge",
+    "url": "https://s.sde.globo.com/media/organizations/2024/05/15/BFC.svg",
+    "bytes": 20534
+  },
+  "criciuma": {
+    "file": "criciuma.svg",
+    "source": "ge",
+    "url": "https://s.sde.globo.com/media/teams/2026/01/16/criciuma-2026-svg-79692.svg",
+    "bytes": 4067
+  },
+  "ponte-preta": {
+    "file": "ponte-preta.svg",
+    "source": "ge",
+    "url": "https://s.sde.globo.com/media/organizations/2019/03/17/ponte-preta.svg",
+    "bytes": 8242
+  },
+  "londrina": {
+    "file": "londrina.svg",
+    "source": "ge",
+    "url": "https://s.sde.globo.com/media/organizations/2018/03/11/londrina.svg",
+    "bytes": 61548
+  },
+  "sao-bernardo": {
+    "file": "sao-bernardo.svg",
+    "source": "ge",
+    "url": "https://s.sde.globo.com/media/organizations/2022/01/20/Sao_Bernardo.svg",
+    "bytes": 23477
+  },
+  "nautico": {
+    "file": "nautico.svg",
+    "source": "ge",
+    "url": "https://s.sde.globo.com/media/organizations/2019/01/03/Nautico.svg",
+    "bytes": 8467
+  }
+}

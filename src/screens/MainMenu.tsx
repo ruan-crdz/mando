@@ -60,7 +60,7 @@ export function MainMenu({
             <div className="tile-bottom">
               <span>{dateLabel(recent.career.date)}</span>
               <span className="pill">
-                {recent.career.mode === 'demo' ? 'DEMONSTRAÇÃO' : 'CARREIRA OFICIAL'}
+                {recent.career.mode === 'demo' ? 'DEMONSTRAÇÃO' : 'BRASILEIRÃO 2026'}
               </span>
             </div>
             <ManagerPortrait manager={recent.career.manager} />

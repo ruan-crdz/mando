@@ -652,6 +652,22 @@ kbd {
 .club-badge.small:after {
   inset: 3px;
 }
+.club-badge.has-logo {
+  clip-path: none;
+  border: 0;
+  background: none;
+  border-radius: 0;
+  padding: 0;
+}
+.club-badge.has-logo:after {
+  content: none;
+}
+.club-badge.has-logo img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  user-select: none;
+}
 .metric {
   display: flex;
   flex-direction: column;

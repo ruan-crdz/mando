@@ -89,6 +89,8 @@ const clubs: Club[] = [
     }) as Club,
 );
 
+export const clubProfiles: readonly Club[] = clubs;
+
 export function createDemoWorld(): World {
   const first = [
     'André',

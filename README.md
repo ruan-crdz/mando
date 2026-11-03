@@ -9,22 +9,23 @@ Esta versão é uma **carreira jogável de várias temporadas a partir de 01/01/
 com todas as competições de clubes do calendário brasileiro, mas não a implementação
 de todo o roadmap. Não exige conta para experimentar.
 
-| Sistema       | Implementado                                                                                               |
-| ------------- | ---------------------------------------------------------------------------------------------------------- |
-| Carreira      | Manager, escolha entre 40 clubes, dificuldades e sete desafios                                             |
-| Mundo demo    | 1.120 atletas **sintéticos**, atributos e finanças demonstrativos                                          |
-| Mundo oficial | Importação de CSV autorizado, validação e snapshot imutável                                                |
-| Série A/B     | 38 rodadas, ida/volta, classificação, playoffs de acesso da B                                              |
-| Copas         | Estaduais, Supercopa, Copa do Brasil (64 clubes), Libertadores e Sul-Americana (grupos + mata-mata)        |
-| Clubes NPC    | Nível B: clubes brasileiros por estado; nível C: clubes sul-americanos — força, reputação e elenco simples |
-| Temporadas    | Campeões, acesso/rebaixamento, vagas continentais, aposentadorias, renovações, base e novo calendário      |
-| Partidas      | Engine determinística por seed, minuto a minuto, pausas, 1×/2×/4×, cinco substituições, ajustes táticos    |
-| Elenco        | Campo com troca por controle ou arrastar, overall por posição, condição, lesões, suspensões e contratos    |
-| Mercado       | Filtros combinados, dinheiro + jogador, salário, propostas NPC, decisão matemática e renovação             |
-| Clube         | Mensagens, respostas com consequências, memórias, confiança, objetivos, folha, caixa e gráficos            |
-| Save          | IndexedDB, exportação/importação JSON e sincronização manual autenticada com conflito de revisão           |
-| IA            | Quatro Edge Functions, Responses API com JSON Schema, retrato, cache e limites de uso                      |
-| Plataforma    | Gamepad centralizado, teclado virtual, teclado/mouse, PWA e workflow GitHub Pages                          |
+| Sistema        | Implementado                                                                                               |
+| -------------- | ---------------------------------------------------------------------------------------------------------- |
+| Carreira       | Manager, escolha entre 40 clubes, dificuldades e sete desafios                                             |
+| Brasileirão 26 | 40 clubes A/B, **1.758 atletas com nomes reais** (data/), 40 escudos locais, snapshot imutável             |
+| Mundo demo     | 1.120 atletas **sintéticos**, atributos e finanças demonstrativos                                          |
+| Mundo oficial  | Importação de CSV autorizado, validação e snapshot imutável                                                |
+| Série A/B      | 38 rodadas, ida/volta, classificação, playoffs de acesso da B                                              |
+| Copas          | Estaduais, Supercopa, Copa do Brasil (64 clubes), Libertadores e Sul-Americana (grupos + mata-mata)        |
+| Clubes NPC     | Nível B: clubes brasileiros por estado; nível C: clubes sul-americanos — força, reputação e elenco simples |
+| Temporadas     | Campeões, acesso/rebaixamento, vagas continentais, aposentadorias, renovações, base e novo calendário      |
+| Partidas       | Engine determinística por seed, minuto a minuto, pausas, 1×/2×/4×, cinco substituições, ajustes táticos    |
+| Elenco         | Campo com troca por controle ou arrastar, overall por posição, condição, lesões, suspensões e contratos    |
+| Mercado        | Filtros combinados, dinheiro + jogador, salário, propostas NPC, decisão matemática e renovação             |
+| Clube          | Mensagens, respostas com consequências, memórias, confiança, objetivos, folha, caixa e gráficos            |
+| Save           | IndexedDB, exportação/importação JSON e sincronização manual autenticada com conflito de revisão           |
+| IA             | Quatro Edge Functions, Responses API com JSON Schema, retrato, cache e limites de uso                      |
+| Plataforma     | Gamepad centralizado, teclado virtual, teclado/mouse, PWA e workflow GitHub Pages                          |
 
 **Ainda não implementado:** Série C (por isso ninguém cai da Série B);
 fases preliminares da Libertadores e playoffs entre Libertadores/Sul-Americana;
@@ -34,9 +35,17 @@ realtime/fila de geração de histórias e entrevistas. A visão 2D exibe posiç
 ilustrativas, não trajetórias físicas da bola/jogadores. Responsabilidades são
 persistidas, mas ainda não afetam cobranças específicas da engine.
 
-**Dados reais não estão incluídos.** Nenhum atleta sintético é apresentado como
-real. A lista de clubes da demonstração não certifica uma tabela oficial.
-Não há scraping de Transfermarkt nem acesso a fontes proibidas.
+**Elencos 2026.** Os nomes vêm da base [data/](data/) (oGol, GuiaGol e sites dos clubes;
+veja [data/README.md](data/README.md)): elencos da temporada 2026, não uma fotografia
+validada de 01/01/2026. Overall, potencial, atributos, valores e salários são estimativas
+do Mando. Idade, pé, nacionalidade e contrato sem fonte foram estimados de forma
+determinística; a posição específica (lateral, volante, ponta…) foi definida à mão para
+os principais atletas e distribuída para os demais.
+pm run build:world regenera
+`public/data/world-2026.json` a partir dos CSVs. Escudos: `npm run sync:club-logos`
+baixa uma vez (ge.globo via `campeonato-brasileiro-api`, reserva ESPN) para
+`public/assets/escudos/`; o jogo publicado não depende de chamadas externas. Escudos
+são marcas dos clubes. Não há scraping de Transfermarkt.
 
 ## Rodar localmente
 
@@ -48,7 +57,7 @@ npm.cmd ci
 npm.cmd run dev
 ```
 
-Abra `http://127.0.0.1:5173`, escolha **Nova carreira → Experimentar a demonstração**.
+Abra `http://127.0.0.1:5173`, escolha **Nova carreira → Brasileirão 2026**.
 Som não é iniciado automaticamente. Ative-o no cabeçalho; a primeira interação
 real do usuário libera o áudio conforme as regras do navegador.
 
@@ -157,6 +166,10 @@ envio. No jogo, abra **Configurações**, informe seu e-mail e use o link recebi
 Login não gera chamadas pagas à OpenAI.
 
 ### 4. Publicar o snapshot oficial
+
+O Brasileirão 2026 já vem no jogo. Para habilitar a nuvem com ele, gere
+`npm run bundle:world` e execute `dist-edge/world-2026.sql` no SQL Editor (idempotente).
+O passo abaixo é para publicar outro snapshot autorizado.
 
 Este passo exige um CSV autorizado dos elencos em **01/01/2026**. Não é obtido
 automaticamente e não deve ser substituído por nomes/atributos inventados.
@@ -344,7 +357,8 @@ tests/          Fluxos reais de navegador e controles virtuais
 
 ## Referências e direitos
 
-O design, os escudos tipográficos e a ilustração do manager são originais.
+O design e a ilustração do manager são originais. Os escudos dos clubes são marcas
+de seus titulares, usados apenas para identificação.
 Nenhum asset da EA, Football Manager ou Brasfoot é distribuído.
 Nomes de clubes são referências factuais; dados oficiais e direitos de
 imagem/marca precisam de avaliação própria antes de um lançamento público.

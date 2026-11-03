@@ -13,7 +13,10 @@
     "test:e2e": "playwright test",
     "format": "prettier --write .",
     "bundle:edge": "node scripts/bundle-edge.mjs",
-    "bundle:demo": "node scripts/bundle-demo.mjs"
+    "bundle:demo": "node scripts/bundle-demo.mjs",
+    "build:world": "node scripts/build-world.mjs",
+    "bundle:world": "node scripts/bundle-world.mjs",
+    "sync:club-logos": "node scripts/sync-club-logos.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.57.4",
@@ -24,6 +27,7 @@
     "zod": "^4.6.7"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "^0.5.15",
     "@eslint/js": "^10.0.0",
     "@playwright/test": "^1.55.1",
     "@types/node": "^22.18.6",
@@ -31,15 +35,15 @@
     "@types/react": "^19.1.13",
     "@types/react-dom": "^19.1.9",
     "@vitejs/plugin-react": "^6.0.0",
+    "campeonato-brasileiro-api": "^2.0.1",
     "eslint": "^10.14.0",
     "eslint-plugin-react-hooks": "^7.1.1",
     "globals": "^16.4.0",
+    "prettier": "^3.6.2",
     "typescript": "~5.9.2",
     "typescript-eslint": "^8.44.0",
     "vite": "^8.3.5",
     "vite-plugin-pwa": "^2.0.0",
-    "vitest": "^5.1.0",
-    "@electric-sql/pglite": "^0.5.15",
-    "prettier": "^3.6.2"
+    "vitest": "^5.1.0"
   }
 }

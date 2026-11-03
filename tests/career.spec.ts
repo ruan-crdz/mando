@@ -165,7 +165,10 @@ test('layout móvel não cria rolagem horizontal', async ({ page }) => {
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.getByRole('navigation').getByRole('button', { name: /TIME/ }).click();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-  await page.getByRole('navigation').getByRole('button', { name: /TEMPORADA/ }).click();
+  await page
+    .getByRole('navigation')
+    .getByRole('button', { name: /TEMPORADA/ })
+    .click();
   await page.getByRole('button', { name: 'LIB', exact: true }).click();
   await expect(page.getByText('GRUPO A', { exact: true })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
@@ -184,4 +187,28 @@ test('PWA mantém o jogo e o save acessíveis após ficar offline', async ({ pag
   await page.getByRole('button', { name: /Avançar dia/ }).click();
   await expect(page.locator('.club-header')).toContainText('02');
   await context.setOffline(false);
+});
+
+test('Brasileirão 2026 com elencos reais e escudos locais', async ({ page }) => {
+  const errors: string[] = [];
+  page.on('pageerror', (e) => errors.push(e.message));
+  await page.goto('./');
+  await page.getByRole('button', { name: /Nova carreira/i }).click();
+  await page.getByRole('button', { name: /Brasileirão 2026/ }).click();
+  await page.getByLabel('Nome', { exact: true }).fill('Alex');
+  await page.getByLabel('Sobrenome').fill('Silva');
+  await page.getByRole('button', { name: 'Continuar', exact: true }).click();
+  const club = page.getByRole('button', { name: /São Paulo/ });
+  const crest = club.locator('.club-badge img');
+  await expect(crest).toHaveAttribute('src', /assets\/escudos\/sao-paulo\.svg$/);
+  await expect
+    .poll(() => crest.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth))
+    .toBeGreaterThan(0);
+  await club.click();
+  await page.getByRole('button', { name: 'Continuar', exact: true }).click();
+  await page.getByRole('button', { name: 'Assumir o clube' }).click();
+  await expect(page.getByRole('heading', { name: /Bom trabalho, Alex/ })).toBeVisible();
+  await page.getByRole('navigation').getByRole('button', { name: /TIME/ }).click();
+  await expect(page.getByText('Lucas Moura').first()).toBeVisible();
+  expect(errors).toEqual([]);
 });

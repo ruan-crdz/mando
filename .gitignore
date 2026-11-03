@@ -10,3 +10,8 @@ playwright-report/
 test-results/
 supabase/.temp/
 supabase/functions/node_modules/
+
+data/clubs.json
+data/players.json
+data/player-attributes.json
+data/coverage.json

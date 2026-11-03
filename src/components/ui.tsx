@@ -1,6 +1,7 @@
 import { type ReactNode, useEffect, useRef } from 'react';
 import { ArrowUpRight, ChevronRight } from 'lucide-react';
 import { type Club, type Manager } from '../game/types';
+import { clubLogo } from '../game/realWorld';
 
 export const money = (value: number, compact = true) =>
   new Intl.NumberFormat('pt-BR', {
@@ -20,9 +21,16 @@ export function Badge({
   club,
   size = 'normal',
 }: {
-  club: Pick<Club, 'name' | 'short' | 'color'>;
+  club: Pick<Club, 'name' | 'short' | 'color'> & { id?: string };
   size?: 'normal' | 'large' | 'small';
 }) {
+  const logo = club.id ? clubLogo(club.id) : null;
+  if (logo)
+    return (
+      <span className={`club-badge has-logo ${size}`} aria-label={club.name}>
+        <img src={logo} alt="" loading="lazy" decoding="async" draggable={false} />
+      </span>
+    );
   return (
     <span
       className={`club-badge ${size}`}

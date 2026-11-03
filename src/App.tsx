@@ -29,6 +29,7 @@ import { Office } from './screens/Office';
 import { Season } from './screens/Season';
 import { MatchScreen } from './screens/Match';
 import { createDemoWorld } from './game/world';
+import { loadWorld2026 } from './game/realWorld';
 import {
   advanceDay,
   startNextSeason,
@@ -50,14 +51,7 @@ import {
   saveLocal,
   type SavedCareer,
 } from './services/storage';
-import {
-  listCloud,
-  loadPublishedWorld,
-  requestAi,
-  requestAvatar,
-  saveCloud,
-  supabase,
-} from './services/supabase';
+import { listCloud, requestAi, requestAvatar, saveCloud, supabase } from './services/supabase';
 import { registerSW } from 'virtual:pwa-register';
 
 const tabs = ['CENTRAL', 'TIME', 'TRANSFERÊNCIAS', 'ESCRITÓRIO', 'TEMPORADA'];
@@ -596,7 +590,7 @@ function Game() {
               disabled={busy}
               onClick={() =>
                 run(async () => {
-                  setWorld(await loadPublishedWorld());
+                  setWorld(await loadWorld2026());
                   setCareer(null);
                   setScreen('create');
                   setPopup(null);
@@ -604,13 +598,13 @@ function Game() {
               }
             >
               <Cloud size={29} />
-              <h2>Carreira oficial</h2>
+              <h2>Brasileirão 2026</h2>
               <p>
-                Snapshot autorizado e congelado em 01/01/2026. Requer Supabase configurado e um
-                mundo publicado.
+                Os 40 clubes das Séries A e B com elencos reais, escudos oficiais e mundo congelado
+                em 01/01/2026. Joga offline; nuvem e IA com login.
               </p>
               <span>
-                CARREGAR MUNDO <ArrowRight size={17} />
+                COMEÇAR CARREIRA <ArrowRight size={17} />
               </span>
             </button>
             <button
@@ -636,8 +630,8 @@ function Game() {
             </button>
           </div>
           <p className="muted small">
-            Não temos uma base licenciada de atletas reais incluída. A demonstração está
-            identificada em todas as telas.
+            Nomes dos elencos 2026 vêm de oGol, GuiaGol e sites dos clubes. Overall, atributos,
+            valores e salários são estimativas do Mando, não dados oficiais.
           </p>
         </Modal>
       )}
