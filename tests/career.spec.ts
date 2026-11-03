@@ -60,6 +60,8 @@ test('criação, todas as abas, negociação, avanço e save/load persistente', 
 });
 
 test('controle Xbox e DualSense navegam, teclado virtual confirma sem mouse', async ({ page }) => {
+  const cdp = await page.context().newCDPSession(page);
+  await cdp.send('Emulation.setCPUThrottlingRate', { rate: 6 });
   await page.addInitScript(() => {
     const buttons = Array.from({ length: 17 }, () => ({
       pressed: false,
@@ -79,16 +81,17 @@ test('controle Xbox e DualSense navegam, teclado virtual confirma sem mouse', as
     Object.defineProperty(window, '__testPad', { value: pad });
   });
   const press = async (index: number) => {
-    await page.evaluate((i) => {
+    await page.evaluate(async (i) => {
       const pad = Reflect.get(window, '__testPad');
+      const frame = () => new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+      // The provider must sample both states, even when CI frames take longer than 70 ms.
       pad.buttons[i].pressed = true;
-    }, index);
-    await page.waitForTimeout(70);
-    await page.evaluate((i) => {
-      const pad = Reflect.get(window, '__testPad');
+      await frame();
+      await frame();
       pad.buttons[i].pressed = false;
+      await frame();
+      await frame();
     }, index);
-    await page.waitForTimeout(70);
   };
   await page.goto('./');
   await page.getByRole('button', { name: /Nova carreira/i }).focus();
