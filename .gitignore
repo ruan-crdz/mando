@@ -1,0 +1,12 @@
+node_modules/
+dist/
+dist-edge/
+.env
+.env.*
+!.env.example
+*.local
+*.tsbuildinfo
+playwright-report/
+test-results/
+supabase/.temp/
+supabase/functions/node_modules/

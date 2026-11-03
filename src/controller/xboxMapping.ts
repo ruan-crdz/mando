@@ -1,0 +1,22 @@
+export const xboxMapping = {
+  confirm: 'A',
+  back: 'B',
+  secondary: 'X',
+  info: 'Y',
+  previousTab: 'LB',
+  nextTab: 'RB',
+  menu: '☰',
+} as const;
+export const standardButtons = {
+  confirm: 0,
+  back: 1,
+  secondary: 2,
+  info: 3,
+  previousTab: 4,
+  nextTab: 5,
+  menu: 9,
+  up: 12,
+  down: 13,
+  left: 14,
+  right: 15,
+} as const;
