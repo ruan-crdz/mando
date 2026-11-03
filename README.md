@@ -200,6 +200,9 @@ OPENAI_IMAGE_MODEL = gpt-image-1
 Os nomes dos modelos são configuráveis. A disponibilidade depende do seu projeto
 OpenAI; imagens podem exigir verificação da organização. O aplicativo informa
 falhas de API e não as disfarça como respostas de sucesso.
+Créditos e limites da API são separados da assinatura do ChatGPT. Erros de
+faturamento, chave inválida, modelo e verificação têm mensagens específicas,
+sem registrar o corpo privado retornado pelo provedor.
 
 Publique as funções:
 

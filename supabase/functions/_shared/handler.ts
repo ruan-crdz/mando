@@ -71,11 +71,63 @@ async function openai(path: string, body: unknown, timeout: number) {
     signal: AbortSignal.timeout(timeout),
   });
   if (!response.ok) {
-    // Never log upstream response bodies, prompts, keys, or player conversations.
+    const body: unknown = await response.json().catch((error: unknown) => {
+      if (!(error instanceof SyntaxError)) throw error;
+      console.error('openai_error_body_unreadable', { status: response.status });
+      return null;
+    });
+    const parsed = z
+      .object({
+        error: z.object({
+          code: z.string().nullable().optional(),
+          type: z.string().optional(),
+        }),
+      })
+      .safeParse(body);
+    const knownCodes = [
+      'billing_hard_limit_reached',
+      'billing_limit_user_error',
+      'insufficient_quota',
+      'invalid_api_key',
+      'model_not_found',
+      'content_policy_violation',
+      'organization_verification_required',
+    ];
+    const code = parsed.success
+      ? [parsed.data.error.code, parsed.data.error.type].find(
+          (value): value is string => typeof value === 'string' && knownCodes.includes(value),
+        )
+      : undefined;
+    // Only allowlisted codes are logged; upstream bodies can contain private data.
     console.error('openai_request_failed', {
       status: response.status,
+      code: code || 'unclassified',
       requestId: response.headers.get('x-request-id'),
     });
+    if (
+      code &&
+      ['billing_hard_limit_reached', 'billing_limit_user_error', 'insufficient_quota'].includes(
+        code,
+      )
+    )
+      throw new HttpError(
+        429,
+        'A OpenAI recusou por limite de faturamento ou créditos da API. Confira Billing e Limits no projeto OpenAI; a assinatura do ChatGPT não inclui créditos da API.',
+      );
+    if (code === 'invalid_api_key')
+      throw new HttpError(503, 'Chave OpenAI inválida. Atualize OPENAI_API_KEY nos Secrets.');
+    if (code === 'model_not_found')
+      throw new HttpError(
+        502,
+        'Modelo OpenAI indisponível. Confira o modelo e as permissões do projeto.',
+      );
+    if (code === 'content_policy_violation')
+      throw new HttpError(422, 'A OpenAI recusou a descrição. Revise a aparência do manager.');
+    if (response.status === 403 || code === 'organization_verification_required')
+      throw new HttpError(
+        502,
+        'A OpenAI negou acesso. Confira as permissões do projeto e a verificação da organização para gerar imagens.',
+      );
     throw new HttpError(
       response.status === 429 ? 429 : 502,
       response.status === 429

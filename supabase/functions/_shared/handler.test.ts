@@ -184,3 +184,46 @@ Deno.test(
     }
   },
 );
+
+Deno.test('erros do provedor são acionáveis sem expor o corpo privado', async () => {
+  configure();
+  const oldFetch = globalThis.fetch;
+  const oldLog = console.error;
+  const logs: unknown[][] = [];
+  console.error = (...args: unknown[]) => logs.push(args);
+  try {
+    for (const scenario of [
+      { code: 'billing_hard_limit_reached', upstream: 400, status: 429, message: /faturamento/ },
+      { code: null, upstream: 403, status: 502, message: /verificação da organização/ },
+      { code: 'private-sentinel', upstream: 400, status: 502, message: /não concluiu/ },
+    ]) {
+      globalThis.fetch = async (input, init) => {
+        const url = new URL(input instanceof Request ? input.url : String(input));
+        if (url.pathname === '/auth/v1/user') return json({ id: userId, aud: 'authenticated' });
+        if (url.pathname === '/rest/v1/career_saves') return json({ state });
+        if (url.pathname === '/rest/v1/rpc/claim_ai_job') return json(jobId);
+        if (url.pathname === '/rest/v1/ai_jobs' && init?.method === 'PATCH') {
+          const change = JSON.parse(String(init.body));
+          return json(change.status ? null : [{ id: jobId }]);
+        }
+        if (url.pathname === '/rest/v1/ai_jobs')
+          return json({ status: 'running', output: null, created_at: new Date().toISOString() });
+        if (url.pathname === '/v1/images/generations')
+          return json(
+            { error: { code: scenario.code, message: 'private-sentinel' } },
+            scenario.upstream,
+          );
+        throw new Error(`Chamada inesperada: ${url.pathname}`);
+      };
+      const response = await handle(request({ careerId }), 'avatar');
+      assertEquals(response.status, scenario.status);
+      const output = await response.json();
+      assertMatch(output.error, scenario.message);
+      assertEquals(JSON.stringify(output).includes('private-sentinel'), false);
+    }
+    assertEquals(JSON.stringify(logs).includes('private-sentinel'), false);
+  } finally {
+    globalThis.fetch = oldFetch;
+    console.error = oldLog;
+  }
+});
