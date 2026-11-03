@@ -1,4 +1,4 @@
-import { createClient } from '@supabase/supabase-js';
+import { createClient, FunctionsHttpError } from '@supabase/supabase-js';
 import { z } from 'zod';
 import { careerSchema, worldSchema, type Career, type World } from '../game/types';
 import { validateCareerForWorld } from '../game/engine';
@@ -99,7 +99,7 @@ export async function requestAi(
   const { data, error } = await client().functions.invoke(`ai-${kind}`, {
     body: { careerId, eventId },
   });
-  if (error) throw new Error(`Não foi possível gerar o diálogo: ${error.message}`);
+  if (error) await functionFailure(error, 'Não foi possível gerar o diálogo');
   return z
     .object({ message: z.string().min(1), tone: z.string(), requires_response: z.boolean() })
     .parse(data);
@@ -109,6 +109,23 @@ export async function requestAvatar(careerId: string) {
   const { data, error } = await client().functions.invoke('ai-manager-avatar', {
     body: { careerId },
   });
-  if (error) throw new Error(`Não foi possível gerar o retrato: ${error.message}`);
+  if (error) await functionFailure(error, 'Não foi possível gerar o retrato');
   return z.object({ url: z.string().url() }).parse(data).url;
+}
+
+async function functionFailure(error: Error, label: string): Promise<never> {
+  if (error instanceof FunctionsHttpError && error.context instanceof Response) {
+    let body: unknown;
+    try {
+      body = await error.context.json();
+    } catch (cause) {
+      if (!(cause instanceof SyntaxError)) throw cause;
+      throw new Error(`${label}: erro HTTP ${error.context.status} com resposta inválida.`, {
+        cause,
+      });
+    }
+    const details = z.object({ error: z.string().min(1) }).safeParse(body);
+    if (details.success) throw new Error(`${label}: ${details.data.error}`);
+  }
+  throw new Error(`${label}: ${error.message}`);
 }
