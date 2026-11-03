@@ -65,6 +65,15 @@ beforeAll(async () => {
       'utf8',
     ),
   );
+  await db.exec(
+    await readFile(
+      new URL(
+        '../../supabase/migrations/202611030003_explicit_save_conflicts.sql',
+        import.meta.url,
+      ),
+      'utf8',
+    ),
+  );
 }, 60000);
 afterAll(async () => {
   await db?.close();
@@ -103,7 +112,7 @@ describe('migrations PostgreSQL e isolamento', () => {
         world.id,
         JSON.stringify(career),
       ]),
-    ).rejects.toThrow('conflict');
+    ).rejects.toMatchObject({ code: 'PT409' });
     const r2 = await db.query<{ revision: number }>(
       'select public.save_career($1,$2,$3,1) as revision',
       [career.id, world.id, JSON.stringify(career)],

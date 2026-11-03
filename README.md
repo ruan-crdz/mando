@@ -87,8 +87,9 @@ Nenhuma senha ou chave secreta precisa ser enviada pelo chat.
    para o banco. Guarde a senha em um gerenciador.
 3. Aguarde o banco ficar pronto.
 4. Em **SQL Editor**, execute, nesta ordem, a
-   [migration inicial](supabase/migrations/202611030001_world_and_careers.sql) e a
-   [migration de nuvem para demonstração](supabase/migrations/202611030002_demo_cloud.sql).
+   [migration inicial](supabase/migrations/202611030001_world_and_careers.sql), a
+   [migration de nuvem para demonstração](supabase/migrations/202611030002_demo_cloud.sql) e a
+   [migration de conflitos HTTP](supabase/migrations/202611030003_explicit_save_conflicts.sql).
    Alternativamente, com Supabase CLI:
 
 ```powershell
@@ -116,7 +117,7 @@ Se executou as migrations pelo SQL Editor e depois passar a usar a CLI,
 registre o histórico após vincular o projeto, antes de `db push`:
 
 ```powershell
-npx.cmd supabase migration repair 202611030001 202611030002 --status applied
+npx.cmd supabase migration repair 202611030001 202611030002 202611030003 --status applied
 ```
 
 O [smoke test hospedado](supabase/tests/hosted-smoke.sql) verifica revisões,

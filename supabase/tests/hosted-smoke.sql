@@ -30,7 +30,7 @@ begin
   begin
     perform public.save_career(v_career_id, world_id, state, 1);
     raise exception 'Stale write was accepted';
-  exception when serialization_failure then null;
+  exception when sqlstate 'PT409' then null;
   end;
   if (select count(*) from public.career_saves where id = v_career_id) <> 1 then
     raise exception 'Owner cannot read their save';
@@ -50,7 +50,7 @@ begin
   begin
     perform public.save_career(v_career_id, world_id, state, 2);
     raise exception 'Another user overwrote a save';
-  exception when serialization_failure then null;
+  exception when sqlstate 'PT409' then null;
   end;
   if has_function_privilege('authenticated',
     'public.claim_ai_job(uuid,uuid,text,text)', 'execute') then
