@@ -8,6 +8,7 @@ export const xboxMapping = {
   previousView: 'LT',
   nextView: 'RT',
   menu: '☰',
+  stick: 'RS',
 } as const;
 export const standardButtons = {
   confirm: 0,

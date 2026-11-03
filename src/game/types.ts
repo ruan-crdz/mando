@@ -83,6 +83,8 @@ export const playerSchema = z.object({
   wage: z.number().nonnegative(),
   contractEnd: isoDate,
   attributes: attributesSchema,
+  /** Número da camisa quando conhecido na fonte; o restante é atribuído pela carreira. */
+  number: z.number().int().min(1).max(99).optional(),
 });
 export type Player = z.infer<typeof playerSchema>;
 export const worldSchema = z
@@ -278,6 +280,10 @@ export const offerSchema = z.object({
   fee: z.number().nonnegative(),
   wage: z.number().nonnegative(),
   exchangePlayerId: z.string().optional(),
+  /** Duração do contrato oferecido ao atleta, em anos. */
+  years: z.number().int().min(1).max(5).optional(),
+  /** Luvas pagas ao atleta na assinatura. */
+  bonus: z.number().nonnegative().optional(),
   date: isoDate,
   responseDate: isoDate,
   status: z.enum(['pending', 'accepted', 'rejected', 'completed', 'declined']),
@@ -329,6 +335,10 @@ export const careerSchema = z.object({
   honours: z
     .array(z.object({ season: z.number().int(), competition: z.string(), clubId: z.string() }))
     .default([]),
+  /** Números de camisa definidos na carreira (sobrepõem o snapshot). */
+  numbers: z.record(z.string(), z.number().int().min(1).max(99)).default({}),
+  /** Lista de observação do mercado. */
+  shortlist: z.array(z.string()).default([]),
   history: z
     .array(
       z.object({

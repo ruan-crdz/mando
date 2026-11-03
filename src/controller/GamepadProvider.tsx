@@ -53,13 +53,25 @@ type ControllerContext = {
   hints: Record<Action, string>;
   register: (actions: Actions) => () => void;
 };
+type Editing = {
+  element: HTMLInputElement | HTMLTextAreaElement;
+  value: string;
+  numeric: boolean;
+};
 const Context = createContext<ControllerContext | null>(null);
 const focus = new FocusManager();
+const STICK_X_EVENT = 'mando:stick-x';
+const STEP_EVENT = 'mando:step';
+const R3 = 11;
+const letterRows = ['1234567890', 'qwertyuiop', 'asdfghjklç', 'zxcvbnm-.@'];
+const specialRows = ['!?#$%&*()_', '+=/\\:;,"\'´', 'áàâãéêíóôõ', 'úüñ~^<>[]|'];
+
+const topModal = () =>
+  [...document.querySelectorAll<HTMLElement>('[data-focus-scope="modal"]')].at(-1) || null;
 
 /** LT/RT switch the sub-tabs (`.segmented`) of the screen in focus, like FIFA's sub-menus. */
 function cycleView(delta: number) {
-  const scope = [...document.querySelectorAll<HTMLElement>('[data-focus-scope="modal"]')].at(-1);
-  const group = (scope || document.querySelector('main'))?.querySelector<HTMLElement>(
+  const group = (topModal() || document.querySelector('main'))?.querySelector<HTMLElement>(
     '.segmented:not(.compact)',
   );
   if (!group) return;
@@ -74,15 +86,45 @@ function cycleView(delta: number) {
   next.focus({ preventScroll: true });
 }
 
+const scrollable = (el: HTMLElement, axis: 'x' | 'y') => {
+  const style = getComputedStyle(el);
+  return axis === 'y'
+    ? el.scrollHeight > el.clientHeight + 4 && /(auto|scroll)/.test(style.overflowY)
+    : el.scrollWidth > el.clientWidth + 4 && /(auto|scroll)/.test(style.overflowX);
+};
+
+/** Área rolável mais próxima do foco; senão, a maior área rolável visível da tela. */
+function scrollTarget(axis: 'x' | 'y') {
+  const scope = topModal() || document.querySelector('main');
+  let el = document.activeElement as HTMLElement | null;
+  while (el && el !== document.body) {
+    if (scrollable(el, axis) && (!scope || scope.contains(el))) return el;
+    el = el.parentElement;
+  }
+  if (!scope) return null;
+  const candidates = [...scope.querySelectorAll<HTMLElement>('*')].filter(
+    (node) => node.getClientRects().length > 0 && scrollable(node, axis),
+  );
+  return (
+    candidates.sort(
+      (a, b) => b.clientWidth * b.clientHeight - a.clientWidth * a.clientHeight,
+    )[0] || null
+  );
+}
+
+const isTextField = (el: Element | null): el is HTMLInputElement | HTMLTextAreaElement =>
+  (el instanceof HTMLInputElement &&
+    ['text', 'email', 'number', 'search', 'password', 'tel'].includes(el.type)) ||
+  el instanceof HTMLTextAreaElement;
+
 export function GamepadProvider({ children }: { children: ReactNode }) {
   const [input, setInput] = useState<Input>('mouse');
   const [connected, setConnected] = useState<string | null>(null);
   const [unsupported, setUnsupported] = useState(false);
   const [sound, setSound] = useState(false);
-  const [editing, setEditing] = useState<{
-    element: HTMLInputElement | HTMLTextAreaElement;
-    value: string;
-  } | null>(null);
+  const [editing, setEditing] = useState<Editing | null>(null);
+  const [caps, setCaps] = useState(false);
+  const [specials, setSpecials] = useState(false);
   const actions = useRef<Actions>({});
   const audio = useRef<AudioContext | null>(null);
   const editRef = useRef(editing);
@@ -131,6 +173,18 @@ export function GamepadProvider({ children }: { children: ReactNode }) {
     osc.start();
     osc.stop(audio.current.currentTime + 0.035);
   }, []);
+  const type = useCallback((text: string) => {
+    setEditing((e) => {
+      if (!e) return e;
+      if (e.numeric) {
+        const digits = (e.value + text).replace(/\D/g, '').replace(/^0+(?=\d)/, '');
+        return { ...e, value: digits.slice(0, 12) };
+      }
+      const max = e.element.maxLength > 0 ? e.element.maxLength : Infinity;
+      return { ...e, value: (e.value + text).slice(0, max) };
+    });
+  }, []);
+  const erase = useCallback(() => setEditing((e) => e && { ...e, value: e.value.slice(0, -1) }), []);
   const applyEdit = useCallback((save: boolean) => {
     const edit = editRef.current;
     if (!edit) return;
@@ -144,11 +198,19 @@ export function GamepadProvider({ children }: { children: ReactNode }) {
       edit.element.dispatchEvent(new Event('change', { bubbles: true }));
     }
     setEditing(null);
+    setSpecials(false);
     requestAnimationFrame(() => edit.element.focus());
+  }, []);
+  const openKeyboard = useCallback((el: HTMLInputElement | HTMLTextAreaElement) => {
+    const numeric =
+      (el instanceof HTMLInputElement && el.type === 'number') || el.inputMode === 'numeric';
+    setEditing({ element: el, value: numeric && /^0*$/.test(el.value) ? '' : el.value, numeric });
   }, []);
   useEffect(() => {
     let frame = 0;
     let lastMove = 0;
+    let lastStickX = 0;
+    let scrollEl: HTMLElement | null = null;
     let held = new Set<number>();
     let activeIndex: number | null = null;
     let priorId: string | null = null;
@@ -157,22 +219,42 @@ export function GamepadProvider({ children }: { children: ReactNode }) {
       audio.current ??= new AudioContext();
       if (audio.current.state === 'suspended') void audio.current.resume();
     }
+    /** Botões do controle enquanto o teclado virtual está aberto. */
+    const keyboardAction = (action: Action | 'r3') => {
+      const edit = editRef.current;
+      if (!edit) return false;
+      if (action === 'back') applyEdit(false);
+      else if (action === 'menu') applyEdit(true);
+      else if (action === 'secondary') erase();
+      else if (action === 'info' && !edit.numeric) type(' ');
+      else if (action === 'nextView' && !edit.numeric) setCaps((v) => !v);
+      else if (action === 'r3' && !edit.numeric) setSpecials((v) => !v);
+      else if (action === 'confirm') {
+        focus.ensure();
+        (document.activeElement as HTMLElement | null)?.click();
+      } else return true;
+      rumble(action === 'back' ? 'back' : 'confirm');
+      beep();
+      return true;
+    };
     const activate = (action: Action) => {
-      if (action === 'back' && editRef.current) {
-        applyEdit(false);
-        return;
-      }
+      if (keyboardAction(action)) return;
       if (action === 'back') {
-        const modal = [...document.querySelectorAll<HTMLElement>('[data-focus-scope="modal"]')].at(
-          -1,
-        );
-        const close = modal?.querySelector<HTMLButtonElement>('[data-dialog-close]');
+        const close = topModal()?.querySelector<HTMLButtonElement>('[data-dialog-close]');
         if (close) {
           close.click();
+          rumble('back');
+          return;
+        }
+        const screenBack =
+          !topModal() && document.querySelector<HTMLElement>('main [data-back-action]');
+        if (screenBack) {
+          screenBack.click();
+          rumble('back');
+          beep();
           return;
         }
       }
-      if (editRef.current && action !== 'confirm') return;
       if (action === 'previousView' || action === 'nextView') {
         if (actions.current[action]) actions.current[action]!();
         else cycleView(action === 'nextView' ? 1 : -1);
@@ -183,13 +265,8 @@ export function GamepadProvider({ children }: { children: ReactNode }) {
       if (action === 'confirm') {
         focus.ensure();
         const el = document.activeElement;
-        if (
-          (el instanceof HTMLInputElement &&
-            ['text', 'email', 'number', 'search', 'password'].includes(el.type)) ||
-          el instanceof HTMLTextAreaElement
-        ) {
-          setEditing({ element: el, value: el.value });
-        } else if (el instanceof HTMLSelectElement) {
+        if (isTextField(el)) openKeyboard(el);
+        else if (el instanceof HTMLSelectElement) {
           el.selectedIndex = (el.selectedIndex + 1) % el.options.length;
           el.dispatchEvent(new Event('change', { bubbles: true }));
         } else if (el instanceof HTMLElement) el.click();
@@ -202,7 +279,9 @@ export function GamepadProvider({ children }: { children: ReactNode }) {
     };
     const move = (dx: number, dy: number) => {
       const el = document.activeElement;
-      if (dx && el instanceof HTMLSelectElement) {
+      if (dx && el instanceof HTMLElement && el.dataset.stepper !== undefined) {
+        el.dispatchEvent(new CustomEvent(STEP_EVENT, { detail: dx }));
+      } else if (dx && el instanceof HTMLSelectElement) {
         el.selectedIndex = Math.max(0, Math.min(el.options.length - 1, el.selectedIndex + dx));
         el.dispatchEvent(new Event('change', { bubbles: true }));
       } else if (dx && el instanceof HTMLInputElement && el.type === 'range') {
@@ -216,6 +295,30 @@ export function GamepadProvider({ children }: { children: ReactNode }) {
       } else focus.move(dx, dy);
       if (padIndex.current !== null) rumble('move');
       beep();
+    };
+    /** Analógico direito: vertical rola a tela; horizontal é entregue à tela ou rola carrosséis. */
+    const rightStick = (pad: Gamepad, now: number) => {
+      if (editRef.current) return;
+      const sx = pad.axes[2] || 0;
+      const sy = pad.axes[3] || 0;
+      if (Math.abs(sy) > 0.3 && Math.abs(sy) >= Math.abs(sx)) {
+        scrollEl ??= scrollTarget('y');
+        scrollEl?.scrollBy({ top: Math.sign(sy) * (sy * sy) * 26 });
+      } else scrollEl = null;
+      if (Math.abs(sx) > 0.6 && Math.abs(sx) > Math.abs(sy)) {
+        if (now - lastStickX < 360) return;
+        lastStickX = now;
+        const dir = Math.sign(sx);
+        const handled = !window.dispatchEvent(
+          new CustomEvent(STICK_X_EVENT, { detail: dir, cancelable: true }),
+        );
+        if (!handled) {
+          const target = scrollTarget('x');
+          target?.scrollBy({ left: dir * target.clientWidth * 0.6, behavior: 'smooth' });
+        }
+        rumble('tab');
+        beep();
+      } else if (Math.abs(sx) < 0.3) lastStickX = 0;
     };
     const tick = (now: number) => {
       const pads = navigator.getGamepads
@@ -258,6 +361,8 @@ export function GamepadProvider({ children }: { children: ReactNode }) {
         for (const [action, index] of Object.entries(standardButtons)) {
           if (index < 12 && buttons.has(index) && !held.has(index)) activate(action as Action);
         }
+        if (buttons.has(R3) && !held.has(R3)) keyboardAction('r3');
+        rightStick(pad, now);
         held = buttons;
       } else held = new Set();
       frame = requestAnimationFrame(tick);
@@ -265,12 +370,27 @@ export function GamepadProvider({ children }: { children: ReactNode }) {
     const keydown = (e: KeyboardEvent) => {
       unlock();
       setInput('keyboard');
+      if (editRef.current) {
+        // Teclado físico também funciona com o teclado virtual aberto.
+        if (e.key === 'Escape') applyEdit(false);
+        else if (e.key === 'Enter') applyEdit(true);
+        else if (e.key === 'Backspace') erase();
+        else if (e.key.length === 1 && !e.ctrlKey && !e.metaKey) type(e.key);
+        else if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key))
+          move(
+            e.key === 'ArrowLeft' ? -1 : e.key === 'ArrowRight' ? 1 : 0,
+            e.key === 'ArrowUp' ? -1 : e.key === 'ArrowDown' ? 1 : 0,
+          );
+        else return;
+        e.preventDefault();
+        return;
+      }
       const target = e.target;
       const inField =
         target instanceof HTMLInputElement ||
         target instanceof HTMLTextAreaElement ||
         target instanceof HTMLSelectElement;
-      if (e.key === 'Tab' && document.querySelector('[data-focus-scope="modal"]')) {
+      if (e.key === 'Tab' && topModal()) {
         const elements = focus.elements();
         const index = elements.indexOf(document.activeElement as HTMLElement);
         const next = e.shiftKey
@@ -295,6 +415,11 @@ export function GamepadProvider({ children }: { children: ReactNode }) {
       } else if (!inField && (e.key === 'q' || e.key === 'e')) {
         e.preventDefault();
         activate(e.key === 'q' ? 'previousView' : 'nextView');
+      } else if (!inField && (e.key === ',' || e.key === '.')) {
+        e.preventDefault();
+        window.dispatchEvent(
+          new CustomEvent(STICK_X_EVENT, { detail: e.key === ',' ? -1 : 1, cancelable: true }),
+        );
       }
     };
     const pointer = () => {
@@ -321,10 +446,14 @@ export function GamepadProvider({ children }: { children: ReactNode }) {
       window.removeEventListener('pointermove', pointer);
       window.removeEventListener('pointerdown', pointer);
     };
-  }, [applyEdit, beep, rumble]);
+  }, [applyEdit, beep, erase, openKeyboard, rumble, type]);
   useEffect(() => {
     if (editing) requestAnimationFrame(() => focus.ensure());
-  }, [editing]);
+  }, [editing, specials]);
+  const hints = input === 'playstation' ? dualsenseMapping : xboxMapping;
+  const pad = input === 'xbox' || input === 'playstation';
+  const keyHint = (label: string) => (pad ? <kbd>{label}</kbd> : null);
+  const rows = specials ? specialRows : letterRows;
   return (
     <Context.Provider
       value={{
@@ -341,49 +470,94 @@ export function GamepadProvider({ children }: { children: ReactNode }) {
           }),
         rumble,
         register,
-        hints: input === 'playstation' ? dualsenseMapping : xboxMapping,
+        hints,
       }}
     >
       <div inert={editing ? true : undefined}>{children}</div>
       {editing && (
         <div className="modal-backdrop">
           <section
-            className="virtual-keyboard dialog"
+            className={`virtual-keyboard dialog ${editing.numeric ? 'numeric' : ''}`}
             data-focus-scope="modal"
             role="dialog"
             aria-modal="true"
             aria-label="Teclado do controle"
           >
-            <p className="eyebrow">TECLADO DO CONTROLE</p>
+            <p className="eyebrow">
+              {editing.numeric ? 'TECLADO NUMÉRICO' : specials ? 'CARACTERES ESPECIAIS' : 'TECLADO'}
+              {!editing.numeric && <span className="caps-state">{caps ? 'ABC' : 'abc'}</span>}
+            </p>
             <output className="keyboard-value">
               {editing.element.type === 'password'
                 ? '•'.repeat(editing.value.length)
-                : editing.value || 'Digite aqui'}
+                : editing.value || (editing.numeric ? '0' : 'Digite aqui')}
+              <span className="caret" />
             </output>
-            <div className="keyboard-grid">
-              {'1234567890QWERTYUIOPASDFGHJKLZXCVBNM@.-_áãâéêíóôõúç/+,:'.split('').map((key) => (
-                <button
-                  key={key}
-                  type="button"
-                  onClick={() =>
-                    setEditing((e) => e && { ...e, value: e.value + key.toLowerCase() })
-                  }
-                >
-                  {key}
+            {editing.numeric ? (
+              <div className="keypad-grid">
+                {'123456789'.split('').map((key) => (
+                  <button key={key} type="button" data-autofocus={key === '5' ? '' : undefined} onClick={() => type(key)}>
+                    {key}
+                  </button>
+                ))}
+                <button type="button" onClick={() => setEditing((e) => e && { ...e, value: '' })}>
+                  Limpar
                 </button>
-              ))}
-            </div>
-            <div className="button-row">
-              <button onClick={() => setEditing((e) => e && { ...e, value: e.value + ' ' })}>
-                Espaço
+                <button type="button" onClick={() => type('0')}>
+                  0
+                </button>
+                <button type="button" onClick={erase}>
+                  ⌫
+                </button>
+                {['000', '00'].map((key) => (
+                  <button key={key} type="button" onClick={() => type(key)}>
+                    {key}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div className="keyboard-grid">
+                {rows.flatMap((row) => row.split('')).map((key, i) => {
+                  const shown = caps ? key.toLocaleUpperCase('pt-BR') : key;
+                  return (
+                    <button
+                      key={`${specials}-${i}`}
+                      type="button"
+                      data-autofocus={i === 10 ? '' : undefined}
+                      onClick={() => type(shown)}
+                    >
+                      {shown}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+            <div className="keyboard-actions">
+              {!editing.numeric && (
+                <>
+                  <button type="button" className={caps ? 'active' : ''} onClick={() => setCaps((v) => !v)}>
+                    {keyHint(hints.nextView)} {caps ? 'ABC' : 'abc'}
+                  </button>
+                  <button
+                    type="button"
+                    className={specials ? 'active' : ''}
+                    onClick={() => setSpecials((v) => !v)}
+                  >
+                    {keyHint(hints.stick)} {specials ? 'Letras' : '#@ Especiais'}
+                  </button>
+                  <button type="button" onClick={() => type(' ')}>
+                    {keyHint(hints.info)} Espaço
+                  </button>
+                </>
+              )}
+              <button type="button" onClick={erase}>
+                {keyHint(hints.secondary)} Apagar
               </button>
-              <button onClick={() => setEditing((e) => e && { ...e, value: e.value.slice(0, -1) })}>
-                Apagar
+              <button type="button" onClick={() => applyEdit(false)}>
+                {keyHint(hints.back)} Cancelar
               </button>
-              <button onClick={() => setEditing((e) => e && { ...e, value: '' })}>Limpar</button>
-              <button onClick={() => applyEdit(false)}>Cancelar</button>
-              <button className="primary" onClick={() => applyEdit(true)}>
-                Concluir
+              <button type="button" className="primary" onClick={() => applyEdit(true)}>
+                {keyHint(hints.menu)} Salvar
               </button>
             </div>
           </section>
@@ -402,4 +576,42 @@ export function useGamepad() {
 export function useControllerActions(actions: Actions) {
   const { register } = useGamepad();
   useEffect(() => register(actions), [actions, register]);
+}
+
+/**
+ * Analógico direito para os lados (ou teclas , e .) — a tela decide o que fazer,
+ * por exemplo trocar de competição. Ignorado enquanto um modal está aberto.
+ */
+export function useStickX(handler: (dir: number) => void, enabled = true) {
+  const ref = useRef(handler);
+  useEffect(() => {
+    ref.current = handler;
+  });
+  useEffect(() => {
+    if (!enabled) return;
+    const listener = (e: Event) => {
+      if (topModal()) return;
+      e.preventDefault();
+      ref.current((e as CustomEvent<number>).detail);
+    };
+    window.addEventListener(STICK_X_EVENT, listener);
+    return () => window.removeEventListener(STICK_X_EVENT, listener);
+  }, [enabled]);
+}
+
+/** Recebe os passos ←/→ do controle num elemento marcado com `data-stepper`. */
+export function useStepper<T extends HTMLElement>(onStep: (dir: number) => void) {
+  const ref = useRef<T>(null);
+  const handler = useRef(onStep);
+  useEffect(() => {
+    handler.current = onStep;
+  });
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const listener = (e: Event) => handler.current((e as CustomEvent<number>).detail);
+    el.addEventListener(STEP_EVENT, listener);
+    return () => el.removeEventListener(STEP_EVENT, listener);
+  }, []);
+  return ref;
 }

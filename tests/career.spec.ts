@@ -14,6 +14,14 @@ async function createCareer(page: Page) {
   await expect(page.getByRole('heading', { name: /Bom trabalho, Alex/ })).toBeVisible();
 }
 
+async function pickCompetition(page: Page, name: RegExp) {
+  const label = page.locator('.stick-switcher strong');
+  for (let i = 0; i < 12 && !name.test((await label.textContent()) || ''); i++) {
+    await page.locator('.stick-switcher').getByRole('button', { name: 'Próximo' }).click();
+  }
+  await expect(label).toHaveText(name);
+}
+
 test('criação, todas as abas, negociação, avanço e save/load persistente', async ({ page }) => {
   const errors: string[] = [];
   page.on('pageerror', (e) => errors.push(e.message));
@@ -23,9 +31,10 @@ test('criação, todas as abas, negociação, avanço e save/load persistente', 
   ).toBeVisible();
   await page.getByRole('navigation').getByRole('button', { name: /TIME/ }).click();
   await page.getByRole('button', { name: 'Tática', exact: true }).click();
-  await page.getByLabel('Formação').selectOption('4-3-3');
+  await page.getByRole('radiogroup', { name: 'Formação' }).getByRole('radio', { name: '4-3-3' }).click();
   await page.getByRole('button', { name: 'Responsabilidades' }).click();
-  await expect(page.getByRole('combobox', { name: 'Capitão', exact: true })).toBeVisible();
+  await page.locator('.role-card[data-role="Capitão"]').click();
+  await expect(page.locator('.player-card').first()).toBeVisible();
   await page
     .getByRole('navigation')
     .getByRole('button', { name: /TRANSFERÊNCIAS/ })
@@ -102,9 +111,9 @@ test('controle Xbox e DualSense navegam, teclado virtual confirma sem mouse', as
   await page.getByLabel('Nome', { exact: true }).focus();
   await press(0);
   await expect(page.getByRole('dialog', { name: 'Teclado do controle' })).toBeVisible();
-  await page.getByRole('button', { name: 'A', exact: true }).focus();
+  await page.getByRole('button', { name: 'a', exact: true }).focus();
   await press(0);
-  await page.getByRole('button', { name: 'Concluir', exact: true }).focus();
+  await page.getByRole('button', { name: /Salvar/ }).focus();
   await press(0);
   await expect(page.getByLabel('Nome', { exact: true })).toHaveValue('a');
   await page.evaluate(() => {
@@ -154,7 +163,7 @@ test('partida completa registra placar e volta à tabela sem duplicar resultado'
     .getByRole('navigation')
     .getByRole('button', { name: /TEMPORADA/ })
     .click();
-  await page.getByRole('button', { name: 'PAULISTÃO', exact: true }).click();
+  await pickCompetition(page, /Paulist/);
   const row = page.getByRole('row').filter({ hasText: 'São Paulo' });
   await expect(row.locator('td').nth(3)).toHaveText('1');
 });
@@ -169,7 +178,7 @@ test('layout móvel não cria rolagem horizontal', async ({ page }) => {
     .getByRole('navigation')
     .getByRole('button', { name: /TEMPORADA/ })
     .click();
-  await page.getByRole('button', { name: 'LIB', exact: true }).click();
+  await pickCompetition(page, /Libertadores/);
   await expect(page.getByText('GRUPO A', { exact: true })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });

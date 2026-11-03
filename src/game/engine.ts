@@ -129,6 +129,8 @@ export function createCareer(
     leagues: {},
     youth: [],
     honours: [],
+    numbers: {},
+    shortlist: [],
     history: [],
   };
   createCups(c, world, 2026, initialQualification(world));

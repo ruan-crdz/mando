@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Activity,
   ArrowLeftRight,
@@ -9,12 +9,18 @@ import {
   SlidersHorizontal,
   Volume2,
 } from 'lucide-react';
-import { available, stepMatch } from '../game/matches';
+import { available, npcFormation, stepMatch } from '../game/matches';
 import { fixtureLabel } from '../game/calendar';
 import { clubById, findPlayer } from '../game/npc';
-import { formations, type Career, type Tactic, type World } from '../game/types';
+import { shirtNumbers } from '../game/numbers';
+import { formations, type Career, type Formation, type Player, type World } from '../game/types';
 import { Badge, Modal } from '../components/ui';
+import { ChipGroup } from '../components/controls';
+import { LivePitch, type PitchTeam } from '../components/LivePitch';
+import { byPosition, PlayerCard, PlayerPicker, roleFits } from '../components/PlayerCard';
 import { useGamepad } from '../controller/GamepadProvider';
+
+const fits = (p: Player, role: string) => (roleFits[role] || [role]).includes(p.position);
 
 export function MatchScreen({
   career: c,
@@ -38,7 +44,6 @@ export function MatchScreen({
   const [sub, setSub] = useState(false);
   const [tactic, setTactic] = useState(false);
   const [outgoing, setOut] = useState('');
-  const [incoming, setIn] = useState('');
   const { rumble } = useGamepad();
   const latest = useRef(c);
   latest.current = c;
@@ -56,6 +61,32 @@ export function MatchScreen({
       !match.replaced.includes(p.id) &&
       available(c, p.id),
   );
+  const ownNumbers = useMemo(() => shirtNumbers(c, world), [c, world]);
+  const outgoingPlayer = outgoing ? findPlayer(world, outgoing) : undefined;
+  const outgoingRole = formations[c.tactic.formation][ownLineup.indexOf(outgoing)] || 'CM';
+  const teamFor = (clubId: string, ids: string[], color: string): PitchTeam => {
+    let numbers: Record<string, number>;
+    try {
+      numbers = clubId === c.clubId ? ownNumbers : shirtNumbers(c, world, clubId);
+    } catch {
+      numbers = {};
+    }
+    return {
+      formation: clubId === c.clubId ? c.tactic.formation : npcFormation,
+      color,
+      ids,
+      numbers,
+      names: Object.fromEntries(ids.map((id) => [id, findPlayer(world, id)?.name || ''])),
+    };
+  };
+  const goals = match.events.filter((e) => e.type === 'goal');
+  const lastGoalEvent = goals.at(-1);
+  const lastGoal = lastGoalEvent
+    ? {
+        side: (lastGoalEvent.clubId === fixture.homeId ? 0 : 1) as 0 | 1,
+        key: `${goals.length}-${lastGoalEvent.minute}`,
+      }
+    : null;
   const phase =
     match.minute === 90
       ? 'FIM DE JOGO'
@@ -123,38 +154,14 @@ export function MatchScreen({
       </section>
       <div className="match-layout">
         <section className="panel live-field-panel">
-          <div
-            className="live-field"
-            role="img"
-            aria-label="Visão tática 2D; as posições são ilustrativas e os lances são descritos na timeline"
-          >
-            <div className="field-half" />
-            <div className="field-circle" />
-            <div className="field-box left" />
-            <div className="field-box right" />
-            {[match.homeLineup, match.awayLineup].flatMap((ids, side) =>
-              ids.map((id, i) => (
-                <span
-                  className={`field-dot ${side ? 'away' : 'home'}`}
-                  key={id}
-                  style={{
-                    left: `${side ? 91 - (i % 4) * 10 : 9 + (i % 4) * 10}%`,
-                    top: `${15 + Math.floor(i / 4) * 33 + (i % 2) * 7}%`,
-                    background: side ? away.color : home.color,
-                  }}
-                >
-                  {i + 1}
-                </span>
-              )),
-            )}
-            <span
-              className="ball-dot"
-              style={{
-                left: `${20 + ((match.minute * 17) % 60)}%`,
-                top: `${20 + ((match.minute * 13) % 60)}%`,
-              }}
-            />
-          </div>
+          <LivePitch
+            home={teamFor(fixture.homeId, match.homeLineup, home.color)}
+            away={teamFor(fixture.awayId, match.awayLineup, away.color)}
+            playing={playing && !sub && !tactic && !paused && match.minute < 90}
+            speed={speed}
+            homePossession={match.home.possession || 50}
+            goal={lastGoal}
+          />
           <div className="match-timeline">
             <div className="timeline-track">
               <i style={{ width: `${(match.minute / 90) * 100}%` }} />
@@ -280,113 +287,137 @@ export function MatchScreen({
         </section>
       </div>
       {sub && (
-        <Modal title="Mudar a história do jogo" onClose={() => setSub(false)}>
-          <p>{match.usedSubs} de 5 substituições utilizadas</p>
-          <div className="form-grid">
-            <label>
-              Sai
-              <select value={outgoing} onChange={(e) => setOut(e.target.value)}>
-                <option value="">Escolher titular</option>
-                {ownLineup.map((id) => (
-                  <option key={id} value={id}>
-                    {findPlayer(world, id)!.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label>
-              Entra
-              <select value={incoming} onChange={(e) => setIn(e.target.value)}>
-                <option value="">Escolher reserva</option>
-                {bench.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name} · {p.position}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </div>
-          <button
-            className="primary"
-            disabled={!outgoing || !incoming || match.usedSubs >= 5}
-            onClick={() => onSubstitute(outgoing, incoming)}
-          >
-            Confirmar substituição
-          </button>
+        <Modal
+          title={outgoingPlayer ? `Quem entra no lugar de ${outgoingPlayer.name}?` : 'Quem sai?'}
+          onClose={() => {
+            setSub(false);
+            setOut('');
+          }}
+          wide
+        >
+          <p className="muted">
+            {match.usedSubs} de 5 substituições utilizadas ·{' '}
+            {outgoing ? 'Escolha o reserva. B volta.' : 'Escolha o titular que deixa o campo.'}
+          </p>
+          {!outgoing ? (
+            <div className="card-scroll">
+              <div className="card-grid">
+                {ownLineup.map((id, i) => {
+                  const p = findPlayer(world, id)!;
+                  return (
+                    <PlayerCard
+                      key={id}
+                      player={p}
+                      career={c}
+                      role={formations[c.tactic.formation][i]}
+                      number={ownNumbers[id]}
+                      note={`Cansaço ${Math.round(match.energySpent[id] || 0)}`}
+                      autoFocus={i === 0}
+                      onClick={() => setOut(id)}
+                    />
+                  );
+                })}
+              </div>
+            </div>
+          ) : (
+            <PlayerPicker
+              recommended={bench.filter((p) => fits(p, outgoingRole))}
+              others={bench.filter((p) => !fits(p, outgoingRole)).sort(byPosition(c))}
+              recommendedLabel={`Recomendados para ${outgoingRole}`}
+              othersLabel="Demais reservas"
+              extra={
+                <button
+                  type="button"
+                  className="player-card empty"
+                  data-autofocus=""
+                  onClick={() => setOut('')}
+                >
+                  <ArrowLeftRight size={28} />
+                  <strong className="pc-name">Trocar quem sai</strong>
+                </button>
+              }
+              render={(p) => (
+                <PlayerCard
+                  key={p.id}
+                  player={p}
+                  career={c}
+                  role={outgoingRole}
+                  number={ownNumbers[p.id]}
+                  disabled={match.usedSubs >= 5}
+                  onClick={() => {
+                    onSubstitute(outgoing, p.id);
+                    setOut('');
+                  }}
+                />
+              )}
+            />
+          )}
         </Modal>
       )}
       {tactic && (
-        <Modal title="Ajustar o plano de jogo" onClose={() => setTactic(false)}>
+        <Modal title="Ajustar o plano de jogo" onClose={() => setTactic(false)} wide>
           <p className="muted">As mudanças afetam os próximos minutos. O jogo permanece pausado.</p>
-          <div className="form-grid">
-            <label>
-              Formação
-              <select
+          <div className="match-tactic">
+            <div>
+              <ChipGroup
+                label="Formação"
                 value={c.tactic.formation}
-                onChange={(e) =>
-                  onChange({
-                    ...c,
-                    tactic: { ...c.tactic, formation: e.target.value as Tactic['formation'] },
-                  })
-                }
-              >
-                {Object.keys(formations).map((f) => (
-                  <option key={f}>{f}</option>
-                ))}
-              </select>
-            </label>
-            <label>
-              Mentalidade
-              <select
+                options={Object.keys(formations).map((f) => ({ value: f as Formation, label: f }))}
+                onChange={(formation) => onChange({ ...c, tactic: { ...c.tactic, formation } })}
+              />
+              <ChipGroup
+                label="Mentalidade"
                 value={c.tactic.mentality}
-                onChange={(e) =>
-                  onChange({
-                    ...c,
-                    tactic: { ...c.tactic, mentality: e.target.value as Tactic['mentality'] },
-                  })
-                }
-              >
-                {['Defensiva', 'Equilibrada', 'Ofensiva'].map((m) => (
-                  <option key={m}>{m}</option>
+                options={(['Defensiva', 'Equilibrada', 'Ofensiva'] as const).map((m) => ({
+                  value: m,
+                  label: m,
+                }))}
+                onChange={(mentality) => onChange({ ...c, tactic: { ...c.tactic, mentality } })}
+              />
+              <div className="form-grid">
+                {(
+                  [
+                    ['pressure', 'Pressão'],
+                    ['tempo', 'Ritmo'],
+                    ['line', 'Linha defensiva'],
+                    ['width', 'Largura'],
+                  ] as const
+                ).map(([key, label]) => (
+                  <label key={key}>
+                    {label} · {c.tactic[key]}
+                    <input
+                      type="range"
+                      min={1}
+                      max={5}
+                      value={c.tactic[key]}
+                      onChange={(e) =>
+                        onChange({ ...c, tactic: { ...c.tactic, [key]: Number(e.target.value) } })
+                      }
+                    />
+                  </label>
                 ))}
-              </select>
-            </label>
-            {(
-              [
-                ['pressure', 'Pressão'],
-                ['tempo', 'Ritmo'],
-                ['line', 'Linha defensiva'],
-                ['width', 'Largura'],
-              ] as const
-            ).map(([key, label]) => (
-              <label key={key}>
-                {label} · {c.tactic[key]}
-                <input
-                  type="range"
-                  min={1}
-                  max={5}
-                  value={c.tactic[key]}
-                  onChange={(e) =>
-                    onChange({ ...c, tactic: { ...c.tactic, [key]: Number(e.target.value) } })
-                  }
-                />
-              </label>
-            ))}
+              </div>
+            </div>
+            <div>
+              <span className="control-label">
+                <Shield size={15} /> Capitão em campo
+              </span>
+              <div className="card-grid compact">
+                {ownLineup.map((id, i) => (
+                  <PlayerCard
+                    key={id}
+                    player={findPlayer(world, id)!}
+                    career={c}
+                    role={formations[c.tactic.formation][i]}
+                    number={ownNumbers[id]}
+                    active={c.roles['Capitão'] === id}
+                    badge={c.roles['Capitão'] === id ? 'C' : undefined}
+                    onClick={() => onChange({ ...c, roles: { ...c.roles, Capitão: id } })}
+                  />
+                ))}
+              </div>
+            </div>
           </div>
-          <h3>
-            <Shield size={18} /> Capitão
-          </h3>
-          <select
-            aria-label="Capitão durante a partida"
-            value={c.roles['Capitão']}
-            onChange={(e) => onChange({ ...c, roles: { ...c.roles, Capitão: e.target.value } })}
-          >
-            {ownLineup.map((id) => (
-              <option key={id} value={id}>
-                {findPlayer(world, id)!.name}
-              </option>
-            ))}
-          </select>
         </Modal>
       )}
     </div>

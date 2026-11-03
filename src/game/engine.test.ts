@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { addDays, random } from './random';
+import { addDays, addMonths, random } from './random';
 import { createDemoWorld } from './world';
 import {
   advanceDay,
@@ -10,7 +10,13 @@ import {
   validateCareerForWorld,
 } from './engine';
 import { available, beginMatch, simulateMatch, stepMatch, substitute } from './matches';
-import { createOffer, askingPrice, answerIncoming, renewContract } from './transfers';
+import {
+  createOffer,
+  askingPrice,
+  answerIncoming,
+  negotiationOutlook,
+  renewContract,
+} from './transfers';
 import { createSchedule, transferWindow } from './calendar';
 import { overall } from './ratings';
 import { careerSchema, type Career, type Manager } from './types';
@@ -240,6 +246,23 @@ describe('mercado e relações', () => {
     );
     expect(career.messages[0].important).toBe(true);
   });
+  it('luvas compensam salário menor e o contrato respeita os anos oferecidos', () => {
+    career.date = '2026-01-05';
+    const p = world.players.find((p) => p.clubId === 'palmeiras' && p.position === 'ST')!;
+    const fee = Math.ceil(askingPrice(career, world, p));
+    const wage = Math.round(career.players[p.id].wage * 0.95);
+    const low = negotiationOutlook(career, world, p, fee, wage, undefined, 2, 0);
+    const bonus = career.players[p.id].wage * 12 * 2 * 0.3;
+    const high = negotiationOutlook(career, world, p, fee, wage, undefined, 2, bonus);
+    expect(high.player).toBeGreaterThan(low.player);
+    expect(high.club).toBe(100);
+    const cash = career.finances[career.clubId].cash;
+    career = createOffer(career, world, p.id, fee, wage, undefined, { years: 2, bonus });
+    career = advanceDay(advanceDay(career, world), world);
+    expect(career.offers[0].status).toBe('completed');
+    expect(career.players[p.id].contractEnd).toBe('2028-12-31');
+    expect(career.finances[career.clubId].cash).toBeLessThanOrEqual(cash - fee - bonus);
+  });
   it('não duplica a conclusão nem deixa saldo negativo por propostas simultâneas', () => {
     career.date = '2026-01-05';
     const p = world.players.find((p) => p.clubId === 'palmeiras' && p.position === 'ST')!;
@@ -275,8 +298,16 @@ describe('mercado e relações', () => {
     const id = career.lineup[10];
     const old = career.finances[career.clubId].cash;
     const updated = renewContract(career, world, id);
-    expect(updated.players[id].contractEnd).toBe('2029-12-31');
+    expect(updated.players[id].contractEnd).toBe(
+      addMonths(career.players[id].contractEnd, 36),
+    );
     expect(updated.finances[career.clubId].cash).toBeLessThan(old);
+    const short = renewContract(career, world, id, 6);
+    expect(short.players[id].contractEnd).toBe(addMonths(career.players[id].contractEnd, 6));
+    expect(short.finances[career.clubId].cash).toBeGreaterThan(
+      updated.finances[career.clubId].cash,
+    );
+    expect(() => renewContract(career, world, id, 3)).toThrow('6 meses');
     updated.messages.push({
       id: 'request',
       from: 'Atleta',

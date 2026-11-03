@@ -18,6 +18,7 @@ export function MainMenu({
   return (
     <div className="screen menu-screen">
       <div className="menu-heading">
+        <img className="menu-logo" src={`${import.meta.env.BASE_URL}logo-mando.png`} alt="Mando" />
         <p className="eyebrow">CARREIRA DE MANAGER · FUTEBOL BRASILEIRO 2026</p>
         <h1>
           O clube é seu.

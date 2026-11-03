@@ -40,11 +40,10 @@ import { bestLineup, beginMatch, substitute } from './game/matches';
 import { careerWorld } from './game/live';
 import { nextFixture } from './game/calendar';
 import { answerIncoming, createOffer, renewContract } from './game/transfers';
-import { type Career, type Message, type Player, type World } from './game/types';
+import { type Career, type Player, type World } from './game/types';
 import { listLocal, removeLocal, saveLocal, type SavedCareer } from './services/storage';
 import {
   ensureSession,
-  requestAi,
   requestPortrait,
   saveCloud,
   supabase,
@@ -255,22 +254,6 @@ function Game() {
           },
         },
   );
-  const ai = (m: Message) =>
-    run(async () => {
-      if (!career) return;
-      await sync(career);
-      const response = await requestAi(
-        career.id,
-        m.id,
-        m.kind === 'news' ? 'news' : m.kind === 'staff' ? 'staff' : 'message',
-      );
-      setCareer({
-        ...career,
-        messages: career.messages.map((msg) =>
-          msg.id === m.id ? { ...msg, aiText: response.message } : msg,
-        ),
-      });
-    });
   const portrait = (manager: Career['manager']) =>
     requestPortrait({
       firstName: manager.firstName,
@@ -291,7 +274,7 @@ function Game() {
       </div>
       <header className="app-header">
         <div className="brand" aria-label="Mando">
-          <span className="brand-mark">M</span>
+          <img className="brand-logo" src={`${import.meta.env.BASE_URL}logo-mando-160.png`} alt="" />
           <span className="brand-word">MANDO</span>
         </div>
         {screen === 'career' && !inMatch && (
@@ -424,9 +407,9 @@ function Game() {
                   detail={detail}
                   setDetail={setDetail}
                   onError={fail}
-                  onRenew={(id) =>
+                  onRenew={(id, months) =>
                     act(() => {
-                      setCareer(renewContract(career, live!, id));
+                      setCareer(renewContract(career, live!, id, months));
                       setNotice('Contrato renovado. Luvas debitadas do caixa.');
                     })
                   }
@@ -436,10 +419,21 @@ function Game() {
                 <Transfers
                   career={career}
                   world={live!}
-                  onOffer={(id, fee, wage, exchange) =>
+                  onOffer={(id, fee, wage, exchange, terms) => {
+                    let sent = false;
                     act(() => {
-                      setCareer(createOffer(career, live!, id, fee, wage, exchange));
+                      setCareer(createOffer(career, live!, id, fee, wage, exchange, terms));
                       setNotice('Proposta enviada. A resposta chega em dois dias.');
+                      sent = true;
+                    });
+                    return sent;
+                  }}
+                  onShortlist={(id) =>
+                    setCareer({
+                      ...career,
+                      shortlist: career.shortlist.includes(id)
+                        ? career.shortlist.filter((p) => p !== id)
+                        : [...career.shortlist, id],
                     })
                   }
                   onAnswer={(id, accept) =>
@@ -470,7 +464,6 @@ function Game() {
                         ),
                       });
                   }}
-                  onAi={ai}
                   onAvatar={() =>
                     run(async () => {
                       const url = await portrait(career.manager);

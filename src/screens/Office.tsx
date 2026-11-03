@@ -1,17 +1,19 @@
 import { useState } from 'react';
 import {
-  BrainCircuit,
   BriefcaseBusiness,
   Check,
   ChevronRight,
   Landmark,
   MessageSquare,
   Sparkles,
+  Square,
   Target,
   TrendingUp,
   Users,
+  Volume2,
 } from 'lucide-react';
-import { type Career, type Message, type World } from '../game/types';
+import { type Career, type World } from '../game/types';
+import { speechAvailable, useSpeech } from '../components/voice';
 import { squad } from '../game/matches';
 import { standings } from '../game/engine';
 import { competitionName } from '../game/calendar';
@@ -22,7 +24,6 @@ export function Office({
   world,
   onMessage,
   onRead,
-  onAi,
   onAvatar,
   aiAvailable,
   busy,
@@ -31,7 +32,6 @@ export function Office({
   world: World;
   onMessage: (id: string, choice: 'support' | 'firm') => void;
   onRead: (id: string) => void;
-  onAi: (message: Message) => void;
   onAvatar: () => void;
   aiAvailable: boolean;
   busy: boolean;
@@ -41,6 +41,7 @@ export function Office({
     c.messages.find((m) => m.important && !m.resolved)?.id || c.messages[0]?.id,
   );
   const m = c.messages.find((m) => m.id === selectedId);
+  const { speaking, speak, stop } = useSpeech();
   const club = world.clubs.find((club) => club.id === c.clubId)!;
   const finance = c.finances[c.clubId];
   const players = squad(c, world);
@@ -112,6 +113,7 @@ export function Office({
                 key={msg.id}
                 className={`${msg.id === selectedId ? 'selected' : ''} ${!msg.read ? 'unread' : ''}`}
                 onClick={() => {
+                  stop();
                   setSelected(msg.id);
                   onRead(msg.id);
                 }}
@@ -141,12 +143,24 @@ export function Office({
                   <span className="pill">{m.kind.toUpperCase()}</span>
                 </div>
                 <h2>{m.title}</h2>
-                <p className="message-body">{m.aiText || m.body}</p>
-                {m.aiText && (
-                  <p className="ai-disclosure">
-                    <Sparkles size={14} /> Texto gerado por IA sobre um evento da engine.
-                  </p>
+                {speechAvailable() && (
+                  <button
+                    className={`voice-button ${speaking === m.id ? 'speaking' : ''}`}
+                    onClick={() => speak(m.id, `${m.from}. ${m.title}. ${m.aiText || m.body}`)}
+                    aria-label={speaking === m.id ? 'Parar áudio' : 'Ouvir mensagem'}
+                  >
+                    {speaking === m.id ? <Square size={16} /> : <Volume2 size={18} />}
+                    <span className="voice-wave" aria-hidden="true">
+                      <i />
+                      <i />
+                      <i />
+                      <i />
+                      <i />
+                    </span>
+                    {speaking === m.id ? 'Parar' : 'Ouvir mensagem'}
+                  </button>
                 )}
+                <p className="message-body">{m.aiText || m.body}</p>
                 {m.important && !m.resolved ? (
                   <div className="response-area">
                     <p className="eyebrow">SUA DECISÃO</p>
@@ -176,15 +190,6 @@ export function Office({
                       : 'Mensagem informativa. Nenhuma decisão necessária.'}
                   </p>
                 )}
-                <button
-                  className="ai-button"
-                  disabled={!aiAvailable || busy || Boolean(m.aiText)}
-                  onClick={() => onAi(m)}
-                >
-                  <BrainCircuit size={17} />{' '}
-                  {m.aiText ? 'Diálogo já gerado' : 'Dar voz a esta história com IA'}
-                </button>
-
                 {m.playerId && (
                   <div className="memory-list">
                     <p className="eyebrow">MEMÓRIAS RECENTES</p>
@@ -331,29 +336,41 @@ export function Office({
               <Target size={23} /> Objetivos de {c.season}
             </h2>
             <div>
-              <span>Brasileirão Série {club.league}</span>
-              <strong>{club.league === 'A' ? 'Terminar no G6' : 'Disputar o acesso (G6)'}</strong>
+              <h3 className="objective-line">
+                <span>Brasileirão Série {club.league}</span>
+                <i> — </i>
+                <strong>{club.league === 'A' ? 'Terminar no G6' : 'Disputar o acesso (G6)'}</strong>
+              </h3>
               <p>
                 Atual: {rank}º colocado · {points} pontos
               </p>
               <meter min={0} max={20} value={21 - rank} />
             </div>
             <div>
-              <span>Saúde financeira</span>
-              <strong>Manter o caixa positivo</strong>
+              <h3 className="objective-line">
+                <span>Saúde financeira</span>
+                <i> — </i>
+                <strong>Manter o caixa positivo</strong>
+              </h3>
               <p>{money(finance.cash)} em caixa</p>
             </div>
             <div>
-              <span>Desafio da carreira</span>
-              <strong>{c.challenge}</strong>
+              <h3 className="objective-line">
+                <span>Desafio da carreira</span>
+                <i> — </i>
+                <strong>{c.challenge}</strong>
+              </h3>
               {c.challenge === 'Venda necessária' && (
                 <p>{money(c.sales)} de R$ 10 milhões em vendas</p>
               )}
             </div>
             {cups.map(({ cup, status, stage }) => (
               <div key={cup}>
-                <span>{competitionName(cup)}</span>
-                <strong>{status}</strong>
+                <h3 className="objective-line">
+                  <span>{competitionName(cup)}</span>
+                  <i> — </i>
+                  <strong>{status}</strong>
+                </h3>
                 <p>Última fase disputada: {stage}</p>
               </div>
             ))}

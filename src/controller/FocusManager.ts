@@ -1,5 +1,8 @@
 const focusable =
-  'button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), a[href], [tabindex="0"]';
+  'button:not(:disabled):not([tabindex="-1"]), input:not(:disabled):not([tabindex="-1"]), select:not(:disabled), textarea:not(:disabled), a[href], [tabindex="0"]';
+
+const regionOf = (el: HTMLElement) =>
+  el.closest('[data-focus-region], header, main, footer, [data-focus-scope="modal"]');
 
 export class FocusManager {
   private last: HTMLElement | null = null;
@@ -35,6 +38,8 @@ export class FocusManager {
     const rect = current.getBoundingClientRect();
     const x = rect.x + rect.width / 2;
     const y = rect.y + rect.height / 2;
+    const region = regionOf(current);
+    // Prioridade: mesma região e alinhado no eixo perpendicular > mesma região > alinhado > resto.
     const candidates = elements
       .filter((el) => el !== current)
       .map((el) => {
@@ -43,10 +48,26 @@ export class FocusManager {
         const ry = r.y + r.height / 2 - y;
         const forward = rx * dx + ry * dy;
         const side = Math.abs(rx * dy - ry * dx);
-        return { el, forward, score: forward + side * 2.8 };
+        const overlap = dx
+          ? Math.min(r.bottom, rect.bottom) - Math.max(r.top, rect.top) > 4
+          : Math.min(r.right, rect.right) - Math.max(r.left, rect.left) > 4;
+        const gap = dx
+          ? dx > 0
+            ? r.left - rect.right
+            : rect.left - r.right
+          : dy > 0
+            ? r.top - rect.bottom
+            : rect.top - r.bottom;
+        const tier = (dx && regionOf(el) !== region ? 2 : 0) + (overlap ? 0 : 1);
+        return {
+          el,
+          forward,
+          tier,
+          score: (overlap ? Math.max(0, gap) : forward) + side * (overlap ? 0.6 : 2.8),
+        };
       })
       .filter((c) => c.forward > 3)
-      .sort((a, b) => a.score - b.score);
+      .sort((a, b) => a.tier - b.tier || a.score - b.score);
     this.last = current;
     const next = candidates[0]?.el;
     if (next) {

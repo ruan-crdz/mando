@@ -1,11 +1,12 @@
-import { useState } from 'react';
-import { CalendarDays, Medal, Trophy } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { CalendarDays, ChevronLeft, ChevronRight, Medal, Trophy } from 'lucide-react';
 import { Badge, dateLabel, SectionTitle } from '../components/ui';
 import { standings } from '../game/engine';
-import { competitionName, fixtureLabel, milestones } from '../game/calendar';
+import { competitionName, fixtureCompetition, fixtureLabel, milestones } from '../game/calendar';
 import { cupGroups, cupTies } from '../game/competitions';
 import { clubById } from '../game/npc';
-import { type Career, type TableRow, type World } from '../game/types';
+import { type Career, type Fixture, type TableRow, type World } from '../game/types';
+import { useGamepad, useStickX } from '../controller/GamepadProvider';
 
 function StandingsTable({
   rows,
@@ -19,11 +20,7 @@ function StandingsTable({
   zone: (i: number) => string;
 }) {
   return (
-    <div
-      className="table-scroll"
-      tabIndex={0}
-      aria-label="Tabela de classificação, role para ver todas as colunas"
-    >
+    <div className="table-scroll" aria-label="Tabela de classificação">
       <table>
         <thead>
           <tr>
@@ -68,16 +65,79 @@ const cupRules: Record<string, string> = {
   SUL: '32 clubes em 8 grupos de 4, ida e volta. Dois primeiros avançam; mata-mata ida e volta até a final em jogo único.',
 };
 
+const shortCompetition = (id: string) =>
+  id === 'A'
+    ? 'Série A'
+    : id === 'B'
+      ? 'Série B'
+      : id === 'CDB'
+        ? 'Copa do Brasil'
+        : id === 'SUP'
+          ? 'Supercopa'
+          : id === 'LIB'
+            ? 'Libertadores'
+            : id === 'SUL'
+              ? 'Sul-Americana'
+              : competitionName(id);
+
+const trophyPhotos: Record<string, string> = {
+  A: 'serie-a',
+  B: 'serie-b',
+  CDB: 'copa-do-brasil',
+  SUP: 'supercopa',
+  LIB: 'libertadores',
+  SUL: 'sul-americana',
+  'EST-SP': 'paulista',
+  'EST-RJ': 'carioca',
+  'EST-RS': 'gaucho',
+};
+const trophyUrl = (id: string) =>
+  trophyPhotos[id] ? `${import.meta.env.BASE_URL}assets/trofeus/${trophyPhotos[id]}.jpg` : null;
+
+const weekDays = ['DOM', 'SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SÁB'];
+const monthName = (month: string) =>
+  new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(
+    new Date(`${month}-15T12:00:00Z`),
+  );
+const shiftMonth = (month: string, delta: number) => {
+  const d = new Date(`${month}-15T12:00:00Z`);
+  d.setUTCMonth(d.getUTCMonth() + delta);
+  return d.toISOString().slice(0, 7);
+};
+
 export function Season({ career: c, world }: { career: Career; world: World }) {
   const club = world.clubs.find((club) => club.id === c.clubId)!;
-  const [comp, setComp] = useState<string>(club.league);
+  const { input, hints } = useGamepad();
+  const [comp, setComp] = useState<string>(c.leagues[c.clubId] || club.league);
   const [view, setView] = useState<'table' | 'calendar' | 'stats' | 'trophies'>('table');
+  const [month, setMonth] = useState(c.date.slice(0, 7));
+  const [day, setDay] = useState(c.date);
   const available = ['A', 'B', `EST-${club.state}`, 'CDB', 'SUP', 'LIB', 'SUL'].filter(
     (id) => id === 'A' || id === 'B' || c.fixtures.some((f) => f.cup === id),
   );
+  const cycleComp = (dir: number) => {
+    const i = Math.max(0, available.indexOf(comp));
+    setComp(available[(i + dir + available.length) % available.length]);
+  };
+  const cycleMonth = (dir: number) => {
+    const next = shiftMonth(month, dir);
+    if (next.slice(0, 4) !== String(c.season)) return;
+    setMonth(next);
+    setDay(`${next}-01`);
+  };
+  useStickX((dir) => (view === 'calendar' ? cycleMonth(dir) : view !== 'trophies' && cycleComp(dir)));
+  const pad = input === 'xbox' || input === 'playstation';
   const isLeague = comp === 'A' || comp === 'B';
   const statsLeague = isLeague ? (comp as 'A' | 'B') : club.league;
-  const ownFixtures = c.fixtures.filter((f) => f.homeId === c.clubId || f.awayId === c.clubId);
+  const ownFixtures = useMemo(
+    () => c.fixtures.filter((f) => f.homeId === c.clubId || f.awayId === c.clubId),
+    [c.fixtures, c.clubId],
+  );
+  const byDate = useMemo(() => {
+    const map = new Map<string, Fixture>();
+    for (const f of ownFixtures) map.set(f.date, f);
+    return map;
+  }, [ownFixtures]);
   const compFixtures = c.fixtures.filter((f) => (isLeague ? f.league === comp : f.cup === comp));
   const last = compFixtures.filter((f) => f.result).slice(-10);
   const stats = world.players.filter(
@@ -89,26 +149,45 @@ export function Season({ career: c, world }: { career: Career; world: World }) {
   const family = comp.startsWith('EST-') ? 'EST' : comp;
   const ties = isLeague ? [] : cupTies(c, comp);
   const stages = [...new Set(ties.map((t) => t.stage))];
+  const switcher = (label: string, onPrev: () => void, onNext: () => void, dots?: string[]) => (
+    <div className="stick-switcher" aria-live="polite">
+      <button type="button" tabIndex={-1} aria-label="Anterior" onClick={onPrev}>
+        <ChevronLeft size={20} />
+      </button>
+      <div>
+        <strong>{label}</strong>
+        {dots && (
+          <span className="switcher-dots">
+            {dots.map((d) => (
+              <i key={d} className={d === comp ? 'on' : ''} />
+            ))}
+          </span>
+        )}
+      </div>
+      <button type="button" tabIndex={-1} aria-label="Próximo" onClick={onNext}>
+        <ChevronRight size={20} />
+      </button>
+      <small>{pad ? <kbd>{hints.stick}</kbd> : ', .'} ◄ ► trocar</small>
+    </div>
+  );
+
+  // Calendário mensal: começa no domingo, completa a última semana.
+  const first = new Date(`${month}-01T12:00:00Z`);
+  const daysInMonth = new Date(Date.UTC(first.getUTCFullYear(), first.getUTCMonth() + 1, 0)).getUTCDate();
+  const lead = first.getUTCDay();
+  const cells = Array.from({ length: Math.ceil((lead + daysInMonth) / 7) * 7 }, (_, i) => {
+    const n = i - lead + 1;
+    return n >= 1 && n <= daysInMonth ? `${month}-${String(n).padStart(2, '0')}` : null;
+  });
+  const dayFixture = byDate.get(day);
+  const dayMilestones = milestones(c.season).filter((m) =>
+    m.end ? m.date <= day && day <= m.end : m.date === day,
+  );
+
+  const shelf = ['A', 'B', `EST-${club.state}`, 'CDB', 'SUP', 'LIB', 'SUL'];
   return (
     <div className="screen-enter">
-      <SectionTitle kicker={`TEMPORADA / ${c.season}`} title="Cada rodada conta.">
-        <div className="segmented compact" role="tablist" aria-label="Competição">
-          {available.map((id) => (
-            <button
-              key={id}
-              className={comp === id ? 'active' : ''}
-              onClick={() => setComp(id)}
-              title={competitionName(id)}
-            >
-              {id === 'A' || id === 'B'
-                ? `SÉRIE ${id}`
-                : id.startsWith('EST-')
-                  ? competitionName(id).toUpperCase()
-                  : id}
-            </button>
-          ))}
-        </div>
-      </SectionTitle>
+      <SectionTitle kicker={`TEMPORADA / ${c.season}`} title="Cada rodada conta." />
       <div className="segmented">
         {(
           [
@@ -128,7 +207,7 @@ export function Season({ career: c, world }: { career: Career; world: World }) {
         <div className="season-layout">
           <section className="panel standings-panel">
             <div className="panel-heading">
-              <h2>{competitionName(comp)}</h2>
+              {switcher(competitionName(comp), () => cycleComp(-1), () => cycleComp(1), available)}
               <span className="pill">
                 {champion(comp) ? `CAMPEÃO: ${clubById(world, champion(comp)!).short}` : c.season}
               </span>
@@ -154,13 +233,14 @@ export function Season({ career: c, world }: { career: Career; world: World }) {
                   }
                 />
                 <div className="table-legend">
-                  <span>● {comp === 'B' ? 'Acesso direto' : 'Libertadores (G6)'}</span>
-                  {comp === 'B' && <span>● Playoffs (3º–6º)</span>}
-                  {comp === 'A' && <span>● Rebaixamento</span>}
+                  <span className="legend-up">● {comp === 'B' ? 'Acesso direto' : 'Libertadores (G6)'}</span>
+                  {comp === 'B' && <span className="legend-playoff">● Playoffs (3º–6º)</span>}
+                  {comp === 'A' && <span className="legend-down">● Rebaixamento</span>}
+                  <span className="muted">{pad ? <kbd>{hints.stick}</kbd> : 'Roda do mouse'} ▲▼ rolar</span>
                 </div>
               </>
             ) : (
-              <>
+              <div className="table-scroll cup-scroll">
                 {cupGroups(c, comp).map((g) => (
                   <div key={g.group} className="cup-group">
                     <p className="eyebrow">
@@ -206,7 +286,7 @@ export function Season({ career: c, world }: { career: Career; world: World }) {
                 {!stages.length && !cupGroups(c, comp).length && (
                   <p className="muted">Nenhuma partida desta competição na temporada.</p>
                 )}
-              </>
+              </div>
             )}
           </section>
           <aside>
@@ -242,42 +322,85 @@ export function Season({ career: c, world }: { career: Career; world: World }) {
                     ? '20 clubes e 380 partidas. Quatro últimos rebaixados. G6 e campeão da Copa do Brasil vão à Libertadores; os seis seguintes à Sul-Americana.'
                     : cupRules[family]}
               </p>
-              <p className="muted small">
-                Datas geradas pelo simulador dentro das janelas oficiais de {c.season}, sem
-                conflitos de calendário; não são a tabela oficial da CBF/Conmebol.
-              </p>
             </section>
           </aside>
         </div>
       )}
       {view === 'calendar' && (
-        <div className="season-layout">
-          <section className="panel">
-            <h2>O caminho do {club.name}</h2>
-            <div className="fixture-list">
-              {ownFixtures.map((f) => {
-                const label = fixtureLabel(f);
+        <div className="season-layout calendar-layout">
+          <section className="panel month-panel">
+            <div className="panel-heading">
+              {switcher(monthName(month), () => cycleMonth(-1), () => cycleMonth(1))}
+              <span className="pill">{ownFixtures.filter((f) => f.date.startsWith(month)).length} jogos</span>
+            </div>
+            <div className="month-grid">
+              {weekDays.map((w) => (
+                <span key={w} className="weekday">
+                  {w}
+                </span>
+              ))}
+              {cells.map((date, i) => {
+                if (!date) return <span key={`x${i}`} className="day-cell blank" />;
+                const f = byDate.get(date);
+                const opponent = f && clubById(world, f.homeId === c.clubId ? f.awayId : f.homeId);
+                const home = f?.homeId === c.clubId;
+                const won =
+                  f?.result &&
+                  (home ? f.result.homeGoals - f.result.awayGoals : f.result.awayGoals - f.result.homeGoals);
                 return (
-                  <div className={f.date === c.date ? 'today' : ''} key={f.id}>
-                    <span>
-                      <small>
-                        {label.name} · {label.stage}
-                      </small>
-                      {dateLabel(f.date)}
-                    </span>
-                    <span>{clubById(world, f.homeId).name}</span>
-                    <strong>
-                      {f.result ? `${f.result.homeGoals} : ${f.result.awayGoals}` : '×'}
-                    </strong>
-                    <span>{clubById(world, f.awayId).name}</span>
-                  </div>
+                  <button
+                    key={date}
+                    type="button"
+                    className={`day-cell ${f ? 'match' : ''} ${date === c.date ? 'today' : ''} ${date === day ? 'selected' : ''} ${date < c.date ? 'past' : ''} ${won !== undefined && won !== null && f?.result ? (won > 0 ? 'win' : won < 0 ? 'loss' : 'draw') : ''}`}
+                    onClick={() => setDay(date)}
+                    onFocus={() => setDay(date)}
+                    aria-label={`${dateLabel(date, true)}${f ? `: ${opponent!.name}, ${shortCompetition(fixtureCompetition(f))}` : ''}`}
+                  >
+                    <span className="day-number">{Number(date.slice(8))}</span>
+                    {f && opponent && (
+                      <>
+                        <span className="day-side">{home ? 'CASA' : 'FORA'}</span>
+                        <Badge club={opponent} size="small" />
+                        <small className="day-comp">
+                          {f.result
+                            ? `${f.result.homeGoals}–${f.result.awayGoals}`
+                            : shortCompetition(fixtureCompetition(f))}
+                        </small>
+                      </>
+                    )}
+                  </button>
                 );
               })}
             </div>
           </section>
-          <aside className="panel">
+          <aside className="panel day-panel">
+            <p className="eyebrow">{dateLabel(day, true).toUpperCase()}</p>
+            {dayFixture ? (
+              <div className="day-fixture">
+                <p className="eyebrow">
+                  {fixtureLabel(dayFixture).name} · {fixtureLabel(dayFixture).stage}
+                </p>
+                <div className="day-versus">
+                  <span>
+                    <Badge club={clubById(world, dayFixture.homeId)} size="large" />
+                    <strong>{clubById(world, dayFixture.homeId).short}</strong>
+                  </span>
+                  <b>
+                    {dayFixture.result
+                      ? `${dayFixture.result.homeGoals} : ${dayFixture.result.awayGoals}`
+                      : '×'}
+                  </b>
+                  <span>
+                    <Badge club={clubById(world, dayFixture.awayId)} size="large" />
+                    <strong>{clubById(world, dayFixture.awayId).short}</strong>
+                  </span>
+                </div>
+              </div>
+            ) : (
+              <h3>Dia sem jogo · treino e recuperação.</h3>
+            )}
             <p className="eyebrow">AGENDA NACIONAL</p>
-            {milestones(c.season).map((m) => (
+            {(dayMilestones.length ? dayMilestones : milestones(c.season).filter((m) => m.date.startsWith(month))).map((m) => (
               <div className="milestone" key={m.title}>
                 <CalendarDays size={17} />
                 <div>
@@ -289,9 +412,6 @@ export function Season({ career: c, world }: { career: Career; world: World }) {
                 </div>
               </div>
             ))}
-            <p className="muted small">
-              Novas fases das copas entram no calendário assim que a fase anterior termina.
-            </p>
           </aside>
         </div>
       )}
@@ -328,46 +448,57 @@ export function Season({ career: c, world }: { career: Career; world: World }) {
         </div>
       )}
       {view === 'trophies' && (
-        <div className="panel trophy-room">
-          <Trophy size={70} strokeWidth={1} />
-          <p className="eyebrow">SALA DE CONQUISTAS</p>
-          <h2>
-            {ownTitles.length
-              ? `${ownTitles.length} ${ownTitles.length === 1 ? 'título' : 'títulos'} na sua gestão.`
-              : 'A história ainda está sendo escrita.'}
-          </h2>
-          {ownTitles.map((h) => (
-            <p key={`${h.season}-${h.competition}`}>
-              🏆 <strong>{competitionName(h.competition)}</strong> {h.season}
-            </p>
-          ))}
-          <p className="eyebrow">CAMPEÕES DE {c.season}</p>
-          {['A', 'B', `EST-${club.state}`, 'SUP', 'CDB', 'LIB', 'SUL'].map((id) => (
-            <p key={id}>
-              {competitionName(id)}:{' '}
-              <strong>{champion(id) ? clubById(world, champion(id)!).name : 'em disputa'}</strong>
-            </p>
-          ))}
-          {c.seasonEnded && (
-            <p>
-              Acesso à Série A: {c.promoted.map((id) => clubById(world, id).name).join(', ')} ·
-              Rebaixados: {c.relegated.map((id) => clubById(world, id).name).join(', ')}
-            </p>
-          )}
-          {c.history.length > 0 && (
-            <>
-              <p className="eyebrow">SUA CARREIRA</p>
-              {c.history.map((h) => (
-                <p key={h.season}>
-                  {h.season}: {h.position}º na Série {h.league} · confiança{' '}
-                  {Math.round(h.confidence)}%
-                  {h.trophies.length
-                    ? ` · ${h.trophies.map((t) => competitionName(t)).join(', ')}`
-                    : ''}
-                </p>
-              ))}
-            </>
-          )}
+        <div className="trophy-hall">
+          <div className="trophy-shelf carousel">
+            {shelf.map((id) => {
+              const titles = ownTitles.filter((h) => h.competition === id);
+              const url = trophyUrl(id);
+              return (
+                <button
+                  type="button"
+                  key={id}
+                  className={`trophy-stand ${titles.length ? 'won' : ''}`}
+                  aria-label={`${competitionName(id)}: ${titles.length} títulos`}
+                >
+                  <span className="trophy-light" />
+                  {url ? (
+                    <img src={url} alt="" loading="lazy" draggable={false} />
+                  ) : (
+                    <Trophy className="trophy-fallback" size={96} strokeWidth={1.2} />
+                  )}
+                  <span className="trophy-plate">
+                    <strong>{titles.length}</strong>
+                    <small>{titles.length === 1 ? 'TÍTULO' : 'TÍTULOS'}</small>
+                  </span>
+                  <span className="trophy-name">{shortCompetition(id)}</span>
+                  <small className="trophy-years">
+                    {titles.length
+                      ? titles.map((t) => t.season).join(' · ')
+                      : champion(id)
+                        ? `${c.season}: ${clubById(world, champion(id)!).short}`
+                        : 'Em disputa'}
+                  </small>
+                </button>
+              );
+            })}
+          </div>
+          <div className="trophy-footer">
+            <span>
+              <strong>{ownTitles.length}</strong>{' '}
+              {ownTitles.length === 1 ? 'título' : 'títulos'} na sua gestão
+            </span>
+            {c.history.slice(-3).map((h) => (
+              <span key={h.season}>
+                {h.season} — {h.position}º na Série {h.league}
+              </span>
+            ))}
+            {c.seasonEnded && (
+              <span>
+                Acesso — {c.promoted.map((id) => clubById(world, id).short).join(', ')}
+              </span>
+            )}
+            <small className="muted">Fotos: Wikimedia Commons (CC BY / CC BY-SA)</small>
+          </div>
         </div>
       )}
     </div>

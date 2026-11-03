@@ -271,6 +271,9 @@ try {
       wage: Math.round((Number(r.salary_mando_eur_month) * EUR_BRL) / 100) * 100,
       contractEnd: `${2025 + years}-12-31`,
       attributes,
+      ...(Number(r.shirt_number) >= 1 && Number(r.shirt_number) <= 99
+        ? { number: Number(r.shirt_number) }
+        : {}),
     };
   });
 

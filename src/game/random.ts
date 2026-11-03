@@ -20,6 +20,16 @@ export function addDays(date: string, days: number) {
   return d.toISOString().slice(0, 10);
 }
 
+export function addMonths(date: string, months: number) {
+  const d = new Date(`${date}T12:00:00Z`);
+  const day = d.getUTCDate();
+  d.setUTCDate(1);
+  d.setUTCMonth(d.getUTCMonth() + months);
+  const last = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 0)).getUTCDate();
+  d.setUTCDate(Math.min(day, last));
+  return d.toISOString().slice(0, 10);
+}
+
 export function ageAt(birth: string, date: string) {
   return (
     Number(date.slice(0, 4)) - Number(birth.slice(0, 4)) - (date.slice(5) < birth.slice(5) ? 1 : 0)

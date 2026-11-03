@@ -24,6 +24,9 @@ export function squad(career: Career, world: World, clubId = career.clubId) {
   return world.players.filter((p) => career.players[p.id]?.clubId === clubId);
 }
 
+/** Formação usada pelos clubes controlados pela engine durante as partidas. */
+export const npcFormation = '4-2-3-1' as const;
+
 export function bestLineup(
   career: Career,
   world: World,
@@ -102,11 +105,11 @@ export function beginMatch(career: Career, world: World, fixture: Fixture): Matc
     homeLineup:
       fixture.homeId === career.clubId
         ? [...career.lineup]
-        : bestLineup(career, world, fixture.homeId),
+        : bestLineup(career, world, fixture.homeId, npcFormation),
     awayLineup:
       fixture.awayId === career.clubId
         ? [...career.lineup]
-        : bestLineup(career, world, fixture.awayId),
+        : bestLineup(career, world, fixture.awayId, npcFormation),
     usedSubs: 0,
     replaced: [],
     ratings: {},
@@ -164,7 +167,7 @@ export function stepMatch(career: Career, world: World, current: Match): Match {
   const minute = ++match.minute;
   const rng = random(hash(`${match.seed}:${minute}`));
   const npc: Tactic = {
-    formation: '4-2-3-1',
+    formation: npcFormation,
     mentality: 'Equilibrada',
     pressure: 3,
     width: 3,

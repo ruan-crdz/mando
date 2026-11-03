@@ -10,6 +10,7 @@ import {
   type World,
 } from '../game/types';
 import { useControllerActions, useGamepad } from '../controller/GamepadProvider';
+import { ChipGroup, NumberStepper, OptionCycler } from '../components/controls';
 
 const challengeDescriptions: Record<Career['challenge'], string> = {
   Realista: 'As condições iniciais do snapshot, sem modificadores.',
@@ -161,40 +162,31 @@ export function CreateManager({
                   onChange={(e) => setManager({ ...manager, lastName: e.target.value })}
                 />
               </label>
-              <label>
-                Nacionalidade
-                <select
-                  value={manager.nationality}
-                  onChange={(e) => setManager({ ...manager, nationality: e.target.value })}
-                >
-                  {nationalities.map((s) => (
-                    <option key={s}>{s}</option>
-                  ))}
-                </select>
-              </label>
-              <label>
-                Idade
-                <input
-                  type="number"
-                  min={18}
-                  max={85}
-                  value={manager.age}
-                  onChange={(e) => setManager({ ...manager, age: Number(e.target.value) })}
-                />
-              </label>
-              <label className="full">
-                Roupa
-                <select
+              <OptionCycler
+                label="Nacionalidade"
+                value={manager.nationality}
+                options={nationalities.map((s) => ({ value: s, label: s }))}
+                onChange={(nationality) => setManager({ ...manager, nationality })}
+              />
+              <NumberStepper
+                label="Idade"
+                min={18}
+                max={85}
+                step={1}
+                value={manager.age}
+                onChange={(age) => setManager({ ...manager, age: age ?? 18 })}
+              />
+              <div className="full">
+                <ChipGroup
+                  label="Roupa"
                   value={manager.style}
-                  onChange={(e) =>
-                    setManager({ ...manager, style: e.target.value as Manager['style'] })
-                  }
-                >
-                  {['Terno azul', 'Agasalho', 'Camisa social'].map((s) => (
-                    <option key={s}>{s}</option>
-                  ))}
-                </select>
-              </label>
+                  options={(['Terno azul', 'Agasalho', 'Camisa social'] as const).map((s) => ({
+                    value: s,
+                    label: s,
+                  }))}
+                  onChange={(style: Manager['style']) => setManager({ ...manager, style })}
+                />
+              </div>
               <label className="full">
                 Aparência (para o retrato)
                 <textarea
