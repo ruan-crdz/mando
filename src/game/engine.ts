@@ -1,7 +1,7 @@
 import { addDays, ageAt, clamp, hash, random } from './random';
 import { bestLineup, reconcileSquad, simulateMatch, squad } from './matches';
 import { competitionName, createSchedule, fixtureLabel, nextFixture } from './calendar';
-import { processOffers } from './transfers';
+import { expireThread, processOffers } from './transfers';
 import { overall } from './ratings';
 import { clubById, findPlayer, knownClub } from './npc';
 import { baseWorld, careerWorld } from './live';
@@ -446,7 +446,7 @@ export function advanceDay(career: Career, world: World): Career {
   for (const offer of c.offers.filter(
     (o) => o.incoming && o.status === 'pending' && o.responseDate < c.date,
   ))
-    offer.status = 'declined';
+    expireThread(offer, c.date, 'O prazo da proposta expirou sem resposta.');
   // Partidas geradas por copas no mesmo dia (novas fases) também são simuladas.
   for (let pass = 0; pass < 3; pass++) {
     const due = c.fixtures.filter(

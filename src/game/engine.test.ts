@@ -14,6 +14,8 @@ import {
   createOffer,
   askingPrice,
   answerIncoming,
+  counterIncoming,
+  respondCounter,
   negotiationOutlook,
   renewContract,
 } from './transfers';
@@ -230,13 +232,11 @@ describe('mercado e relações', () => {
     career.date = '2026-01-05';
     expect(() => createOffer(career, world, p.id, 1e12, 100000)).toThrow('orçamento');
   });
-  it('responde em dois dias e conclui a negociação sem depender de IA', () => {
+  it('responde no dia seguinte e conclui a negociação sem depender de IA', () => {
     career.date = '2026-01-05';
     const p = world.players.find((p) => p.clubId === 'palmeiras' && p.position === 'ST')!;
     const fee = Math.ceil(askingPrice(career, world, p));
     career = createOffer(career, world, p.id, fee, p.wage * 2);
-    expect(career.offers[0].status).toBe('pending');
-    career = advanceDay(career, world);
     expect(career.offers[0].status).toBe('pending');
     career = advanceDay(career, world);
     expect(career.offers[0].status).toBe('completed');
@@ -244,7 +244,7 @@ describe('mercado e relações', () => {
     expect(career.finances[career.clubId].transferBudget).toBe(
       world.clubs.find((c) => c.id === career.clubId)!.budget - fee,
     );
-    expect(career.messages[0].important).toBe(true);
+    expect(career.messages[0].title).toContain('Negociação');
   });
   it('luvas compensam salário menor e o contrato respeita os anos oferecidos', () => {
     career.date = '2026-01-05';
@@ -272,6 +272,76 @@ describe('mercado e relações', () => {
     expect(career.offers[0].status).toBe('rejected');
     expect(career.players[p.id].clubId).toBe('palmeiras');
     expect(career.messages[0].body).toContain('orçamento');
+  });
+  it('clube vendedor nunca pede menos do que foi oferecido e mantém uma única conversa', () => {
+    career.date = '2026-01-05';
+    const p = world.players.find((p) => p.clubId === 'palmeiras' && p.position === 'ST')!;
+    const minimum = askingPrice(career, world, p);
+    const fee = Math.round(minimum * 0.8);
+    career = createOffer(career, world, p.id, fee, p.wage * 2);
+    career = advanceDay(career, world);
+    const offer = career.offers[0];
+    expect(offer.status).toBe('countered');
+    expect(offer.counter!.fee!).toBeGreaterThan(fee);
+    expect(offer.counter!.fee!).toBeLessThanOrEqual(Math.ceil(minimum / 100000) * 100000);
+    const firstAsk = offer.counter!.fee!;
+    career = createOffer(career, world, p.id, fee + 100000, p.wage * 2);
+    expect(career.offers).toHaveLength(1);
+    career = advanceDay(career, world);
+    expect(career.offers[0].counter!.fee!).toBeLessThanOrEqual(firstAsk);
+    expect(career.offers[0].counter!.fee!).toBeGreaterThan(fee + 100000);
+    const kinds = career.offers[0].messages!.map((m) => `${m.from}:${m.kind}`);
+    expect(kinds).toEqual(['me:offer', 'club:counter', 'me:offer', 'club:counter']);
+    career = respondCounter(career, world, career.offers[0].id, true);
+    expect(career.offers[0].status).toBe('completed');
+    expect(career.players[p.id].clubId).toBe(career.clubId);
+  });
+  it('oferta acima do pedido é aceita e proposta ridícula é recusada', () => {
+    career.date = '2026-01-05';
+    const [a, b] = world.players.filter((p) => p.clubId === 'palmeiras' && p.position !== 'GK');
+    career = createOffer(career, world, a.id, Math.ceil(askingPrice(career, world, a) * 1.05), a.wage * 2);
+    career = createOffer(career, world, b.id, 1000, b.wage * 2);
+    career = advanceDay(career, world);
+    expect(career.offers[0].status).toBe('completed');
+    expect(career.offers[1].status).toBe('rejected');
+    expect(career.offers[1].messages![1].kind).toBe('reject');
+  });
+  it('agente devolve contraproposta de salário depois do acordo entre clubes', () => {
+    career.date = '2026-01-05';
+    const p = world.players.find((p) => p.clubId === 'palmeiras' && p.position === 'ST')!;
+    const wage = Math.round(career.players[p.id].wage * 0.85);
+    career = createOffer(career, world, p.id, Math.ceil(askingPrice(career, world, p)), wage);
+    career = advanceDay(career, world);
+    const offer = career.offers[0];
+    expect(offer.stage).toBe('player');
+    expect(offer.status).toBe('countered');
+    expect(offer.counter!.wage!).toBeGreaterThan(wage);
+    career = respondCounter(career, world, offer.id, true);
+    expect(career.offers[0].status).toBe('completed');
+  });
+  it('contraproposta em venda melhora a oferta recebida ou fecha o negócio', () => {
+    career.date = '2026-01-05';
+    const p = career.lineup[10];
+    career.offers.push({
+      id: 'received',
+      playerId: p,
+      fromClubId: 'palmeiras',
+      toClubId: career.clubId,
+      fee: 1000000,
+      wage: 500000,
+      date: career.date,
+      responseDate: '2026-01-12',
+      incoming: true,
+      status: 'pending',
+      minimum: 2000000,
+    });
+    const c = counterIncoming(career, world, 'received', 2600000);
+    const offer = c.offers.find((o) => o.id === 'received')!;
+    expect(offer.status).toBe('pending');
+    expect(offer.fee).toBeGreaterThan(1000000);
+    expect(offer.fee).toBeLessThan(2600000);
+    const sold = counterIncoming(career, world, 'received', 1500000);
+    expect(sold.offers.find((o) => o.id === 'received')!.status).toBe('completed');
   });
   it('aceita oferta recebida, contabiliza vendas e impede aceitar de novo', () => {
     career.date = '2026-01-05';

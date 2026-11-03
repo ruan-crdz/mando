@@ -272,6 +272,21 @@ export const messageSchema = z.object({
   choice: z.enum(['support', 'firm']).optional(),
 });
 export type Message = z.infer<typeof messageSchema>;
+const negotiationTermsSchema = z.object({
+  fee: z.number().nonnegative().optional(),
+  wage: z.number().nonnegative().optional(),
+  years: z.number().int().min(1).max(5).optional(),
+  bonus: z.number().nonnegative().optional(),
+  exchangePlayerId: z.string().optional(),
+});
+export type NegotiationTerms = z.infer<typeof negotiationTermsSchema>;
+export const negotiationMessageSchema = negotiationTermsSchema.extend({
+  date: isoDate,
+  from: z.enum(['me', 'club', 'agent', 'system']),
+  kind: z.enum(['offer', 'counter', 'accept', 'reject', 'info']),
+  text: z.string(),
+});
+export type NegotiationMessage = z.infer<typeof negotiationMessageSchema>;
 export const offerSchema = z.object({
   id: z.string(),
   playerId: z.string(),
@@ -286,9 +301,19 @@ export const offerSchema = z.object({
   bonus: z.number().nonnegative().optional(),
   date: isoDate,
   responseDate: isoDate,
-  status: z.enum(['pending', 'accepted', 'rejected', 'completed', 'declined']),
+  /** countered = o outro lado devolveu uma contraproposta e aguarda a sua decisão. */
+  status: z.enum(['pending', 'countered', 'accepted', 'rejected', 'completed', 'declined']),
   incoming: z.boolean(),
   minimum: z.number().nonnegative(),
+  /** Etapa da conversa: acordo entre clubes ou contrato com o agente do atleta. */
+  stage: z.enum(['club', 'player']).optional(),
+  /** Paciência restante do outro lado; zerada, a conversa é encerrada. */
+  patience: z.number().optional(),
+  /** Último valor total pedido pelo clube vendedor (taxa + troca). */
+  ask: z.number().nonnegative().optional(),
+  counter: negotiationTermsSchema.optional(),
+  lockedUntil: isoDate.optional(),
+  messages: z.array(negotiationMessageSchema).optional(),
 });
 export type Offer = z.infer<typeof offerSchema>;
 export const careerSchema = z.object({

@@ -39,7 +39,13 @@ import {
 import { bestLineup, beginMatch, substitute } from './game/matches';
 import { careerWorld } from './game/live';
 import { nextFixture } from './game/calendar';
-import { answerIncoming, createOffer, renewContract } from './game/transfers';
+import {
+  answerIncoming,
+  counterIncoming,
+  createOffer,
+  renewContract,
+  respondCounter,
+} from './game/transfers';
 import { type Career, type Player, type World } from './game/types';
 import { listLocal, removeLocal, saveLocal, type SavedCareer } from './services/storage';
 import {
@@ -423,7 +429,7 @@ function Game() {
                     let sent = false;
                     act(() => {
                       setCareer(createOffer(career, live!, id, fee, wage, exchange, terms));
-                      setNotice('Proposta enviada. A resposta chega em dois dias.');
+                      setNotice('Proposta enviada. A resposta chega amanhã.');
                       sent = true;
                     });
                     return sent;
@@ -439,6 +445,17 @@ function Game() {
                   onAnswer={(id, accept) =>
                     act(() => {
                       const updated = answerIncoming(career, live!, id, accept);
+                      const lineup = bestLineup(updated, live!);
+                      if (lineup.length === 11) updated.lineup = lineup;
+                      setCareer(updated);
+                    })
+                  }
+                  onRespond={(id, accept) =>
+                    act(() => setCareer(respondCounter(career, live!, id, accept)))
+                  }
+                  onAsk={(id, fee) =>
+                    act(() => {
+                      const updated = counterIncoming(career, live!, id, fee);
                       const lineup = bestLineup(updated, live!);
                       if (lineup.length === 11) updated.lineup = lineup;
                       setCareer(updated);
