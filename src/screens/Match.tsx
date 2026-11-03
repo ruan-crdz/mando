@@ -13,7 +13,8 @@ import { available, stepMatch } from '../game/matches';
 import { fixtureLabel } from '../game/calendar';
 import { clubById, findPlayer } from '../game/npc';
 import { formations, type Career, type Tactic, type World } from '../game/types';
-import { Badge, Modal, SectionTitle } from '../components/ui';
+import { Badge, Modal } from '../components/ui';
+import { useGamepad } from '../controller/GamepadProvider';
 
 export function MatchScreen({
   career: c,
@@ -38,9 +39,11 @@ export function MatchScreen({
   const [tactic, setTactic] = useState(false);
   const [outgoing, setOut] = useState('');
   const [incoming, setIn] = useState('');
+  const { rumble } = useGamepad();
   const latest = useRef(c);
   latest.current = c;
   const match = c.activeMatch!;
+  const scoreRef = useRef({ home: match.homeGoals, away: match.awayGoals, minute: match.minute });
   const fixture = c.fixtures.find((f) => f.id === match.fixtureId)!;
   const home = clubById(world, fixture.homeId);
   const away = clubById(world, fixture.awayId);
@@ -62,6 +65,15 @@ export function MatchScreen({
           ? 'AO VIVO'
           : 'PAUSADO';
   useEffect(() => {
+    const before = scoreRef.current;
+    const ownHome = fixture.homeId === c.clubId;
+    if (match.homeGoals > before.home) rumble(ownHome ? 'goal' : 'concede');
+    if (match.awayGoals > before.away) rumble(ownHome ? 'concede' : 'goal');
+    if (match.minute !== before.minute && (match.minute === 45 || match.minute === 90))
+      rumble('whistle');
+    scoreRef.current = { home: match.homeGoals, away: match.awayGoals, minute: match.minute };
+  }, [match.homeGoals, match.awayGoals, match.minute, fixture.homeId, c.clubId, rumble]);
+  useEffect(() => {
     if (!playing || sub || tactic || paused) return;
     const timer = setInterval(() => {
       try {
@@ -81,13 +93,13 @@ export function MatchScreen({
     return () => clearInterval(timer);
   }, [playing, speed, sub, tactic, paused, world, onChange, onError]);
   return (
-    <div className="screen-enter match-screen">
-      <SectionTitle
-        kicker={`${label.name.toUpperCase()} / ${label.stage.toUpperCase()}`}
-        title="O plano encontra o jogo."
-      >
-        <span className="weather">{home.stadium}</span>
-      </SectionTitle>
+    <div className="screen match-screen">
+      <div className="match-strip">
+        <span>
+          {label.name.toUpperCase()} · {label.stage.toUpperCase()}
+        </span>
+        <span>{home.stadium}</span>
+      </div>
       <section className="scoreboard">
         <div>
           <Badge club={home} size="large" />
@@ -247,26 +259,26 @@ export function MatchScreen({
             </div>
           )}
         </aside>
+        <section className="panel commentary-panel">
+          <h2>
+            <Volume2 size={19} /> Direto do campo
+          </h2>
+          <div className="commentary-feed" aria-live={playing ? 'off' : 'polite'}>
+            {[...match.events]
+              .reverse()
+              .slice(0, 30)
+              .map((e, i) => (
+                <div key={`${e.minute}-${i}`} className={e.type === 'goal' ? 'goal' : ''}>
+                  <time>{e.minute}'</time>
+                  <span>
+                    {e.type === 'goal' ? '⚽ ' : e.type === 'yellow' ? '🟨 ' : ''}
+                    {e.text}
+                  </span>
+                </div>
+              ))}
+          </div>
+        </section>
       </div>
-      <section className="panel commentary-panel">
-        <h2>
-          <Volume2 size={19} /> Direto do campo
-        </h2>
-        <div className="commentary-feed" aria-live={playing ? 'off' : 'polite'}>
-          {[...match.events]
-            .reverse()
-            .slice(0, 18)
-            .map((e, i) => (
-              <div key={`${e.minute}-${i}`} className={e.type === 'goal' ? 'goal' : ''}>
-                <time>{e.minute}'</time>
-                <span>
-                  {e.type === 'goal' ? '⚽ ' : e.type === 'yellow' ? '🟨 ' : ''}
-                  {e.text}
-                </span>
-              </div>
-            ))}
-        </div>
-      </section>
       {sub && (
         <Modal title="Mudar a história do jogo" onClose={() => setSub(false)}>
           <p>{match.usedSubs} de 5 substituições utilizadas</p>

@@ -40,6 +40,42 @@ export async function signIn(email: string) {
   if (error) throw error;
 }
 
+let sessionPromise: Promise<string | null> | null = null;
+/** Silently guarantees a (guest) account so cloud saves and AI work without any login screen. */
+export function ensureSession(): Promise<string | null> {
+  if (!supabase) return Promise.resolve(null);
+  const auth = supabase.auth;
+  sessionPromise ??= (async () => {
+    const { data } = await auth.getSession();
+    if (data.session) return data.session.user.id;
+    const { data: created, error } = await auth.signInAnonymously();
+    if (error) throw error;
+    return created.user?.id ?? null;
+  })().catch((error: unknown) => {
+    sessionPromise = null;
+    throw error;
+  });
+  return sessionPromise;
+}
+
+export type PortraitRequest = {
+  firstName: string;
+  lastName: string;
+  age: number;
+  nationality?: string;
+  style: string;
+  appearance: string;
+};
+
+export async function requestPortrait(manager: PortraitRequest) {
+  await ensureSession();
+  const { data, error } = await client().functions.invoke('ai-manager-avatar', {
+    body: { attemptId: crypto.randomUUID(), manager },
+  });
+  if (error) await functionFailure(error, 'Não foi possível gerar o retrato');
+  return z.object({ url: z.string().url() }).parse(data).url;
+}
+
 export async function loadPublishedWorld(): Promise<World> {
   const { data, error } = await client()
     .from('world_snapshots')
@@ -96,6 +132,7 @@ export async function requestAi(
   eventId: string,
   kind: 'message' | 'news' | 'staff',
 ) {
+  await ensureSession();
   const { data, error } = await client().functions.invoke(`ai-${kind}`, {
     body: { careerId, eventId },
   });
@@ -103,14 +140,6 @@ export async function requestAi(
   return z
     .object({ message: z.string().min(1), tone: z.string(), requires_response: z.boolean() })
     .parse(data);
-}
-
-export async function requestAvatar(careerId: string) {
-  const { data, error } = await client().functions.invoke('ai-manager-avatar', {
-    body: { careerId },
-  });
-  if (error) await functionFailure(error, 'Não foi possível gerar o retrato');
-  return z.object({ url: z.string().url() }).parse(data).url;
 }
 
 async function functionFailure(error: Error, label: string): Promise<never> {

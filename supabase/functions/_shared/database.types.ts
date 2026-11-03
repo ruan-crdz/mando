@@ -24,7 +24,7 @@ type CareerRow = {
 type JobRow = {
   id: string;
   user_id: string;
-  career_id: string;
+  career_id: string | null;
   event_id: string;
   kind: string;
   status: string;
@@ -91,6 +91,10 @@ export type Database = {
       publish_world: { Args: { p_payload: Json }; Returns: string };
       claim_ai_job: {
         Args: { p_user_id: string; p_career_id: string; p_event_id: string; p_kind: string };
+        Returns: string;
+      };
+      claim_portrait_job: {
+        Args: { p_user_id: string; p_attempt: string };
         Returns: string;
       };
     };

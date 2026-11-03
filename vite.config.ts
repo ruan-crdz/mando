@@ -12,11 +12,11 @@ export default defineConfig(({ mode }) => {
         registerType: 'prompt',
         includeAssets: ['icon.svg', 'icon-192.png', 'icon-512.png', 'icon-maskable.png'],
         manifest: {
-          name: 'Mando — Carreira de manager',
+          name: 'Mando â€” Carreira de manager',
           short_name: 'Mando',
-          description: 'Seu clube. Suas decisões.',
-          theme_color: '#e9f1f5',
-          background_color: '#e9f1f5',
+          description: 'Seu clube. Suas decisÃµes.',
+          theme_color: '#0a1f5c',
+          background_color: '#071447',
           display: 'standalone',
           orientation: 'any',
           icons: [

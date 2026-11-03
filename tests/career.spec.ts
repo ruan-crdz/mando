@@ -49,7 +49,7 @@ test('criação, todas as abas, negociação, avanço e save/load persistente', 
     .click();
   await page.getByRole('button', { name: /Avançar dia/ }).click();
   await expect(page.locator('.club-header')).toContainText('02');
-  await expect(page.getByRole('button', { name: /SALVO LOCAL/ })).toBeVisible();
+  await expect(page.locator('.save-status')).toHaveText(/SALVO/);
   await page.reload();
   await expect(page.getByRole('button', { name: /CONTINUAR CARREIRA/ })).toBeVisible();
   await page.getByRole('button', { name: /CONTINUAR CARREIRA/ }).click();
@@ -176,7 +176,7 @@ test('layout móvel não cria rolagem horizontal', async ({ page }) => {
 
 test('PWA mantém o jogo e o save acessíveis após ficar offline', async ({ page, context }) => {
   await createCareer(page);
-  await expect(page.getByRole('button', { name: /SALVO LOCAL/ })).toBeVisible();
+  await expect(page.locator('.save-status')).toHaveText(/SALVO/);
   await page.evaluate(async () => {
     await navigator.serviceWorker.ready;
   });
@@ -212,3 +212,29 @@ test('Brasileirão 2026 com elencos reais e escudos locais', async ({ page }) =>
   await expect(page.getByText('Lucas Moura').first()).toBeVisible();
   expect(errors).toEqual([]);
 });
+
+for (const [width, height] of [
+  [1440, 900],
+  [1280, 720],
+] as const) {
+  test(`telas cabem em ${width}x${height} sem rolagem vertical`, async ({ page }) => {
+    await page.setViewportSize({ width, height });
+    const fits = () =>
+      page.evaluate(() => {
+        const stage = document.querySelector('main.stage')!;
+        return (
+          document.documentElement.scrollHeight <= innerHeight &&
+          stage.scrollHeight <= stage.clientHeight + 1
+        );
+      });
+    await page.goto('./');
+    expect(await fits()).toBe(true);
+    await createCareer(page);
+    expect(await fits()).toBe(true);
+    for (const tab of [/TIME/, /TRANSFERÊNCIAS/, /ESCRITÓRIO/, /TEMPORADA/, /CENTRAL/]) {
+      await page.getByRole('navigation').getByRole('button', { name: tab }).click();
+      await page.waitForTimeout(400);
+      expect(await fits(), `aba ${tab}`).toBe(true);
+    }
+  });
+}

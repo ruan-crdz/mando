@@ -1,5 +1,5 @@
 import { type ReactNode, useEffect, useRef } from 'react';
-import { ArrowUpRight, ChevronRight } from 'lucide-react';
+import { ArrowUpRight, ChevronLeft } from 'lucide-react';
 import { type Club, type Manager } from '../game/types';
 import { clubLogo } from '../game/realWorld';
 
@@ -99,15 +99,24 @@ export function Modal({
   title,
   children,
   onClose,
+  wide = false,
 }: {
   title: string;
   children: ReactNode;
   onClose: () => void;
+  wide?: boolean;
 }) {
   const ref = useRef<HTMLElement>(null);
   useEffect(() => {
     const previous = document.activeElement as HTMLElement;
-    ref.current?.querySelector<HTMLElement>('button, input, select, textarea')?.focus();
+    const root = ref.current;
+    (
+      root?.querySelector<HTMLElement>('[data-autofocus]') ||
+      root?.querySelector<HTMLElement>(
+        '.dialog-body button:not(:disabled), .dialog-body input, .dialog-body select',
+      ) ||
+      root?.querySelector<HTMLElement>('button')
+    )?.focus();
     return () => {
       if (previous?.isConnected) previous.focus();
     };
@@ -116,7 +125,7 @@ export function Modal({
     <div className="modal-backdrop">
       <section
         ref={ref}
-        className="dialog"
+        className={`dialog ${wide ? 'wide' : ''}`}
         data-focus-scope="modal"
         role="dialog"
         aria-modal="true"
@@ -125,10 +134,10 @@ export function Modal({
         <div className="dialog-heading">
           <h2>{title}</h2>
           <button className="text-button" data-dialog-close onClick={onClose}>
-            Voltar <ChevronRight size={16} />
+            <ChevronLeft size={16} /> Voltar
           </button>
         </div>
-        {children}
+        <div className="dialog-body">{children}</div>
       </section>
     </div>
   );
@@ -137,52 +146,40 @@ export function ManagerPortrait({ manager, large = false }: { manager: Manager; 
   if (manager.avatar)
     return (
       <img
-        className={`manager-portrait ${large ? 'large' : ''}`}
+        className={`manager-portrait photo ${large ? 'large' : ''}`}
         src={manager.avatar}
         alt={`Retrato de ${manager.firstName}`}
       />
     );
+  const initials = `${manager.firstName[0] || 'M'}${manager.lastName[0] || ''}`.toUpperCase();
+  const suit =
+    manager.style === 'Agasalho' ? '#1b9e5a' : manager.style === 'Camisa social' ? '#e9eef7' : '#13285e';
   return (
     <svg
-      className={`manager-portrait ${large ? 'large' : ''}`}
+      className={`manager-portrait silhouette ${large ? 'large' : ''}`}
       viewBox="0 0 320 400"
       role="img"
-      aria-label="Ilustração original do manager; retrato por IA disponível após conexão"
+      aria-label={`Silhueta de ${manager.firstName || 'manager'}; gere um retrato por IA`}
     >
       <defs>
-        <linearGradient id="jacket" x1="0" y1="0" x2="1" y2="1">
-          <stop stopColor="#28445c" />
-          <stop offset="1" stopColor="#102d43" />
+        <linearGradient id="mp-skin" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#ffffff" stopOpacity=".95" />
+          <stop offset="1" stopColor="#9fd8ff" stopOpacity=".75" />
+        </linearGradient>
+        <linearGradient id="mp-body" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stopColor={suit} />
+          <stop offset="1" stopColor="#050c2c" />
         </linearGradient>
       </defs>
-      <ellipse cx="160" cy="382" rx="135" ry="17" fill="#122d42" opacity=".1" />
-      <path d="M56 389l13-117 51-30h80l51 30 13 117z" fill="url(#jacket)" />
-      <path d="M132 216h56v57l-28 25-28-25z" fill="#b88261" />
-      <path d="M126 249l34 25 34-25-10 140h-47z" fill="#f3f5f3" />
-      <path
-        d="M151 283h18l-3 20 12 86h-35l13-86z"
-        fill={manager.style === 'Terno azul' ? '#7c333b' : '#68877b'}
-      />
-      <path
-        d="M121 241l39 148-55-93 17-11-24-20zM199 241l-39 148 55-93-17-11 24-20z"
-        fill="#3c5669"
-      />
-      <ellipse cx="160" cy="158" rx="61" ry="78" fill="#cc9b77" />
-      <path d="M101 149q-14-87 53-89 77-3 66 99l-18-53q-56 27-85 0z" fill="#263540" />
-      <path d="M131 157h17m26 0h17" stroke="#3b3b38" strokeWidth="5" strokeLinecap="round" />
-      <path
-        d="M157 164l-6 28h16m-24 19q17 8 34-1"
-        fill="none"
-        stroke="#94664e"
-        strokeWidth="3"
-        strokeLinecap="round"
-      />
-      <path
-        d="M112 192q7 51 48 48 45 0 49-50-14 40-49 37-30 4-48-35"
-        fill="#534638"
-        opacity=".65"
-      />
-      <path d="M230 315l-20 54m-115-54l15 54" stroke="#173246" strokeWidth="4" />
+      <path d="M40 400c4-78 40-118 120-126 80 8 116 48 120 126z" fill="url(#mp-body)" />
+      <path d="M128 262h64l-6 34-26 22-26-22z" fill="url(#mp-skin)" opacity=".85" />
+      <path d="M138 276l22 46 22-46 14 6-36 118-36-118z" fill="#ffffff" opacity=".9" />
+      <path d="M156 296h8l6 90h-20z" fill={manager.style === 'Agasalho' ? 'none' : '#e5323b'} />
+      <ellipse cx="160" cy="170" rx="66" ry="84" fill="url(#mp-skin)" />
+      <path d="M94 160q-10-96 66-98 78 0 68 98-10-46-68-48-58 2-66 48z" fill="#0b1a46" opacity=".85" />
+      <text x="160" y="196" textAnchor="middle" fontSize="54" fontWeight="800" fill="#0b1a46" opacity=".55">
+        {initials}
+      </text>
     </svg>
   );
 }

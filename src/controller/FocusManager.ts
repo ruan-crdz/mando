@@ -51,7 +51,11 @@ export class FocusManager {
     const next = candidates[0]?.el;
     if (next) {
       next.focus({ preventScroll: true });
-      next.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' });
+      next.scrollIntoView({
+        block: 'nearest',
+        inline: next.closest('.carousel') ? 'center' : 'nearest',
+        behavior: 'smooth',
+      });
     }
   }
 

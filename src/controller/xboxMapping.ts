@@ -5,6 +5,8 @@ export const xboxMapping = {
   info: 'Y',
   previousTab: 'LB',
   nextTab: 'RB',
+  previousView: 'LT',
+  nextView: 'RT',
   menu: '☰',
 } as const;
 export const standardButtons = {
@@ -14,6 +16,8 @@ export const standardButtons = {
   info: 3,
   previousTab: 4,
   nextTab: 5,
+  previousView: 6,
+  nextView: 7,
   menu: 9,
   up: 12,
   down: 13,

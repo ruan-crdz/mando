@@ -184,11 +184,7 @@ export function Office({
                   <BrainCircuit size={17} />{' '}
                   {m.aiText ? 'Diálogo já gerado' : 'Dar voz a esta história com IA'}
                 </button>
-                {!aiAvailable && (
-                  <p className="muted small">
-                    IA requer login, sincronização e Edge Functions configuradas.
-                  </p>
-                )}
+
                 {m.playerId && (
                   <div className="memory-list">
                     <p className="eyebrow">MEMÓRIAS RECENTES</p>
@@ -210,7 +206,7 @@ export function Office({
         </div>
       )}
       {view === 'finances' && (
-        <>
+        <div className="finance-layout">
           <div className="metrics-strip">
             <Metric label="CAIXA ATUAL" value={money(finance.cash)} />
             <Metric label="TRANSFERÊNCIAS" value={money(finance.transferBudget)} />
@@ -227,7 +223,7 @@ export function Office({
                   aria-label={`Salários ${Math.round(wageShare)}%, operação ${Math.round(opShare)}%, juros ${Math.round(100 - wageShare - opShare)}%`}
                   className="donut"
                   style={{
-                    background: `conic-gradient(#234d65 0 ${wageShare}%, #a9c5c6 ${wageShare}% ${wageShare + opShare}%, #d7ed78 ${wageShare + opShare}% 100%)`,
+                    background: `conic-gradient(#00b4ff 0 ${wageShare}%, #ff8a00 ${wageShare}% ${wageShare + opShare}%, #c6ff00 ${wageShare + opShare}% 100%)`,
                   }}
                 >
                   <span>
@@ -258,8 +254,8 @@ export function Office({
                   role="img"
                   aria-label={`Caixa de ${money(balances[0])} para ${money(balances.at(-1)!)}`}
                 >
-                  <path d="M0 150H560M0 85H560M0 20H560" stroke="#dce5e9" fill="none" />
-                  <polyline points={path} fill="none" stroke="#287477" strokeWidth="3" />
+                  <path d="M0 150H560M0 85H560M0 20H560" stroke="rgba(255,255,255,.18)" fill="none" />
+                  <polyline points={path} fill="none" stroke="#c6ff00" strokeWidth="3" />
                 </svg>
               ) : (
                 <p className="empty-state">
@@ -305,7 +301,7 @@ export function Office({
               </p>
             )}
           </section>
-        </>
+        </div>
       )}
       {view === 'board' && (
         <div className="board-layout">
@@ -379,15 +375,12 @@ export function Office({
               <p>{c.manager.appearance}</p>
               <button
                 className="primary"
-                disabled={!aiAvailable || busy || Boolean(c.manager.avatar)}
+                disabled={!aiAvailable || busy}
                 onClick={onAvatar}
               >
                 <Sparkles size={16} />
-                {c.manager.avatar ? 'Retrato gerado' : 'Gerar retrato com IA'}
+                {c.manager.avatar ? 'Gerar novo retrato com IA' : 'Gerar retrato com IA'}
               </button>
-              <p className="muted small">
-                Uma geração por carreira. Requer OpenAI configurada e gera cobrança na sua conta.
-              </p>
             </div>
           </section>
           <section className="panel staff-reports">

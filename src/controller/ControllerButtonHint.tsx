@@ -1,10 +1,11 @@
 import { useGamepad } from './GamepadProvider';
+import { type xboxMapping } from './xboxMapping';
 
 export function ControllerButtonHint({
   action,
   label,
 }: {
-  action: 'confirm' | 'back' | 'secondary' | 'info' | 'previousTab' | 'nextTab' | 'menu';
+  action: keyof typeof xboxMapping;
   label: string;
 }) {
   const { input, hints } = useGamepad();

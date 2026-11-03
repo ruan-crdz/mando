@@ -1,6 +1,6 @@
-import { useState } from 'react';
-import { ArrowLeft, ArrowRight, Check, Dices, Flag, UserRound } from 'lucide-react';
-import { Badge, ManagerPortrait, money, SectionTitle } from '../components/ui';
+import { useEffect, useRef, useState } from 'react';
+import { ArrowLeft, ArrowRight, Check, Dices, Flag, LoaderCircle, Sparkles } from 'lucide-react';
+import { Badge, ManagerPortrait, money } from '../components/ui';
 import {
   challenges,
   difficulties,
@@ -9,7 +9,7 @@ import {
   type Manager,
   type World,
 } from '../game/types';
-import { useControllerActions } from '../controller/GamepadProvider';
+import { useControllerActions, useGamepad } from '../controller/GamepadProvider';
 
 const challengeDescriptions: Record<Career['challenge'], string> = {
   Realista: 'As condições iniciais do snapshot, sem modificadores.',
@@ -28,11 +28,28 @@ const difficultyDescriptions: Record<Career['difficulty'], string> = {
     'Scouting com incerteza, salários mais exigentes, moral sensível e ajustes táticos frequentes.',
 };
 
+const nationalities = [
+  'Brasil',
+  'Argentina',
+  'Portugal',
+  'Uruguai',
+  'Chile',
+  'Colômbia',
+  'Espanha',
+  'Itália',
+  'França',
+  'Alemanha',
+  'Japão',
+  'Angola',
+];
+const tileColors = ['tile-blue', 'tile-green', 'tile-orange', 'tile-purple', 'tile-pink', 'tile-cyan'];
+
 export function CreateManager({
   world,
   onStart,
   onBack,
   onError,
+  onPortrait,
 }: {
   world: World;
   onStart: (
@@ -43,21 +60,32 @@ export function CreateManager({
   ) => void;
   onBack: () => void;
   onError: (message: string) => void;
+  onPortrait: (manager: Manager) => Promise<string>;
 }) {
+  const { rumble } = useGamepad();
   const [step, setStep] = useState(0);
   const [manager, setManager] = useState<Manager>({
     firstName: '',
     lastName: '',
     nationality: 'Brasil',
-    age: 30,
+    age: 38,
     style: 'Terno azul',
-    appearance: 'Cabelo curto, barba curta, aparência jovem',
+    appearance: 'Cabelo curto escuro, barba curta, olhos castanhos',
   });
+  const [generating, setGenerating] = useState(false);
   const [league, setLeague] = useState<'A' | 'B'>('A');
   const [clubId, setClub] = useState('sao-paulo');
   const [challenge, setChallenge] = useState<Career['challenge']>('Realista');
   const [difficulty, setDifficulty] = useState<Career['difficulty']>('Amador');
+  const carousel = useRef<HTMLDivElement>(null);
   const club = world.clubs.find((c) => c.id === clubId) || world.clubs[0];
+  const clubs = world.clubs.filter((c) => c.league === league);
+  useEffect(() => {
+    if (step !== 1) return;
+    carousel.current
+      ?.querySelector<HTMLElement>('.club-option.selected')
+      ?.scrollIntoView({ inline: 'center', block: 'nearest' });
+  }, [step, league]);
   const back = () => (step ? setStep(step - 1) : onBack());
   const next = () => {
     const result = managerSchema.safeParse(manager);
@@ -68,242 +96,238 @@ export function CreateManager({
     if (step === 2) onStart(result.data, club.id, difficulty, challenge);
     else setStep(step + 1);
   };
+  const generate = async () => {
+    if (!manager.firstName.trim() || !manager.lastName.trim()) {
+      onError('Preencha nome e sobrenome antes de gerar o retrato.');
+      return;
+    }
+    setGenerating(true);
+    try {
+      const avatar = await onPortrait(manager);
+      setManager((m) => ({ ...m, avatar }));
+      rumble('confirm');
+    } catch (e) {
+      onError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setGenerating(false);
+    }
+  };
   useControllerActions({
     back,
     previousTab: back,
     nextTab: () => {
       if (step < 2) next();
     },
+    info: () => {
+      if (step === 0 && !generating) void generate();
+    },
   });
   return (
-    <div className="creation screen-enter">
-      <div className="step-track">
-        {['SEU MANAGER', 'SEU CLUBE', 'SEU DESAFIO'].map((label, i) => (
-          <span className={i === step ? 'active' : i < step ? 'done' : ''} key={label}>
-            <b>{i < step ? <Check size={14} /> : `0${i + 1}`}</b>
-            {label}
-          </span>
-        ))}
+    <div className="screen creation">
+      <div className="creation-top">
+        <div className="step-track">
+          {['MANAGER', 'CLUBE', 'DESAFIO'].map((label, i) => (
+            <span className={i === step ? 'active' : i < step ? 'done' : ''} key={label}>
+              <b>{i < step ? <Check size={14} /> : i + 1}</b>
+              {label}
+            </span>
+          ))}
+        </div>
+        <h1 className="screen-title">
+          {['Quem assume o Mando?', 'Escolha o seu clube', 'Toda história tem um desafio'][step]}
+        </h1>
+        {world.mode === 'demo' && <span className="demo-chip">DEMONSTRAÇÃO</span>}
       </div>
-      {world.mode === 'demo' && (
-        <p className="demo-banner">
-          MODO DEMONSTRAÇÃO · Atletas, atributos e finanças são sintéticos. Não é o elenco real de
-          2026.
-        </p>
-      )}
       {step === 0 && (
-        <>
-          <SectionTitle kicker="NOVA CARREIRA / 01" title="Quem assume o Mando?" />
-          <div className="creation-grid">
-            <section className="panel manager-form">
-              <div className="panel-heading">
-                <UserRound size={20} />
-                <h2>Uma identidade. Seu estilo.</h2>
-              </div>
-              <div className="form-grid">
-                <label>
-                  Nome
-                  <input
-                    value={manager.firstName}
-                    maxLength={35}
-                    placeholder="Seu nome"
-                    onChange={(e) => setManager({ ...manager, firstName: e.target.value })}
-                  />
-                </label>
-                <label>
-                  Sobrenome
-                  <input
-                    value={manager.lastName}
-                    maxLength={45}
-                    placeholder="Seu sobrenome"
-                    onChange={(e) => setManager({ ...manager, lastName: e.target.value })}
-                  />
-                </label>
-                <label>
-                  Nacionalidade
-                  <select
-                    value={manager.nationality}
-                    onChange={(e) => setManager({ ...manager, nationality: e.target.value })}
-                  >
-                    {[
-                      'Brasil',
-                      'Argentina',
-                      'Portugal',
-                      'Uruguai',
-                      'Chile',
-                      'Colômbia',
-                      'Espanha',
-                      'Itália',
-                      'França',
-                      'Alemanha',
-                      'Japão',
-                      'Angola',
-                    ].map((s) => (
-                      <option key={s}>{s}</option>
-                    ))}
-                  </select>
-                </label>
-                <label>
-                  Idade
-                  <input
-                    type="number"
-                    min={18}
-                    max={85}
-                    value={manager.age}
-                    onChange={(e) => setManager({ ...manager, age: Number(e.target.value) })}
-                  />
-                </label>
-                <label>
-                  Roupa
-                  <select
-                    value={manager.style}
-                    onChange={(e) =>
-                      setManager({ ...manager, style: e.target.value as Manager['style'] })
-                    }
-                  >
-                    {['Terno azul', 'Agasalho', 'Camisa social'].map((s) => (
-                      <option key={s}>{s}</option>
-                    ))}
-                  </select>
-                </label>
-                <label className="full">
-                  Aparência para o retrato por IA
-                  <textarea
-                    value={manager.appearance}
-                    maxLength={400}
-                    rows={3}
-                    onChange={(e) => setManager({ ...manager, appearance: e.target.value })}
-                  />
-                </label>
-              </div>
-              <p className="muted small">
-                O retrato pode ser gerado no escritório após sincronizar uma carreira oficial.
-                Nenhuma chave fica no navegador.
-              </p>
-            </section>
-            <div className="portrait-panel">
-              <span className="portrait-grid" />
-              <p className="eyebrow">À BEIRA DO CAMPO</p>
-              <ManagerPortrait manager={manager} large />
-              <div className="portrait-caption">
-                <span>MANAGER</span>
-                <h2>
-                  {manager.firstName || 'Seu nome'} {manager.lastName}
-                </h2>
-                <p>
-                  {manager.nationality} · {manager.age} anos
-                </p>
-              </div>
+        <div className="creation-grid">
+          <section className="panel manager-form">
+            <div className="form-grid">
+              <label>
+                Nome
+                <input
+                  value={manager.firstName}
+                  maxLength={35}
+                  placeholder="Seu nome"
+                  data-autofocus
+                  onChange={(e) => setManager({ ...manager, firstName: e.target.value })}
+                />
+              </label>
+              <label>
+                Sobrenome
+                <input
+                  value={manager.lastName}
+                  maxLength={45}
+                  placeholder="Seu sobrenome"
+                  onChange={(e) => setManager({ ...manager, lastName: e.target.value })}
+                />
+              </label>
+              <label>
+                Nacionalidade
+                <select
+                  value={manager.nationality}
+                  onChange={(e) => setManager({ ...manager, nationality: e.target.value })}
+                >
+                  {nationalities.map((s) => (
+                    <option key={s}>{s}</option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                Idade
+                <input
+                  type="number"
+                  min={18}
+                  max={85}
+                  value={manager.age}
+                  onChange={(e) => setManager({ ...manager, age: Number(e.target.value) })}
+                />
+              </label>
+              <label className="full">
+                Roupa
+                <select
+                  value={manager.style}
+                  onChange={(e) =>
+                    setManager({ ...manager, style: e.target.value as Manager['style'] })
+                  }
+                >
+                  {['Terno azul', 'Agasalho', 'Camisa social'].map((s) => (
+                    <option key={s}>{s}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="full">
+                Aparência (para o retrato)
+                <textarea
+                  value={manager.appearance}
+                  maxLength={400}
+                  rows={2}
+                  onChange={(e) => setManager({ ...manager, appearance: e.target.value })}
+                />
+              </label>
             </div>
-          </div>
-        </>
+          </section>
+          <section className={`portrait-card ${generating ? 'generating' : ''}`}>
+            <div className="portrait-frame">
+              <ManagerPortrait manager={manager} large />
+              {generating && (
+                <div className="portrait-loading" role="status">
+                  <LoaderCircle className="spin" size={42} />
+                  <span>Produzindo seu retrato…</span>
+                </div>
+              )}
+            </div>
+            <div className="portrait-caption">
+              <span>MANAGER</span>
+              <h2>
+                {manager.firstName || 'Seu nome'} {manager.lastName}
+              </h2>
+              <p>
+                {manager.nationality} · {manager.age} anos
+              </p>
+            </div>
+            <button className="ai-portrait-button" disabled={generating} onClick={() => void generate()}>
+              <Sparkles size={18} />
+              {generating ? 'Gerando…' : manager.avatar ? 'Gerar outro retrato' : 'Gerar retrato com IA'}
+            </button>
+          </section>
+        </div>
       )}
       {step === 1 && (
-        <>
-          <SectionTitle kicker="NOVA CARREIRA / 02" title="Qual camisa pesa mais?">
+        <div className="club-step">
+          <div className="club-step-bar">
+            <div className="segmented">
+              {(['A', 'B'] as const).map((l) => (
+                <button key={l} className={league === l ? 'active' : ''} onClick={() => setLeague(l)}>
+                  SÉRIE {l}
+                </button>
+              ))}
+            </div>
             <button
-              onClick={() => {
-                const list = world.clubs.filter((c) => c.league === league);
+              className="ghost-button"
+              onClick={() =>
                 setClub(
-                  list[
+                  clubs[
                     Math.floor(
-                      (crypto.getRandomValues(new Uint32Array(1))[0] / 4294967296) * list.length,
+                      (crypto.getRandomValues(new Uint32Array(1))[0] / 4294967296) * clubs.length,
                     )
                   ].id,
-                );
-              }}
+                )
+              }
             >
-              <Dices size={18} /> Clube aleatório
+              <Dices size={18} /> Aleatório
             </button>
-          </SectionTitle>
-          <div className="segmented">
-            {(['A', 'B'] as const).map((l) => (
-              <button key={l} className={league === l ? 'active' : ''} onClick={() => setLeague(l)}>
-                BRASILEIRÃO SÉRIE {l}
+          </div>
+          <div className="club-grid carousel" ref={carousel}>
+            {clubs.map((c, i) => (
+              <button
+                key={c.id}
+                className={`club-option ${tileColors[i % tileColors.length]} ${club.id === c.id ? 'selected' : ''}`}
+                onClick={() => setClub(c.id)}
+                onFocus={() => setClub(c.id)}
+                aria-pressed={club.id === c.id}
+              >
+                <Badge club={c} size="large" />
+                <h3>{c.name}</h3>
+                <span className="stars">
+                  {'★'.repeat(Math.max(1, Math.round(c.reputation / 20)))}
+                  <i>{'★'.repeat(5 - Math.max(1, Math.round(c.reputation / 20)))}</i>
+                </span>
+                <p>
+                  {money(c.budget)} <span>orçamento</span>
+                </p>
+                <small>
+                  {world.players.filter((p) => p.clubId === c.id).length} atletas · {c.state}
+                </small>
+                {club.id === c.id && <Check className="selected-check" size={20} />}
               </button>
             ))}
           </div>
-          <div className="club-grid">
-            {world.clubs
-              .filter((c) => c.league === league)
-              .map((c) => (
-                <button
-                  key={c.id}
-                  className={`club-option ${club.id === c.id ? 'selected' : ''}`}
-                  onClick={() => setClub(c.id)}
-                  aria-pressed={club.id === c.id}
-                >
-                  <Badge club={c} />
-                  <h3>{c.name}</h3>
-                  <span className="stars">
-                    {'★'.repeat(Math.max(1, Math.round(c.reputation / 20)))}
-                  </span>
-                  <p>
-                    {money(c.budget)} <span>orçamento</span>
-                  </p>
-                  <small>
-                    {world.players.filter((p) => p.clubId === c.id).length} atletas · {c.state}
-                  </small>
-                  {club.id === c.id && <Check className="selected-check" size={18} />}
-                </button>
-              ))}
-          </div>
-        </>
+        </div>
       )}
       {step === 2 && (
-        <>
-          <SectionTitle kicker="NOVA CARREIRA / 03" title="Toda história tem um desafio." />
-          <div className="challenge-layout">
-            <section>
-              <h2 className="subheading">AS REGRAS DA SUA CARREIRA</h2>
-              <div className="challenge-grid">
-                {challenges.map((ch) => (
-                  <button
-                    key={ch}
-                    className={`choice-card ${challenge === ch ? 'selected' : ''}`}
-                    aria-pressed={challenge === ch}
-                    onClick={() => setChallenge(ch)}
-                  >
-                    <Flag size={19} />
-                    <h3>{ch}</h3>
-                    <p>{challengeDescriptions[ch]}</p>
-                  </button>
-                ))}
-              </div>
-            </section>
-            <section className="panel">
-              <p className="eyebrow">A EXPERIÊNCIA</p>
-              <h2>Dificuldade</h2>
-              {difficulties.map((d) => (
-                <button
-                  key={d}
-                  className={`difficulty-card ${difficulty === d ? 'selected' : ''}`}
-                  aria-pressed={difficulty === d}
-                  onClick={() => setDifficulty(d)}
-                >
-                  <strong>{d}</strong>
-                  <p>{difficultyDescriptions[d]}</p>
-                </button>
-              ))}
-              <p className="muted small">
-                Nenhum nível aumenta artificialmente os atributos do adversário.
-              </p>
-            </section>
+        <div className="challenge-layout">
+          <div className="challenge-grid carousel">
+            {challenges.map((ch, i) => (
+              <button
+                key={ch}
+                className={`choice-card ${tileColors[i % tileColors.length]} ${challenge === ch ? 'selected' : ''}`}
+                aria-pressed={challenge === ch}
+                onClick={() => setChallenge(ch)}
+              >
+                <Flag size={24} />
+                <h3>{ch}</h3>
+                <p>{challengeDescriptions[ch]}</p>
+                {challenge === ch && <Check className="selected-check" size={20} />}
+              </button>
+            ))}
           </div>
-        </>
+          <section className="difficulty-row">
+            {difficulties.map((d) => (
+              <button
+                key={d}
+                className={`difficulty-card ${difficulty === d ? 'selected' : ''}`}
+                aria-pressed={difficulty === d}
+                onClick={() => setDifficulty(d)}
+              >
+                <strong>{d}</strong>
+                <p>{difficultyDescriptions[d]}</p>
+              </button>
+            ))}
+          </section>
+        </div>
       )}
       <div className="creation-footer">
-        <button className="text-button" onClick={back}>
+        <button className="ghost-button" onClick={back}>
           <ArrowLeft size={17} /> Voltar
         </button>
         <div className="selected-club">
           <Badge club={club} size="small" />
           <span>
             {club.name}
-            <small>01 JAN 2026 · {world.mode === 'demo' ? 'Demonstração' : 'Elencos 2026'}</small>
+            <small>01 JAN 2026</small>
           </span>
         </div>
-        <button className="primary" onClick={next}>
+        <button className="primary big" onClick={next}>
           {step === 2 ? 'Assumir o clube' : 'Continuar'}
           <ArrowRight size={18} />
         </button>

@@ -1,23 +1,5 @@
-import {
-  ArrowRight,
-  CalendarDays,
-  ChevronRight,
-  CircleArrowRight,
-  MessageSquare,
-  Radio,
-  TrendingUp,
-  Trophy,
-  Users,
-} from 'lucide-react';
-import {
-  Badge,
-  dateLabel,
-  ManagerPortrait,
-  Metric,
-  money,
-  SectionTitle,
-  Tile,
-} from '../components/ui';
+import { ArrowRight, CircleArrowRight, MessageSquare, Radio, Trophy, Users } from 'lucide-react';
+import { Badge, dateLabel, ManagerPortrait, money } from '../components/ui';
 import { fixtureLabel, nextFixture } from '../game/calendar';
 import { clubById } from '../game/npc';
 import { addDays } from '../game/random';
@@ -56,216 +38,176 @@ export function CareerCentral({
   const unread = c.messages.filter((m) => !m.read);
   const pending = c.messages.filter((m) => m.important && !m.resolved);
   const isMatchDay = Boolean(fixture && fixture.date <= c.date);
+  const advanceAction = pending.length
+    ? () => onTab(3)
+    : c.seasonEnded
+      ? onNewSeason
+      : isMatchDay
+        ? onMatch
+        : onAdvance;
   return (
-    <div className="screen-enter">
-      <SectionTitle
-        kicker={`TEMPORADA ${c.season} / ${c.seasonEnded ? 'TEMPORADA ENCERRADA' : c.date < `${c.season}-01-11` ? 'PRÉ-TEMPORADA' : 'CARREIRA EM ANDAMENTO'}`}
-        title={`Bom trabalho, ${c.manager.firstName}`}
-      >
-        <span className="weather">
-          <span className="live-dot" /> {club.state} · {dateLabel(c.date, true)}
+    <div className="screen central">
+      <div className="central-strip">
+        <h1 className="screen-title">Bom trabalho, {c.manager.firstName}</h1>
+        <span className="strip-meta">
+          <span className="live-dot" /> TEMPORADA {c.season} ·{' '}
+          {c.seasonEnded
+            ? 'ENCERRADA'
+            : c.date < `${c.season}-01-11`
+              ? 'PRÉ-TEMPORADA'
+              : 'EM ANDAMENTO'}{' '}
+          · {dateLabel(c.date, true).toUpperCase()}
         </span>
-      </SectionTitle>
-      <div className="central-top">
-        <Tile className="fixture-tile" onClick={fixture ? onMatch : () => onTab(4)}>
-          <div className="tile-heading">
-            <p className="eyebrow">
-              <Radio size={14} /> {isMatchDay ? 'HOJE É DIA DE JOGO' : 'PRÓXIMO COMPROMISSO'}
-            </p>
-            <span className="pill">{label ? label.stage.toUpperCase() : 'FIM DA TEMPORADA'}</span>
-          </div>
+      </div>
+      <div className="central-grid">
+        <button
+          className="tile tile-blue fixture-tile"
+          data-autofocus
+          onClick={fixture ? onMatch : () => onTab(4)}
+        >
+          <span className="tile-label">
+            <Radio size={14} /> {isMatchDay ? 'HOJE É DIA DE JOGO' : 'PRÓXIMO JOGO'}
+            <em>{label ? label.stage.toUpperCase() : 'FIM DA TEMPORADA'}</em>
+          </span>
           {fixture && home && away ? (
             <>
-              <div className="matchup">
-                <div>
-                  <Badge club={home} size="large" />
-                  <h3>{home.name}</h3>
-                </div>
-                <span className="versus">×</span>
-                <div>
-                  <Badge club={away} size="large" />
-                  <h3>{away.name}</h3>
-                </div>
-              </div>
-              <div className="fixture-meta">
-                <span>{label!.name.toUpperCase()}</span>
+              <span className="matchup">
                 <span>
-                  {dateLabel(fixture.date)} · {home.stadium}
+                  <Badge club={home} size="large" />
+                  <strong>{home.name}</strong>
                 </span>
-              </div>
+                <span className="versus">VS</span>
+                <span>
+                  <Badge club={away} size="large" />
+                  <strong>{away.name}</strong>
+                </span>
+              </span>
+              <span className="fixture-meta">
+                {label!.name.toUpperCase()} · {dateLabel(fixture.date)} · {home.stadium}
+              </span>
             </>
           ) : (
-            <div className="season-complete">
+            <span className="season-complete">
               <Trophy size={64} />
-              <h2>O apito final de {c.season}.</h2>
-              <p>Veja como ficou a sua história.</p>
-            </div>
-          )}
-          <span className="fixture-action">
-            {isMatchDay ? 'PREPARAR EQUIPE' : fixture ? 'VER CALENDÁRIO' : 'RELATÓRIO FINAL'}{' '}
-            <ArrowRight size={17} />
-          </span>
-        </Tile>
-        <div className="advance-column">
-          <button
-            className={`advance-tile ${isMatchDay ? 'match-day' : ''}`}
-            disabled={busy}
-            onClick={
-              pending.length
-                ? () => onTab(3)
-                : c.seasonEnded
-                  ? onNewSeason
-                  : isMatchDay
-                    ? onMatch
-                    : onAdvance
-            }
-          >
-            <p className="eyebrow">
-              {pending.length
-                ? 'UMA DECISÃO ESPERA POR VOCÊ'
-                : c.seasonEnded
-                  ? 'FÉRIAS ACABARAM'
-                  : isMatchDay
-                    ? 'O ESTÁDIO ESTÁ PRONTO'
-                    : 'O CLUBE NÃO PARA'}
-            </p>
-            <h2>
-              {pending.length
-                ? 'Abrir escritório'
-                : c.seasonEnded
-                  ? `Iniciar ${c.season + 1}`
-                  : isMatchDay
-                    ? 'Dia de jogo'
-                    : 'Avançar dia'}
-            </h2>
-            <div className="advance-dates">
-              <span>
-                {c.date.slice(8)}
-                <small>
-                  {new Date(`${c.date}T12:00Z`)
-                    .toLocaleDateString('pt-BR', { month: 'short', timeZone: 'UTC' })
-                    .toUpperCase()}
-                </small>
-              </span>
-              <CircleArrowRight size={31} strokeWidth={1.3} />
-              <span>
-                {addDays(c.date, 1).slice(8)}
-                <small>
-                  {new Date(`${addDays(c.date, 1)}T12:00Z`)
-                    .toLocaleDateString('pt-BR', { month: 'short', timeZone: 'UTC' })
-                    .toUpperCase()}
-                </small>
-              </span>
-            </div>
-            <span className="advance-footnote">
-              {busy
-                ? 'Processando…'
-                : pending.length
-                  ? `${pending.length} ação necessária`
-                  : c.seasonEnded
-                    ? 'Acesso, vagas continentais e base aplicados.'
-                    : 'Um novo dia. Uma nova história.'}
+              <strong>O apito final de {c.season}.</strong>
             </span>
-          </button>
-          <div className="quick-stats">
-            <Metric label="NA TABELA" value={`${position}º`} note={`Série ${club.league}`} />
-            <Metric label="CONFIANÇA" value={`${Math.round(c.confidence)}%`} note="da diretoria" />
-          </div>
-        </div>
-        <Tile className="manager-tile" onClick={() => onTab(3)}>
-          <p className="eyebrow">O HOMEM NO COMANDO</p>
-          <div className="manager-watermark">M</div>
+          )}
+        </button>
+        <button
+          className={`tile ${isMatchDay ? 'tile-orange' : pending.length ? 'tile-pink' : 'tile-green'} advance-tile`}
+          disabled={busy}
+          onClick={advanceAction}
+        >
+          <span className="tile-label">
+            {pending.length
+              ? 'UMA DECISÃO ESPERA POR VOCÊ'
+              : c.seasonEnded
+                ? 'FÉRIAS ACABARAM'
+                : isMatchDay
+                  ? 'O ESTÁDIO ESTÁ PRONTO'
+                  : 'O CLUBE NÃO PARA'}
+          </span>
+          <h2>
+            {pending.length
+              ? 'Abrir escritório'
+              : c.seasonEnded
+                ? `Iniciar ${c.season + 1}`
+                : isMatchDay
+                  ? 'Dia de jogo'
+                  : 'Avançar dia'}
+          </h2>
+          <span className="advance-dates">
+            <span>
+              {c.date.slice(8)}
+              <small>
+                {new Date(`${c.date}T12:00Z`)
+                  .toLocaleDateString('pt-BR', { month: 'short', timeZone: 'UTC' })
+                  .toUpperCase()}
+              </small>
+            </span>
+            <CircleArrowRight size={34} strokeWidth={1.6} />
+            <span>
+              {addDays(c.date, 1).slice(8)}
+              <small>
+                {new Date(`${addDays(c.date, 1)}T12:00Z`)
+                  .toLocaleDateString('pt-BR', { month: 'short', timeZone: 'UTC' })
+                  .toUpperCase()}
+              </small>
+            </span>
+          </span>
+          <span className="tile-cta">
+            {busy
+              ? 'Processando…'
+              : pending.length
+                ? `${pending.length} ação necessária`
+                : c.seasonEnded
+                  ? 'Nova temporada'
+                  : 'Continuar'}
+          </span>
+        </button>
+        <button className="tile tile-purple manager-tile" onClick={() => onTab(3)}>
+          <span className="tile-label">MANAGER · {club.short}</span>
           <ManagerPortrait manager={c.manager} />
-          <div className="manager-title">
-            <span>MANAGER · {club.short}</span>
-            <h2>
+          <span className="manager-title">
+            <strong>
               {c.manager.firstName}
               <br />
               {c.manager.lastName}
-            </h2>
-            <span className="text-link">
-              SEU ESCRITÓRIO <ChevronRight size={16} />
-            </span>
-          </div>
-        </Tile>
-      </div>
-      <div className="central-bottom">
-        <section className="panel inbox-preview">
-          <div className="panel-heading">
-            <h2>
-              <MessageSquare size={19} /> Dentro do clube{' '}
-              <span className="count">{unread.length}</span>
-            </h2>
-            <button className="text-button" onClick={() => onTab(3)}>
-              VER TODAS <ArrowRight size={15} />
-            </button>
-          </div>
-          {c.messages.slice(0, 3).map((m) => (
-            <button className="inbox-row" key={m.id} onClick={() => onTab(3)}>
-              <span
-                className={`message-indicator ${m.important && !m.resolved ? 'important' : ''}`}
-              />
-              <span>
-                <small>
-                  {m.from} <span>· {dateLabel(m.date)}</span>
-                </small>
-                <strong>{m.title}</strong>
-              </span>
-              <ChevronRight size={17} />
-            </button>
-          ))}
-        </section>
-        <Tile className="squad-preview" onClick={() => onTab(1)}>
-          <div className="tile-heading">
-            <p className="eyebrow">
-              <Users size={15} /> SEU TIME
-            </p>
-            <span className="pill">{c.tactic.formation}</span>
-          </div>
-          <h2>
-            O plano começa
-            <br />
-            com onze.
-          </h2>
-          <div className="squad-summary">
-            <strong>
-              {average}
-              <small>OVR MÉDIO</small>
             </strong>
-            <div>
-              <span>{players.length} atletas no elenco</span>
-              <span>
-                {players.filter((p) => c.players[p.id].injuryDays > 0).length} no departamento
-                médico
-              </span>
-            </div>
-          </div>
-          <span className="text-link">
-            GERENCIAR ELENCO <ArrowRight size={15} />
+            <em>CONFIANÇA {Math.round(c.confidence)}%</em>
+            <meter min={0} max={100} value={c.confidence} />
           </span>
-          <div className="mini-pitch">
-            <i />
-            <i />
-            <i />
+        </button>
+        <section className="tile tile-glass inbox-preview">
+          <span className="tile-label">
+            <MessageSquare size={14} /> MENSAGENS <b className="count">{unread.length}</b>
+          </span>
+          <div className="inbox-rows">
+            {c.messages.slice(0, 4).map((m) => (
+              <button className="inbox-row" key={m.id} onClick={() => onTab(3)}>
+                <span
+                  className={`message-indicator ${m.important && !m.resolved ? 'important' : ''}`}
+                />
+                <span>
+                  <small>
+                    {m.from} · {dateLabel(m.date)}
+                  </small>
+                  <strong>{m.title}</strong>
+                </span>
+              </button>
+            ))}
           </div>
-        </Tile>
-        <div className="central-side">
-          <Tile className="finance-preview" onClick={() => onTab(3)}>
-            <p className="eyebrow">
-              <TrendingUp size={15} /> SAÚDE FINANCEIRA
-            </p>
-            <h2>{money(c.finances[c.clubId].cash)}</h2>
-            <p>Saldo disponível em caixa</p>
-            <span className="finance-spark" />
-          </Tile>
-          <button className="calendar-shortcut" onClick={() => onTab(4)}>
-            <CalendarDays size={20} />
-            <span>
-              Uma temporada pela frente<small>CALENDÁRIO E COMPETIÇÕES</small>
-            </span>
-            <ArrowRight size={18} />
-          </button>
-        </div>
+        </section>
+        <button className="tile tile-orange squad-preview" onClick={() => onTab(1)}>
+          <span className="tile-label">
+            <Users size={14} /> SEU TIME <em>{c.tactic.formation}</em>
+          </span>
+          <span className="big-stat">
+            {average}
+            <small>OVR MÉDIO</small>
+          </span>
+          <span className="tile-sub">
+            {players.length} atletas ·{' '}
+            {players.filter((p) => c.players[p.id].injuryDays > 0).length} lesionados
+          </span>
+          <span className="tile-cta">
+            GERENCIAR <ArrowRight size={16} />
+          </span>
+        </button>
+        <button className="tile tile-cyan table-preview" onClick={() => onTab(4)}>
+          <span className="tile-label">
+            <Trophy size={14} /> SÉRIE {club.league}
+          </span>
+          <span className="big-stat">
+            {position}º<small>NA TABELA</small>
+          </span>
+          <span className="tile-sub">
+            Caixa {money(c.finances[c.clubId].cash)}
+          </span>
+          <span className="tile-cta">
+            TEMPORADA <ArrowRight size={16} />
+          </span>
+        </button>
       </div>
       <div className="news-ticker">
         <span>MANDO NEWS</span>
@@ -273,7 +215,6 @@ export function CareerCentral({
           {c.messages.find((m) => m.kind === 'news')?.title ||
             `${club.name} inicia um novo projeto. A primeira decisão é sua.`}
         </p>
-        <span className="live-dot" />
       </div>
     </div>
   );

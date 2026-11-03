@@ -14,17 +14,65 @@ import { dualsenseMapping, isPlayStation } from './dualsenseMapping';
 type Action = keyof typeof xboxMapping;
 type Input = 'mouse' | 'keyboard' | 'xbox' | 'playstation';
 type Actions = Partial<Record<Action, () => void>>;
+export type RumbleKind = 'move' | 'confirm' | 'back' | 'tab' | 'goal' | 'concede' | 'whistle' | 'error';
+const rumblePatterns: Record<RumbleKind, [number, number, number][]> = {
+  move: [[16, 0, 0.18]],
+  confirm: [[45, 0.3, 0.55]],
+  back: [[35, 0.12, 0.4]],
+  tab: [[28, 0.2, 0.35]],
+  error: [
+    [90, 0.75, 0.2],
+    [90, 0.75, 0.2],
+  ],
+  whistle: [[260, 0.45, 0.6]],
+  goal: [
+    [180, 1, 1],
+    [140, 0.4, 0.8],
+    [420, 1, 1],
+  ],
+  concede: [[380, 0.8, 0.1]],
+};
+type HapticPad = Gamepad & {
+  vibrationActuator?: {
+    playEffect?: (
+      type: string,
+      params: { duration: number; strongMagnitude: number; weakMagnitude: number; startDelay?: number },
+    ) => Promise<unknown>;
+  };
+  hapticActuators?: { pulse?: (value: number, duration: number) => Promise<unknown> }[];
+};
 type ControllerContext = {
   input: Input;
   connected: string | null;
   unsupported: boolean;
   sound: boolean;
   toggleSound: () => void;
+  vibration: boolean;
+  toggleVibration: () => void;
+  rumble: (kind: RumbleKind) => void;
   hints: Record<Action, string>;
   register: (actions: Actions) => () => void;
 };
 const Context = createContext<ControllerContext | null>(null);
 const focus = new FocusManager();
+
+/** LT/RT switch the sub-tabs (`.segmented`) of the screen in focus, like FIFA's sub-menus. */
+function cycleView(delta: number) {
+  const scope = [...document.querySelectorAll<HTMLElement>('[data-focus-scope="modal"]')].at(-1);
+  const group = (scope || document.querySelector('main'))?.querySelector<HTMLElement>(
+    '.segmented:not(.compact)',
+  );
+  if (!group) return;
+  const buttons = [...group.querySelectorAll<HTMLButtonElement>('button:not(:disabled)')];
+  if (!buttons.length) return;
+  const current = Math.max(
+    0,
+    buttons.findIndex((b) => b.classList.contains('active')),
+  );
+  const next = buttons[(current + delta + buttons.length) % buttons.length];
+  next.click();
+  next.focus({ preventScroll: true });
+}
 
 export function GamepadProvider({ children }: { children: ReactNode }) {
   const [input, setInput] = useState<Input>('mouse');
@@ -41,6 +89,29 @@ export function GamepadProvider({ children }: { children: ReactNode }) {
   editRef.current = editing;
   const soundRef = useRef(sound);
   soundRef.current = sound;
+  const [vibration, setVibration] = useState(() => localStorage.getItem('mando-vibration') !== 'off');
+  const vibrationRef = useRef(vibration);
+  vibrationRef.current = vibration;
+  const padIndex = useRef<number | null>(null);
+  const rumble = useCallback((kind: RumbleKind) => {
+    if (!vibrationRef.current || padIndex.current === null || !navigator.getGamepads) return;
+    const pad = navigator.getGamepads()[padIndex.current] as HapticPad | null;
+    if (!pad?.connected) return;
+    let delay = 0;
+    for (const [duration, strongMagnitude, weakMagnitude] of rumblePatterns[kind]) {
+      const startDelay = delay;
+      if (pad.vibrationActuator?.playEffect)
+        void pad.vibrationActuator
+          .playEffect('dual-rumble', { duration, strongMagnitude, weakMagnitude, startDelay })
+          .catch(() => undefined);
+      else if (pad.hapticActuators?.[0]?.pulse)
+        setTimeout(
+          () => void pad.hapticActuators?.[0]?.pulse?.(strongMagnitude, duration)?.catch(() => undefined),
+          startDelay,
+        );
+      delay += duration + 70;
+    }
+  }, []);
   const register = useCallback((value: Actions) => {
     if (Object.keys(value).length === 0) return () => {};
     actions.current = value;
@@ -102,6 +173,13 @@ export function GamepadProvider({ children }: { children: ReactNode }) {
         }
       }
       if (editRef.current && action !== 'confirm') return;
+      if (action === 'previousView' || action === 'nextView') {
+        if (actions.current[action]) actions.current[action]!();
+        else cycleView(action === 'nextView' ? 1 : -1);
+        rumble('tab');
+        beep();
+        return;
+      }
       if (action === 'confirm') {
         focus.ensure();
         const el = document.activeElement;
@@ -115,7 +193,11 @@ export function GamepadProvider({ children }: { children: ReactNode }) {
           el.selectedIndex = (el.selectedIndex + 1) % el.options.length;
           el.dispatchEvent(new Event('change', { bubbles: true }));
         } else if (el instanceof HTMLElement) el.click();
-      } else actions.current[action]?.();
+        rumble('confirm');
+      } else {
+        actions.current[action]?.();
+        rumble(action === 'back' ? 'back' : 'tab');
+      }
       beep();
     };
     const move = (dx: number, dy: number) => {
@@ -132,6 +214,7 @@ export function GamepadProvider({ children }: { children: ReactNode }) {
         el.dispatchEvent(new Event('input', { bubbles: true }));
         el.dispatchEvent(new Event('change', { bubbles: true }));
       } else focus.move(dx, dy);
+      if (padIndex.current !== null) rumble('move');
       beep();
     };
     const tick = (now: number) => {
@@ -143,6 +226,7 @@ export function GamepadProvider({ children }: { children: ReactNode }) {
       );
       if (touched) activeIndex = touched.index;
       const pad = pads.find((p) => p.index === activeIndex) || pads[0];
+      padIndex.current = pad ? pad.index : null;
       const id = pad?.id || null;
       if (priorId !== id) {
         setConnected(id);
@@ -208,6 +292,9 @@ export function GamepadProvider({ children }: { children: ReactNode }) {
       } else if (!inField && (e.key === '[' || e.key === ']')) {
         e.preventDefault();
         activate(e.key === '[' ? 'previousTab' : 'nextTab');
+      } else if (!inField && (e.key === 'q' || e.key === 'e')) {
+        e.preventDefault();
+        activate(e.key === 'q' ? 'previousView' : 'nextView');
       }
     };
     const pointer = () => {
@@ -234,7 +321,7 @@ export function GamepadProvider({ children }: { children: ReactNode }) {
       window.removeEventListener('pointermove', pointer);
       window.removeEventListener('pointerdown', pointer);
     };
-  }, [applyEdit, beep]);
+  }, [applyEdit, beep, rumble]);
   useEffect(() => {
     if (editing) requestAnimationFrame(() => focus.ensure());
   }, [editing]);
@@ -246,6 +333,13 @@ export function GamepadProvider({ children }: { children: ReactNode }) {
         unsupported,
         sound,
         toggleSound: () => setSound((s) => !s),
+        vibration,
+        toggleVibration: () =>
+          setVibration((v) => {
+            localStorage.setItem('mando-vibration', v ? 'off' : 'on');
+            return !v;
+          }),
+        rumble,
         register,
         hints: input === 'playstation' ? dualsenseMapping : xboxMapping,
       }}

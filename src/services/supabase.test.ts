@@ -4,7 +4,10 @@ import { FunctionsHttpError } from '@supabase/supabase-js';
 const { invoke } = vi.hoisted(() => ({ invoke: vi.fn() }));
 vi.mock('@supabase/supabase-js', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@supabase/supabase-js')>()),
-  createClient: () => ({ functions: { invoke } }),
+  createClient: () => ({
+    functions: { invoke },
+    auth: { getSession: async () => ({ data: { session: { user: { id: 'guest' } } } }) },
+  }),
 }));
 
 let api: typeof import('./supabase');
@@ -14,6 +17,7 @@ beforeAll(async () => {
   api = await import('./supabase');
 });
 beforeEach(() => invoke.mockReset());
+const manager = { firstName: 'Ruan', lastName: 'Montanari', age: 34, style: 'Terno', appearance: '' };
 afterAll(() => vi.unstubAllEnvs());
 
 it('preserva a explicação do servidor para diálogos e retratos', async () => {
@@ -26,7 +30,7 @@ it('preserva a explicação do servidor para diálogos e retratos', async () => 
   await expect(api.requestAi('career', 'event', 'staff')).rejects.toThrow(
     'Não foi possível gerar o diálogo: Confira o limite de faturamento da API.',
   );
-  await expect(api.requestAvatar('career')).rejects.toThrow(
+  await expect(api.requestPortrait(manager)).rejects.toThrow(
     'Não foi possível gerar o retrato: Confira o limite de faturamento da API.',
   );
 });
@@ -36,7 +40,7 @@ it('expõe uma resposta HTTP inválida como falha, não como sucesso', async () 
     data: null,
     error: new FunctionsHttpError(new Response('invalid-json', { status: 502 })),
   });
-  await expect(api.requestAvatar('career')).rejects.toThrow('erro HTTP 502 com resposta inválida');
+  await expect(api.requestPortrait(manager)).rejects.toThrow('erro HTTP 502 com resposta inválida');
 });
 
 it('mantém a validação de respostas bem-sucedidas', async () => {
@@ -48,5 +52,5 @@ it('mantém a validação de respostas bem-sucedidas', async () => {
     message: 'Professor, vamos ao trabalho.',
   });
   invoke.mockResolvedValue({ data: { url: 'https://example.test/portrait.png' }, error: null });
-  await expect(api.requestAvatar('career')).resolves.toBe('https://example.test/portrait.png');
+  await expect(api.requestPortrait(manager)).resolves.toBe('https://example.test/portrait.png');
 });

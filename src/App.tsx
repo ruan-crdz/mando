@@ -3,23 +3,21 @@ import {
   ArrowLeft,
   ArrowRight,
   CheckCircle2,
-  Cloud,
-  CloudUpload,
-  Download,
   Gamepad2,
   LoaderCircle,
-  Menu,
-  Settings2,
+  Trophy,
+  Vibrate,
+  VibrateOff,
   Volume2,
   VolumeX,
   WifiOff,
   X,
 } from 'lucide-react';
 import { type User } from '@supabase/supabase-js';
+import { z } from 'zod';
 import { GamepadProvider, useControllerActions, useGamepad } from './controller/GamepadProvider';
 import { ControllerButtonHint } from './controller/ControllerButtonHint';
 import { Badge, dateLabel, Modal, money } from './components/ui';
-import { Connection } from './components/Connection';
 import { MainMenu } from './screens/MainMenu';
 import { CreateManager } from './screens/CreateManager';
 import { CareerCentral } from './screens/CareerCentral';
@@ -43,20 +41,18 @@ import { careerWorld } from './game/live';
 import { nextFixture } from './game/calendar';
 import { answerIncoming, createOffer, renewContract } from './game/transfers';
 import { type Career, type Message, type Player, type World } from './game/types';
+import { listLocal, removeLocal, saveLocal, type SavedCareer } from './services/storage';
 import {
-  exportSave,
-  importSave,
-  listLocal,
-  removeLocal,
-  saveLocal,
-  type SavedCareer,
-} from './services/storage';
-import { listCloud, requestAi, requestAvatar, saveCloud, supabase } from './services/supabase';
+  ensureSession,
+  requestAi,
+  requestPortrait,
+  saveCloud,
+  supabase,
+} from './services/supabase';
 import { registerSW } from 'virtual:pwa-register';
 
 const tabs = ['CENTRAL', 'TIME', 'TRANSFERÊNCIAS', 'ESCRITÓRIO', 'TEMPORADA'];
-type Popup = 'connection' | 'world' | 'pause' | 'prematch' | 'cloud' | null;
-type CloudRecord = Awaited<ReturnType<typeof listCloud>>[number];
+type Popup = 'world' | 'pause' | 'prematch' | null;
 
 function Game() {
   const controller = useGamepad();
@@ -69,7 +65,6 @@ function Game() {
     [world, career],
   );
   const [saves, setSaves] = useState<SavedCareer[]>([]);
-  const [cloudSaves, setCloudSaves] = useState<CloudRecord[]>([]);
   const [user, setUser] = useState<User | null>(null);
   const [tab, setTab] = useState(0);
   const [popup, setPopup] = useState<Popup>(null);
@@ -84,13 +79,19 @@ function Game() {
   const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const updateSW = useRef<((reload?: boolean) => Promise<void>) | null>(null);
   const queue = useRef<Promise<unknown>>(Promise.resolve());
+  const cloudQueue = useRef<Promise<unknown>>(Promise.resolve());
   const revisions = useRef(new Map<string, number>());
   const lastSaved = useRef<Career | null>(null);
   const lock = useRef(false);
-  const fail = useCallback((message: string) => {
-    setError(message);
-    setNotice('');
-  }, []);
+  const { rumble } = controller;
+  const fail = useCallback(
+    (message: string) => {
+      setError(message);
+      setNotice('');
+      rumble('error');
+    },
+    [rumble],
+  );
   const run = useCallback(
     (operation: () => Promise<void>) => {
       if (lock.current) return;
@@ -126,10 +127,11 @@ function Game() {
       })
       .catch((e: unknown) => fail(e instanceof Error ? e.message : String(e)));
     if (!supabase) return;
-    void supabase.auth.getSession().then(({ data, error }) => {
-      if (error) fail(error.message);
-      else setUser(data.session?.user || null);
-    });
+    // Guest account is created silently: cloud backup and AI never ask the player to log in.
+    void ensureSession()
+      .then(() => supabase?.auth.getSession())
+      .then((result) => setUser(result?.data.session?.user || null))
+      .catch((e: unknown) => console.warn('guest_session_unavailable', e));
     const { data } = supabase.auth.onAuthStateChange((_event, session) =>
       setUser(session?.user || null),
     );
@@ -167,9 +169,7 @@ function Game() {
       })
       .catch((e: unknown) => {
         setSaveState('error');
-        fail(
-          `Save local não gravado: ${e instanceof Error ? e.message : String(e)}. Exporte sua carreira antes de sair.`,
-        );
+        fail(`Save local não gravado: ${e instanceof Error ? e.message : String(e)}.`);
       });
   }, [career, world, fail]);
   useEffect(() => {
@@ -202,16 +202,28 @@ function Game() {
     [career, world, run],
   );
   const sync = useCallback(
-    async (current: Career) => {
-      if (!world) throw new Error('Mundo não carregado.');
-      await queue.current;
-      const revision = await saveCloud(current, revisions.current.get(current.id) || 0);
-      revisions.current.set(current.id, revision);
-      await saveLocal(current, world, revision);
-      setNotice('Carreira sincronizada com o Supabase.');
+    (current: Career) => {
+      const target = world;
+      const task = cloudQueue.current.then(async () => {
+        if (!target) throw new Error('Mundo não carregado.');
+        await ensureSession();
+        await queue.current;
+        const revision = await saveCloud(current, revisions.current.get(current.id) || 0);
+        revisions.current.set(current.id, revision);
+        await saveLocal(current, target, revision);
+      });
+      cloudQueue.current = task.catch(() => undefined);
+      return task;
     },
     [world],
   );
+  useEffect(() => {
+    if (!career || !user || !z.string().uuid().safeParse(career.worldId).success) return;
+    const timer = window.setTimeout(() => {
+      sync(career).catch((e: unknown) => console.warn('cloud_backup_failed', e));
+    }, 6000);
+    return () => window.clearTimeout(timer);
+  }, [career, user, sync]);
   const switchTab = useCallback(
     (delta: number) => {
       if (screen !== 'career' || career?.activeMatch || popup || detail || busy) return;
@@ -236,7 +248,7 @@ function Game() {
               act(() => setCareer(advanceDay(career, live!)));
           },
           info: () => {
-            if (!popup) setPopup('connection');
+            if (screen === 'career' && !career?.activeMatch && !popup) setTab(3);
           },
           menu: () => {
             if (screen === 'career') setPopup((p) => (p === 'pause' ? null : 'pause'));
@@ -252,147 +264,92 @@ function Game() {
         m.id,
         m.kind === 'news' ? 'news' : m.kind === 'staff' ? 'staff' : 'message',
       );
-      const updated = {
+      setCareer({
         ...career,
         messages: career.messages.map((msg) =>
           msg.id === m.id ? { ...msg, aiText: response.message } : msg,
         ),
-      };
-      setCareer(updated);
-      await sync(updated);
+      });
     });
-  const loadCloudList = () =>
-    run(async () => {
-      setCloudSaves(await listCloud());
-      setPopup('cloud');
+  const portrait = (manager: Career['manager']) =>
+    requestPortrait({
+      firstName: manager.firstName,
+      lastName: manager.lastName,
+      age: manager.age,
+      nationality: manager.nationality,
+      style: manager.style,
+      appearance: manager.appearance,
     });
   const club = career && world?.clubs.find((club) => club.id === career.clubId);
-  const isAdmin = user?.app_metadata?.role === 'admin';
+  const inMatch = Boolean(career?.activeMatch);
   return (
-    <div className={`game-shell input-${controller.input}`}>
+    <div className={`game-shell input-${controller.input} on-${screen}${inMatch ? ' in-match' : ''}`}>
+      <div className="bg-stage" aria-hidden="true">
+        <i className="beam b1" />
+        <i className="beam b2" />
+        <i className="beam b3" />
+      </div>
       <header className="app-header">
-        <button
-          className="brand"
-          onClick={screen === 'menu' ? () => setPopup('world') : menu}
-          aria-label="Mando, menu principal"
-        >
+        <div className="brand" aria-label="Mando">
           <span className="brand-mark">M</span>
-          <span>
-            MANDO<small>CARREIRA DE MANAGER</small>
-          </span>
-        </button>
+          <span className="brand-word">MANDO</span>
+        </div>
+        {screen === 'career' && !inMatch && (
+          <nav className="main-nav" aria-label="Áreas do clube">
+            <span className="nav-shoulder">
+              <ControllerButtonHint action="previousTab" label="" />
+            </span>
+            {tabs.map((name, i) => (
+              <button
+                key={name}
+                onClick={() => setTab(i)}
+                className={tab === i ? 'active' : ''}
+                aria-current={tab === i ? 'page' : undefined}
+              >
+                {name}
+                {i === 3 && career!.messages.some((m) => m.important && !m.resolved) && (
+                  <b className="nav-dot" />
+                )}
+              </button>
+            ))}
+            <span className="nav-shoulder">
+              <ControllerButtonHint action="nextTab" label="" />
+            </span>
+          </nav>
+        )}
         {screen === 'career' && career && club && (
           <div className="club-header">
             <Badge club={club} size="small" />
-            <span>
-              <strong>{club.name}</strong>
-              <small>
-                {career.manager.firstName} {career.manager.lastName}
-              </small>
-            </span>
-            <i />
-            <span>
-              {dateLabel(career.date)}
-              <small>TEMPORADA {career.season}</small>
-            </span>
-            <i />
-            <span>
-              <strong>{money(career.finances[career.clubId].cash)}</strong>
-              <small>CAIXA DISPONÍVEL</small>
+            <span className="club-header-text">
+              <strong>{dateLabel(career.date)}</strong>
+              <small>{money(career.finances[career.clubId].cash)}</small>
             </span>
           </div>
         )}
-        <div className="header-actions">
-          {career && screen === 'career' && (
-            <button
-              className={`save-status ${saveState}`}
-              title="Exportar backup da carreira"
-              onClick={() => exportSave(career, world!)}
-            >
-              {saveState === 'saving' ? (
-                <LoaderCircle size={15} className="spin" />
-              ) : saveState === 'saved' ? (
-                <CheckCircle2 size={15} />
-              ) : (
-                <Download size={15} />
-              )}
-              <span>
-                {saveState === 'saving'
-                  ? 'SALVANDO'
-                  : saveState === 'saved'
-                    ? 'SALVO LOCAL'
-                    : 'ERRO NO SAVE'}
-              </span>
-            </button>
-          )}
+        <div className="header-status">
           {offline && (
-            <span title="Offline">
-              <WifiOff size={17} />
+            <span title="Offline" className="status-icon">
+              <WifiOff size={18} />
             </span>
           )}
           <span
-            className={`controller-status ${controller.connected ? 'connected' : ''}`}
+            className={`status-icon controller-status ${controller.connected ? 'connected' : ''}`}
             title={controller.connected || 'Conecte um controle e pressione um botão'}
           >
-            <Gamepad2 size={21} />
-            <span>{controller.connected ? 'CONECTADO' : 'CONTROLE'}</span>
+            <Gamepad2 size={20} />
           </span>
-          <button
-            className="icon-button"
-            aria-label={controller.sound ? 'Desativar sons' : 'Ativar sons'}
-            onClick={controller.toggleSound}
-          >
-            {controller.sound ? <Volume2 size={18} /> : <VolumeX size={18} />}
-          </button>
-          <button
-            className="icon-button"
-            aria-label="Conexão e configurações"
-            onClick={() => setPopup('connection')}
-          >
-            <Settings2 size={19} />
-          </button>
         </div>
       </header>
-      {screen === 'career' && !career?.activeMatch && (
-        <nav className="main-nav" aria-label="Áreas do clube">
-          <span className="nav-shoulder">{controller.hints.previousTab}</span>
-          {tabs.map((name, i) => (
-            <button
-              key={name}
-              onClick={() => setTab(i)}
-              className={tab === i ? 'active' : ''}
-              aria-current={tab === i ? 'page' : undefined}
-            >
-              <span>0{i + 1}</span>
-              {name}
-              {i === 3 && career!.messages.some((m) => m.important && !m.resolved) && (
-                <b className="nav-dot" />
-              )}
-            </button>
-          ))}
-          <span className="nav-shoulder">{controller.hints.nextTab}</span>
-          <button
-            className="nav-menu"
-            aria-label="Menu da carreira"
-            onClick={() => setPopup('pause')}
-          >
-            <Menu size={19} />
-          </button>
-        </nav>
-      )}
-      <main inert={popup || deleting || busy ? true : undefined}>
+      <main
+        key={`${screen}-${screen === 'career' ? (inMatch ? 'match' : tab) : ''}`}
+        className="stage"
+        inert={popup || deleting || busy ? true : undefined}
+      >
         {screen === 'menu' && (
           <MainMenu
             saves={saves}
             onContinue={(record) => act(() => continueCareer(record))}
             onNew={() => setPopup('world')}
-            onSettings={() => setPopup('connection')}
-            onImport={(file) =>
-              run(async () => {
-                const record = await importSave(file);
-                continueCareer(record);
-              })
-            }
             onDelete={setDeleting}
           />
         )}
@@ -401,6 +358,7 @@ function Game() {
             world={world}
             onError={fail}
             onBack={() => setScreen('menu')}
+            onPortrait={portrait}
             onStart={(manager, clubId, difficulty, challenge) =>
               act(() => {
                 setCareer(createCareer(world, manager, clubId, difficulty, challenge));
@@ -433,10 +391,7 @@ function Game() {
           ) : (
             <>
               {career.mode === 'demo' && (
-                <p className="demo-strip">
-                  DEMONSTRAÇÃO · Atletas e finanças sintéticos · Mundo oficial requer importação
-                  autorizada
-                </p>
+                <p className="demo-strip">DEMONSTRAÇÃO · Atletas e finanças sintéticos</p>
               )}
               {tab === 0 && (
                 <CareerCentral
@@ -502,7 +457,7 @@ function Game() {
                   career={career}
                   world={live!}
                   busy={busy}
-                  aiAvailable={Boolean(user)}
+                  aiAvailable={Boolean(supabase) && !offline}
                   onMessage={(id, choice) =>
                     act(() => setCareer(respondMessage(career, id, choice)))
                   }
@@ -518,11 +473,9 @@ function Game() {
                   onAi={ai}
                   onAvatar={() =>
                     run(async () => {
-                      await sync(career);
-                      const url = await requestAvatar(career.id);
-                      const updated = { ...career, manager: { ...career.manager, avatar: url } };
-                      setCareer(updated);
-                      await sync(updated);
+                      const url = await portrait(career.manager);
+                      setCareer({ ...career, manager: { ...career.manager, avatar: url } });
+                      setNotice('Novo retrato pronto.');
                     })
                   }
                 />
@@ -532,25 +485,33 @@ function Game() {
           ))}
       </main>
       <footer className="app-footer">
-        <div>
+        <div className="hints">
           <ControllerButtonHint action="confirm" label="Selecionar" />
           <ControllerButtonHint action="back" label="Voltar" />
-          {screen === 'career' && !career?.activeMatch && (
+          {screen === 'career' && !inMatch && (
             <>
-              <ControllerButtonHint action="previousTab" label="Aba anterior" />
-              <ControllerButtonHint action="nextTab" label="Próxima aba" />
               <ControllerButtonHint action="secondary" label="Avançar dia" />
+              <ControllerButtonHint action="nextView" label="Sub-menu" />
+              <ControllerButtonHint action="menu" label="Pausa" />
             </>
           )}
         </div>
-        <span>
-          MANDO <i />{' '}
-          {screen === 'career' ? 'SUA CARREIRA, SUA HISTÓRIA' : 'O FUTEBOL COMEÇA NA SUA DECISÃO'}
-        </span>
+        {career && screen === 'career' && (
+          <span className={`save-status ${saveState}`} role="status">
+            {saveState === 'saving' ? (
+              <LoaderCircle size={15} className="spin" />
+            ) : saveState === 'saved' ? (
+              <CheckCircle2 size={15} />
+            ) : (
+              <X size={15} />
+            )}
+            {saveState === 'saving' ? 'SALVANDO' : saveState === 'saved' ? 'SALVO' : 'ERRO NO SAVE'}
+          </span>
+        )}
       </footer>
       {controller.unsupported && (
         <div className="compatibility-note" role="status">
-          Controle detectado sem mapeamento padrão. Use teclado ou ative o modo XInput do controle.
+          Controle detectado sem mapeamento padrão. Ative o modo XInput do controle.
         </div>
       )}
       {(error || notice) && (
@@ -572,19 +533,9 @@ function Game() {
           <LoaderCircle className="spin" size={17} /> Processando…
         </div>
       )}
-      {popup === 'connection' && (
-        <Connection
-          userEmail={user?.email || null}
-          isAdmin={isAdmin}
-          busy={busy}
-          run={run}
-          onClose={() => setPopup(null)}
-          onCloudLoad={loadCloudList}
-        />
-      )}
       {popup === 'world' && (
-        <Modal title="Onde sua história começa?" onClose={() => setPopup(null)}>
-          <div className="world-options">
+        <Modal title="Nova carreira" onClose={() => setPopup(null)} wide>
+          <div className="world-options carousel">
             <button
               className="world-option official"
               disabled={busy}
@@ -597,18 +548,15 @@ function Game() {
                 })
               }
             >
-              <Cloud size={29} />
+              <Trophy size={44} />
               <h2>Brasileirão 2026</h2>
-              <p>
-                Os 40 clubes das Séries A e B com elencos reais, escudos oficiais e mundo congelado
-                em 01/01/2026. Joga offline; nuvem e IA com login.
-              </p>
+              <p>Séries A e B com elencos reais e escudos. Mundo congelado em 01/01/2026.</p>
               <span>
-                COMEÇAR CARREIRA <ArrowRight size={17} />
+                JOGAR <ArrowRight size={18} />
               </span>
             </button>
             <button
-              className="world-option"
+              className="world-option demo"
               onClick={() =>
                 act(() => {
                   setWorld(createDemoWorld());
@@ -618,40 +566,29 @@ function Game() {
                 })
               }
             >
-              <Gamepad2 size={29} />
+              <Gamepad2 size={44} />
               <h2>Experimentar a demonstração</h2>
-              <p>
-                40 clubes, 1.120 atletas sintéticos, temporada completa e save local. Nuvem e IA
-                opcionais com login. Não representa os elencos reais.
-              </p>
+              <p>40 clubes e atletas fictícios para testar o jogo.</p>
               <span>
-                JOGAR OFFLINE <ArrowRight size={17} />
+                JOGAR <ArrowRight size={18} />
               </span>
             </button>
           </div>
-          <p className="muted small">
-            Nomes dos elencos 2026 vêm de oGol, GuiaGol e sites dos clubes. Overall, atributos,
-            valores e salários são estimativas do Mando, não dados oficiais.
-          </p>
         </Modal>
       )}
       {popup === 'pause' && career && world && (
-        <Modal
-          title={career.activeMatch ? 'Jogo pausado' : 'Sua carreira'}
-          onClose={() => setPopup(null)}
-        >
+        <Modal title={career.activeMatch ? 'Jogo pausado' : 'Pausa'} onClose={() => setPopup(null)}>
           <div className="pause-options">
             <button className="primary" onClick={() => setPopup(null)}>
-              <ArrowLeft size={17} /> Voltar ao clube
+              <ArrowLeft size={18} /> Continuar
             </button>
-            <button onClick={() => exportSave(career, world)}>
-              <Download size={17} /> Exportar backup completo
+            <button onClick={controller.toggleVibration}>
+              {controller.vibration ? <Vibrate size={18} /> : <VibrateOff size={18} />}
+              Vibração: {controller.vibration ? 'Ligada' : 'Desligada'}
             </button>
-            <button disabled={busy || !user} onClick={() => run(() => sync(career))}>
-              <CloudUpload size={17} /> Sincronizar com Supabase
-            </button>
-            <button onClick={() => setPopup('connection')}>
-              <Settings2 size={17} /> Conexão e configurações
+            <button onClick={controller.toggleSound}>
+              {controller.sound ? <Volume2 size={18} /> : <VolumeX size={18} />}
+              Sons do menu: {controller.sound ? 'Ligados' : 'Desligados'}
             </button>
             {installPrompt && (
               <button
@@ -662,28 +599,21 @@ function Game() {
                   })
                 }
               >
-                Instalar Mando neste dispositivo
+                Instalar Mando
               </button>
             )}
-            <button onClick={menu}>Salvar e ir ao menu principal</button>
+            <button onClick={menu}>Salvar e sair para o menu</button>
           </div>
-          <p className="muted small">
-            O save local é automático. A sincronização na nuvem é manual para evitar sobrescrever
-            outra sessão.
-          </p>
         </Modal>
       )}
       {popup === 'prematch' && career && world && (
-        <Modal title="É dia de defender a camisa." onClose={() => setPopup(null)}>
+        <Modal title="Dia de jogo" onClose={() => setPopup(null)}>
           <div className="prematch-info">
             <p className="eyebrow">{dateLabel(career.date, true)}</p>
             <h2>
               {career.tactic.formation} · {career.tactic.mentality}
             </h2>
-            <p>
-              Auxiliar: confira lesões, suspensões e condição física. Todas as mudanças em campo
-              passam a valer nos próximos minutos.
-            </p>
+            <p>Confira lesões, suspensões e condição física antes de entrar em campo.</p>
           </div>
           <div className="button-row">
             <button
@@ -703,6 +633,7 @@ function Game() {
                     throw new Error('Não há partida hoje.');
                   setCareer({ ...career, activeMatch: beginMatch(career, live!, fixture) });
                   setPopup(null);
+                  controller.rumble('whistle');
                 })
               }
             >
@@ -711,44 +642,13 @@ function Game() {
           </div>
         </Modal>
       )}
-      {popup === 'cloud' && (
-        <Modal title="Carreiras na nuvem" onClose={() => setPopup('connection')}>
-          <p className="muted">
-            Carregar substitui a cópia local desta mesma carreira. Exporte seu progresso local antes
-            se ele estiver mais recente.
-          </p>
-          {cloudSaves.length ? (
-            cloudSaves.map((s) => (
-              <button
-                key={s.career.id}
-                className="cloud-save"
-                onClick={() =>
-                  run(async () => {
-                    await saveLocal(s.career, s.world, s.revision);
-                    continueCareer({ ...s, cloudRevision: s.revision });
-                  })
-                }
-              >
-                <Cloud size={20} />
-                <span>
-                  <strong>
-                    {s.career.manager.firstName} ·{' '}
-                    {s.world.clubs.find((club) => club.id === s.career.clubId)!.name}
-                  </strong>
-                  <small>
-                    {dateLabel(s.career.date)} · revisão {s.revision}
-                  </small>
-                </span>
-              </button>
-            ))
-          ) : (
-            <p className="empty-state">Nenhuma carreira sincronizada ainda.</p>
-          )}
-        </Modal>
-      )}
       {deleting && (
-        <Modal title="Excluir apenas deste navegador?" onClose={() => setDeleting(null)}>
-          <p>O backup exportado e a cópia na nuvem não serão apagados.</p>
+        <Modal title="Excluir carreira?" onClose={() => setDeleting(null)}>
+          <p>
+            {deleting.career.manager.firstName} ·{' '}
+            {deleting.world.clubs.find((c) => c.id === deleting.career.clubId)?.name} ·{' '}
+            {dateLabel(deleting.career.date)}
+          </p>
           <div className="button-row">
             <button onClick={() => setDeleting(null)}>Cancelar</button>
             <button
@@ -761,15 +661,16 @@ function Game() {
                 })
               }
             >
-              Excluir carreira local
+              Excluir
             </button>
           </div>
         </Modal>
       )}
       {updateReady && (
         <div className="pwa-update">
-          <p>Uma atualização está pronta. Salve antes de recarregar.</p>
+          <p>Nova versão do Mando disponível.</p>
           <button
+            className="primary"
             disabled={saveState === 'saving'}
             onClick={() =>
               run(async () => {

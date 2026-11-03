@@ -201,8 +201,7 @@ Deno.test('erros do provedor são acionáveis sem expor o corpo privado', async 
       globalThis.fetch = async (input, init) => {
         const url = new URL(input instanceof Request ? input.url : String(input));
         if (url.pathname === '/auth/v1/user') return json({ id: userId, aud: 'authenticated' });
-        if (url.pathname === '/rest/v1/career_saves') return json({ state });
-        if (url.pathname === '/rest/v1/rpc/claim_ai_job') return json(jobId);
+        if (url.pathname === '/rest/v1/rpc/claim_portrait_job') return json(jobId);
         if (url.pathname === '/rest/v1/ai_jobs' && init?.method === 'PATCH') {
           const change = JSON.parse(String(init.body));
           return json(change.status ? null : [{ id: jobId }]);
@@ -212,7 +211,9 @@ Deno.test('erros do provedor são acionáveis sem expor o corpo privado', async 
         if (url.pathname === '/v1/images/generations') {
           const body = JSON.parse(String(init?.body));
           assertEquals(body.model, 'gpt-image-2.5-flare');
-          assertEquals(body.quality, 'low');
+          assertEquals(body.quality, 'medium');
+          assertEquals(body.background, 'transparent');
+          assertEquals(body.size, '1024x1536');
           return json(
             { error: { code: scenario.code, message: 'private-sentinel' } },
             scenario.upstream,
@@ -220,7 +221,13 @@ Deno.test('erros do provedor são acionáveis sem expor o corpo privado', async 
         }
         throw new Error(`Chamada inesperada: ${url.pathname}`);
       };
-      const response = await handle(request({ careerId }), 'avatar');
+      const response = await handle(
+        request({
+          attemptId: careerId,
+          manager: { ...state.manager, nationality: 'Brasil' },
+        }),
+        'avatar',
+      );
       assertEquals(response.status, scenario.status);
       const output = await response.json();
       assertMatch(output.error, scenario.message);

@@ -5,6 +5,8 @@ export const dualsenseMapping = {
   info: '△',
   previousTab: 'L1',
   nextTab: 'R1',
+  previousView: 'L2',
+  nextView: 'R2',
   menu: 'Options',
 } as const;
 export const isPlayStation = (id: string) =>
