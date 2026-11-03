@@ -120,7 +120,7 @@ test('partida completa registra placar e volta à tabela sem duplicar resultado'
   page,
 }) => {
   await createCareer(page);
-  for (let i = 0; i < 27; i++) {
+  const resolvePending = async () => {
     while (await page.getByRole('button', { name: /Abrir escritório/ }).isVisible()) {
       await page.getByRole('button', { name: /Abrir escritório/ }).click();
       await page.getByRole('button', { name: 'Ciente. Continuar o trabalho.' }).click();
@@ -129,9 +129,13 @@ test('partida completa registra placar e volta à tabela sem duplicar resultado'
         .getByRole('button', { name: /CENTRAL/ })
         .click();
     }
+  };
+  for (let i = 0; i < 27; i++) {
+    await resolvePending();
     await page.getByRole('button', { name: /Avançar dia/ }).click();
     await expect(page.locator('.club-header')).toContainText(String(i + 2).padStart(2, '0'));
   }
+  await resolvePending();
   await page.getByRole('button', { name: /O ESTÁDIO ESTÁ PRONTO/ }).click();
   await page.getByRole('button', { name: /Começar partida/ }).click();
   await page.getByRole('button', { name: '4×', exact: true }).click();

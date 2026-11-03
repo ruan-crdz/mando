@@ -112,7 +112,7 @@ export function CareerCentral({
           <button
             className={`advance-tile ${isMatchDay ? 'match-day' : ''}`}
             disabled={busy || c.seasonEnded}
-            onClick={isMatchDay ? onMatch : pending.length ? () => onTab(3) : onAdvance}
+            onClick={pending.length ? () => onTab(3) : isMatchDay ? onMatch : onAdvance}
           >
             <p className="eyebrow">
               {pending.length

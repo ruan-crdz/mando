@@ -445,7 +445,8 @@ function Game() {
                   onAdvance={() => act(() => setCareer(advanceDay(career, world)))}
                   onMatch={() => {
                     const f = nextFixture(career);
-                    if (f && f.date <= career.date) setPopup('prematch');
+                    if (career.messages.some((m) => m.important && !m.resolved)) setTab(3);
+                    else if (f && f.date <= career.date) setPopup('prematch');
                     else setTab(4);
                   }}
                   onTab={setTab}
