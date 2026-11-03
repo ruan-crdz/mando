@@ -14,7 +14,8 @@ import { dualsenseMapping, isPlayStation } from './dualsenseMapping';
 type Action = keyof typeof xboxMapping;
 type Input = 'mouse' | 'keyboard' | 'xbox' | 'playstation';
 type Actions = Partial<Record<Action, () => void>>;
-export type RumbleKind = 'move' | 'confirm' | 'back' | 'tab' | 'goal' | 'concede' | 'whistle' | 'error';
+export type RumbleKind =
+  'move' | 'confirm' | 'back' | 'tab' | 'goal' | 'concede' | 'whistle' | 'moment' | 'error';
 const rumblePatterns: Record<RumbleKind, [number, number, number][]> = {
   move: [[16, 0, 0.18]],
   confirm: [[45, 0.3, 0.55]],
@@ -25,6 +26,10 @@ const rumblePatterns: Record<RumbleKind, [number, number, number][]> = {
     [90, 0.75, 0.2],
   ],
   whistle: [[260, 0.45, 0.6]],
+  moment: [
+    [70, 0.55, 0.3],
+    [110, 0.15, 0.6],
+  ],
   goal: [
     [180, 1, 1],
     [140, 0.4, 0.8],
@@ -36,7 +41,12 @@ type HapticPad = Gamepad & {
   vibrationActuator?: {
     playEffect?: (
       type: string,
-      params: { duration: number; strongMagnitude: number; weakMagnitude: number; startDelay?: number },
+      params: {
+        duration: number;
+        strongMagnitude: number;
+        weakMagnitude: number;
+        startDelay?: number;
+      },
     ) => Promise<unknown>;
   };
   hapticActuators?: { pulse?: (value: number, duration: number) => Promise<unknown> }[];
@@ -106,9 +116,8 @@ function scrollTarget(axis: 'x' | 'y') {
     (node) => node.getClientRects().length > 0 && scrollable(node, axis),
   );
   return (
-    candidates.sort(
-      (a, b) => b.clientWidth * b.clientHeight - a.clientWidth * a.clientHeight,
-    )[0] || null
+    candidates.sort((a, b) => b.clientWidth * b.clientHeight - a.clientWidth * a.clientHeight)[0] ||
+    null
   );
 }
 
@@ -131,7 +140,9 @@ export function GamepadProvider({ children }: { children: ReactNode }) {
   editRef.current = editing;
   const soundRef = useRef(sound);
   soundRef.current = sound;
-  const [vibration, setVibration] = useState(() => localStorage.getItem('mando-vibration') !== 'off');
+  const [vibration, setVibration] = useState(
+    () => localStorage.getItem('mando-vibration') !== 'off',
+  );
   const vibrationRef = useRef(vibration);
   vibrationRef.current = vibration;
   const padIndex = useRef<number | null>(null);
@@ -148,7 +159,10 @@ export function GamepadProvider({ children }: { children: ReactNode }) {
           .catch(() => undefined);
       else if (pad.hapticActuators?.[0]?.pulse)
         setTimeout(
-          () => void pad.hapticActuators?.[0]?.pulse?.(strongMagnitude, duration)?.catch(() => undefined),
+          () =>
+            void pad.hapticActuators?.[0]
+              ?.pulse?.(strongMagnitude, duration)
+              ?.catch(() => undefined),
           startDelay,
         );
       delay += duration + 70;
@@ -184,7 +198,10 @@ export function GamepadProvider({ children }: { children: ReactNode }) {
       return { ...e, value: (e.value + text).slice(0, max) };
     });
   }, []);
-  const erase = useCallback(() => setEditing((e) => e && { ...e, value: e.value.slice(0, -1) }), []);
+  const erase = useCallback(
+    () => setEditing((e) => e && { ...e, value: e.value.slice(0, -1) }),
+    [],
+  );
   const applyEdit = useCallback((save: boolean) => {
     const edit = editRef.current;
     if (!edit) return;
@@ -239,6 +256,19 @@ export function GamepadProvider({ children }: { children: ReactNode }) {
     };
     const activate = (action: Action) => {
       if (keyboardAction(action)) return;
+      const active = document.activeElement;
+      // Controles editáveis (ex.: sliders de tática) aceitam X para editar/salvar e B para sair da edição.
+      if (
+        active instanceof HTMLElement &&
+        active.dataset.toggleEdit !== undefined &&
+        (action === 'secondary' ||
+          (action === 'back' && active.getAttribute('aria-pressed') === 'true'))
+      ) {
+        active.click();
+        rumble(action === 'back' ? 'back' : 'confirm');
+        beep();
+        return;
+      }
       if (action === 'back') {
         const close = topModal()?.querySelector<HTMLButtonElement>('[data-dialog-close]');
         if (close) {
@@ -496,7 +526,12 @@ export function GamepadProvider({ children }: { children: ReactNode }) {
             {editing.numeric ? (
               <div className="keypad-grid">
                 {'123456789'.split('').map((key) => (
-                  <button key={key} type="button" data-autofocus={key === '5' ? '' : undefined} onClick={() => type(key)}>
+                  <button
+                    key={key}
+                    type="button"
+                    data-autofocus={key === '5' ? '' : undefined}
+                    onClick={() => type(key)}
+                  >
                     {key}
                   </button>
                 ))}
@@ -517,25 +552,31 @@ export function GamepadProvider({ children }: { children: ReactNode }) {
               </div>
             ) : (
               <div className="keyboard-grid">
-                {rows.flatMap((row) => row.split('')).map((key, i) => {
-                  const shown = caps ? key.toLocaleUpperCase('pt-BR') : key;
-                  return (
-                    <button
-                      key={`${specials}-${i}`}
-                      type="button"
-                      data-autofocus={i === 10 ? '' : undefined}
-                      onClick={() => type(shown)}
-                    >
-                      {shown}
-                    </button>
-                  );
-                })}
+                {rows
+                  .flatMap((row) => row.split(''))
+                  .map((key, i) => {
+                    const shown = caps ? key.toLocaleUpperCase('pt-BR') : key;
+                    return (
+                      <button
+                        key={`${specials}-${i}`}
+                        type="button"
+                        data-autofocus={i === 10 ? '' : undefined}
+                        onClick={() => type(shown)}
+                      >
+                        {shown}
+                      </button>
+                    );
+                  })}
               </div>
             )}
             <div className="keyboard-actions">
               {!editing.numeric && (
                 <>
-                  <button type="button" className={caps ? 'active' : ''} onClick={() => setCaps((v) => !v)}>
+                  <button
+                    type="button"
+                    className={caps ? 'active' : ''}
+                    onClick={() => setCaps((v) => !v)}
+                  >
                     {keyHint(hints.nextView)} {caps ? 'ABC' : 'abc'}
                   </button>
                   <button

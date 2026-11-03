@@ -205,12 +205,27 @@ const eventSchema = z.object({
     'tactic',
     'half',
     'full',
+    'moment',
   ]),
   clubId: z.string(),
   playerId: z.string().optional(),
   text: z.string(),
 });
 export type MatchEvent = z.infer<typeof eventSchema>;
+export const momentKinds = ['tired', 'injury', 'position', 'subbed', 'bench', 'badday'] as const;
+export const momentSchema = z.object({
+  id: z.string(),
+  minute: z.number().int().min(0).max(90),
+  kind: z.enum(momentKinds),
+  playerId: z.string(),
+  text: z.string(),
+  status: z.enum(['open', 'done']),
+  outcome: z.string().optional(),
+  action: z.string().optional(),
+  /** Posição que o atleta pede (momentos de troca de posição). */
+  role: z.string().optional(),
+});
+export type MatchMoment = z.infer<typeof momentSchema>;
 const sideStatsSchema = z.object({
   shots: z.number().int().nonnegative(),
   xg: z.number().nonnegative(),
@@ -233,6 +248,10 @@ export const matchSchema = z.object({
   ratings: z.record(z.string(), z.number()),
   minutesPlayed: z.record(z.string(), z.number().int().min(0).max(90)).default({}),
   energySpent: z.record(z.string(), z.number().nonnegative()).default({}),
+  /** Atletas que sentiram lesão e seguem em campo (rendimento reduzido). */
+  injured: z.array(z.string()).default([]),
+  /** Momentos humanos do jogo que pedem uma decisão do técnico. */
+  moments: z.array(momentSchema).default([]),
 });
 export type Match = z.infer<typeof matchSchema>;
 export const cupIds = ['EST', 'CDB', 'SUP', 'LIB', 'SUL'] as const;

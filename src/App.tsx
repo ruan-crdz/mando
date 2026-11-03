@@ -36,7 +36,7 @@ import {
   respondMessage,
   validateCareerForWorld,
 } from './game/engine';
-import { bestLineup, beginMatch, substitute } from './game/matches';
+import { bestLineup, beginMatch, resolveMoment, substitute } from './game/matches';
 import { careerWorld } from './game/live';
 import { nextFixture } from './game/calendar';
 import {
@@ -48,12 +48,7 @@ import {
 } from './game/transfers';
 import { type Career, type Player, type World } from './game/types';
 import { listLocal, removeLocal, saveLocal, type SavedCareer } from './services/storage';
-import {
-  ensureSession,
-  requestPortrait,
-  saveCloud,
-  supabase,
-} from './services/supabase';
+import { ensureSession, requestPortrait, saveCloud, supabase } from './services/supabase';
 import { registerSW } from 'virtual:pwa-register';
 
 const tabs = ['CENTRAL', 'TIME', 'TRANSFERÊNCIAS', 'ESCRITÓRIO', 'TEMPORADA'];
@@ -272,7 +267,9 @@ function Game() {
   const club = career && world?.clubs.find((club) => club.id === career.clubId);
   const inMatch = Boolean(career?.activeMatch);
   return (
-    <div className={`game-shell input-${controller.input} on-${screen}${inMatch ? ' in-match' : ''}`}>
+    <div
+      className={`game-shell input-${controller.input} on-${screen}${inMatch ? ' in-match' : ''}`}
+    >
       <div className="bg-stage" aria-hidden="true">
         <i className="beam b1" />
         <i className="beam b2" />
@@ -280,7 +277,11 @@ function Game() {
       </div>
       <header className="app-header">
         <div className="brand" aria-label="Mando">
-          <img className="brand-logo" src={`${import.meta.env.BASE_URL}logo-mando-160.png`} alt="" />
+          <img
+            className="brand-logo"
+            src={`${import.meta.env.BASE_URL}logo-mando-160.png`}
+            alt=""
+          />
           <span className="brand-word">MANDO</span>
         </div>
         {screen === 'career' && !inMatch && (
@@ -375,6 +376,9 @@ function Game() {
               }
               onSubstitute={(outId, inId) =>
                 act(() => setCareer(substitute(career, live!, outId, inId)))
+              }
+              onMoment={(id, action) =>
+                act(() => setCareer(resolveMoment(career, live!, id, action)))
               }
             />
           ) : (

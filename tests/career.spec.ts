@@ -150,14 +150,20 @@ test('partida completa registra placar e volta à tabela sem duplicar resultado'
   await page.getByRole('button', { name: /O ESTÁDIO ESTÁ PRONTO/ }).click();
   await page.getByRole('button', { name: /Começar partida/ }).click();
   await page.getByRole('button', { name: '4×', exact: true }).click();
+  // Momentos humanos pausam o jogo até a decisão do técnico.
+  const playUntil = async (target: ReturnType<Page['getByRole']>) => {
+    for (let i = 0; i < 120 && !(await target.isVisible()); i++) {
+      const moment = page.locator('.moment-dialog');
+      if (await moment.isVisible())
+        await moment.locator('.moment-actions button:not(:disabled)').last().click();
+      else await page.waitForTimeout(500);
+    }
+    await expect(target).toBeVisible();
+  };
   await page.getByRole('button', { name: 'Jogar', exact: true }).click();
-  await expect(page.getByRole('button', { name: 'Segundo tempo', exact: true })).toBeVisible({
-    timeout: 30000,
-  });
+  await playUntil(page.getByRole('button', { name: 'Segundo tempo', exact: true }));
   await page.getByRole('button', { name: 'Segundo tempo', exact: true }).click();
-  await expect(page.getByRole('button', { name: /Confirmar resultado/ })).toBeVisible({
-    timeout: 30000,
-  });
+  await playUntil(page.getByRole('button', { name: /Confirmar resultado/ }));
   await page.getByRole('button', { name: /Confirmar resultado/ }).click();
   await page
     .getByRole('navigation')

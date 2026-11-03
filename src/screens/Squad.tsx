@@ -26,7 +26,7 @@ import {
   type World,
 } from '../game/types';
 import { dateLabel, Metric, Modal, money, SectionTitle } from '../components/ui';
-import { ChipGroup, NumberStepper } from '../components/controls';
+import { ChipGroup, NumberStepper, TacticSlider } from '../components/controls';
 import { byPosition, PlayerCard, PlayerPicker, roleFits, shortName } from '../components/PlayerCard';
 
 const attributeLabels: Record<string, string> = {
@@ -377,17 +377,12 @@ export function Squad({
                       ['line', 'Linha defensiva'],
                     ] as const
                   ).map(([key, label]) => (
-                    <label key={key}>
-                      {label}
-                      <span className="range-value">{c.tactic[key]} / 5</span>
-                      <input
-                        type="range"
-                        min={1}
-                        max={5}
-                        value={c.tactic[key]}
-                        onChange={(e) => updateTactic({ [key]: Number(e.target.value) })}
-                      />
-                    </label>
+                    <TacticSlider
+                      key={key}
+                      label={label}
+                      value={c.tactic[key]}
+                      onChange={(v) => updateTactic({ [key]: v })}
+                    />
                   ))}
                 </div>
                 <p className="muted small">

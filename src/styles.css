@@ -2706,9 +2706,8 @@ button.tile:focus-visible {
   border: 2px solid #fff;
   box-shadow: 0 3px 8px rgba(0, 0, 0, 0.4);
   transition:
-    left var(--sim-speed, 0.9s) ease-in-out,
-    top var(--sim-speed, 0.9s) ease-in-out,
-    transform 0.2s ease;
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
 }
 .field-dot.away {
   border-color: #0b1a4a;
@@ -2734,9 +2733,7 @@ button.tile:focus-visible {
     0 0 10px #fff,
     0 2px 4px rgba(0, 0, 0, 0.5);
   transform: translate(-50%, -50%);
-  transition:
-    left calc(var(--sim-speed, 0.9s) * 0.7) cubic-bezier(0.3, 0.7, 0.4, 1),
-    top calc(var(--sim-speed, 0.9s) * 0.7) cubic-bezier(0.3, 0.7, 0.4, 1);
+  will-change: left, top;
 }
 .field-small {
   position: absolute;
@@ -4635,4 +4632,191 @@ button.tile:focus-visible {
 }
 .chat-wait.done {
   color: var(--green);
+}
+/* ---------- Slider tático (modo edição no controle) ---------- */
+.tactic-slider {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+  width: 100%;
+  padding: 8px 12px;
+  text-align: left;
+  text-transform: none;
+  letter-spacing: normal;
+  background: rgba(255, 255, 255, 0.07);
+  border: 2px solid transparent;
+}
+.tactic-slider.editing {
+  border-color: var(--lime);
+  background: linear-gradient(90deg, rgba(198, 255, 0, 0.18), rgba(255, 255, 255, 0.06));
+  box-shadow: 0 0 18px rgba(198, 255, 0, 0.35);
+}
+.ts-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font: 800 15px var(--display);
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+.ts-value {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  color: var(--cyan);
+}
+.tactic-slider.editing .ts-value {
+  color: var(--lime);
+}
+.ts-track {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: 4px;
+}
+.ts-track i {
+  height: 9px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.16);
+  transition: background 0.15s;
+}
+.ts-track i.on {
+  background: linear-gradient(90deg, var(--cyan), var(--blue));
+}
+.tactic-slider.editing .ts-track i.on {
+  background: linear-gradient(90deg, var(--lime), var(--green));
+}
+.ts-hint {
+  font: 700 10px var(--display);
+  letter-spacing: 1px;
+  color: var(--ink-3);
+  text-transform: uppercase;
+}
+/* ---------- Momentos do jogo ---------- */
+.commentary-feed .moment {
+  background: linear-gradient(90deg, rgba(0, 210, 255, 0.28), rgba(0, 210, 255, 0.06));
+  font-style: italic;
+}
+.moment-dialog {
+  --tone: var(--cyan);
+  display: grid;
+  grid-template-columns: 190px 1fr;
+  gap: 22px;
+  align-items: start;
+  animation: stage-in 0.3s ease;
+}
+.moment-dialog.tone-warn {
+  --tone: var(--orange);
+}
+.moment-dialog.tone-danger {
+  --tone: var(--red);
+}
+.moment-dialog.tone-good {
+  --tone: var(--lime);
+}
+.moment-player {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.moment-player .player-card {
+  width: 100%;
+  pointer-events: none;
+}
+.moment-player dl {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  margin: 0;
+}
+.moment-player dl div {
+  padding: 6px 4px;
+  text-align: center;
+  background: rgba(255, 255, 255, 0.07);
+  border-bottom: 3px solid var(--tone);
+}
+.moment-player dt {
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.7;
+}
+.moment-player dd {
+  margin: 2px 0 0;
+  font-family: var(--display);
+  font-size: 22px;
+  font-weight: 800;
+}
+.moment-talk {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.moment-tag {
+  align-self: flex-start;
+  padding: 4px 12px;
+  font-family: var(--display);
+  font-weight: 800;
+  font-size: 15px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #04103a;
+  background: var(--tone);
+  clip-path: polygon(0 0, 100% 0, calc(100% - 10px) 100%, 0 100%);
+  padding-right: 22px;
+}
+.moment-talk blockquote {
+  position: relative;
+  margin: 0;
+  padding: 18px 20px 14px 52px;
+  background: rgba(255, 255, 255, 0.08);
+  border-left: 5px solid var(--tone);
+  border-radius: 2px 18px 18px 18px;
+}
+.moment-talk blockquote svg {
+  position: absolute;
+  left: 16px;
+  top: 18px;
+  color: var(--tone);
+}
+.moment-talk blockquote p {
+  margin: 0;
+  font-family: var(--display);
+  font-size: clamp(20px, 2.2vw, 28px);
+  font-weight: 700;
+  line-height: 1.15;
+}
+.moment-talk cite {
+  display: block;
+  margin-top: 8px;
+  font-style: normal;
+  opacity: 0.75;
+}
+.moment-actions {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+}
+.moment-actions button {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 12px 14px;
+  text-align: left;
+}
+.moment-actions button strong {
+  font-family: var(--display);
+  font-size: 18px;
+  text-transform: uppercase;
+}
+.moment-actions button small {
+  font-size: 12px;
+  opacity: 0.8;
+}
+@media (max-width: 720px) {
+  .moment-dialog {
+    grid-template-columns: 1fr;
+  }
 }

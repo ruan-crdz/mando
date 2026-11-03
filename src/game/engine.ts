@@ -209,6 +209,12 @@ function applyMatch(c: Career, world: World, result: Match) {
     }
     if (e.type === 'injury') {
       s.injuryDays = 3 + (hash(`${result.seed}:${e.playerId}:${e.minute}`) % 25);
+      if (
+        result.moments?.some(
+          (m) => m.kind === 'injury' && m.playerId === e.playerId && m.action === 'insist',
+        )
+      )
+        s.injuryDays += 10;
       if (s.clubId === c.clubId)
         message(c, {
           kind: 'staff',
@@ -265,6 +271,8 @@ function applyMatch(c: Career, world: World, result: Match) {
     result.ratings = {};
     result.minutesPlayed = {};
     result.energySpent = {};
+    result.injured = [];
+    result.moments = [];
   }
 }
 

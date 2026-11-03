@@ -54,6 +54,68 @@ export function OptionCycler<T extends string>({
   );
 }
 
+/**
+ * Slider de 1 a N para o controle: navegar passa por ele sem alterar nada.
+ * A (✕) entra no modo edição, ←/→ ajustam o valor e A (✕) de novo salva.
+ */
+export function TacticSlider({
+  label,
+  value,
+  min = 1,
+  max = 5,
+  onChange,
+}: {
+  label: string;
+  value: number;
+  min?: number;
+  max?: number;
+  onChange: (value: number) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const ref = useStepper<HTMLButtonElement>((dir) => {
+    const next = Math.max(min, Math.min(max, value + dir));
+    if (next !== value) onChange(next);
+  });
+  const steps = Array.from({ length: max - min + 1 }, (_, i) => min + i);
+  return (
+    <button
+      ref={ref}
+      type="button"
+      className={`tactic-slider ${editing ? 'editing' : ''}`}
+      data-stepper={editing ? '' : undefined}
+      data-toggle-edit=""
+      aria-pressed={editing}
+      aria-label={`${label}: ${value} de ${max}. ${editing ? 'Esquerda e direita ajustam, confirme para salvar' : 'Confirme para editar'}`}
+      onClick={() => setEditing((e) => !e)}
+      onBlur={() => setEditing(false)}
+    >
+      <span className="ts-head">
+        <span className="ts-label">{label}</span>
+        <span className="ts-value">
+          {editing && <ChevronLeft size={16} />}
+          {value} / {max}
+          {editing && <ChevronRight size={16} />}
+        </span>
+      </span>
+      <span className="ts-track" aria-hidden="true">
+        {steps.map((s) => (
+          <i
+            key={s}
+            className={s <= value ? 'on' : ''}
+            onClick={(e) => {
+              e.stopPropagation();
+              onChange(s);
+            }}
+          />
+        ))}
+      </span>
+      <span className="ts-hint">
+        {editing ? '← → ajustar · X/✕ salvar · B sair' : 'X/✕ editar'}
+      </span>
+    </button>
+  );
+}
+
 /** Poucas opções lado a lado, como os botões de opção do FIFA. */
 export function ChipGroup<T extends string>({
   label,
