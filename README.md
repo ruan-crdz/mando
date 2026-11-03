@@ -194,7 +194,7 @@ Em **Supabase → Edge Functions → Secrets**, adicione:
 OPENAI_API_KEY = sua chave privada
 ALLOWED_ORIGINS = https://ruan-crdz.github.io,http://127.0.0.1:5173
 OPENAI_TEXT_MODEL = gpt-4.1-mini
-OPENAI_IMAGE_MODEL = gpt-image-1
+OPENAI_IMAGE_MODEL = gpt-image-2.5-flare
 ```
 
 Os nomes dos modelos são configuráveis. A disponibilidade depende do seu projeto
@@ -203,6 +203,8 @@ falhas de API e não as disfarça como respostas de sucesso.
 Créditos e limites da API são separados da assinatura do ChatGPT. Erros de
 faturamento, chave inválida, modelo e verificação têm mensagens específicas,
 sem registrar o corpo privado retornado pelo provedor.
+O antigo `gpt-image-1` foi retirado da API em 23/10/2026; o padrão atual é
+`gpt-image-2.5-flare`, conforme a [documentação de descontinuações da OpenAI](https://developers.openai.com/api/docs/deprecations).
 
 Publique as funções:
 

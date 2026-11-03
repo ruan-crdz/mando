@@ -9,6 +9,7 @@ function configure() {
   Deno.env.set('SUPABASE_URL', 'https://test-project.supabase.co');
   Deno.env.set('SUPABASE_SERVICE_ROLE_KEY', 'test-only-not-a-real-key');
   Deno.env.set('OPENAI_API_KEY', 'test-only-not-a-real-key');
+  Deno.env.delete('OPENAI_IMAGE_MODEL');
 }
 function request(body: unknown = { careerId, eventId: 'event-1' }) {
   return new Request('https://edge.test/ai-message', {
@@ -208,11 +209,15 @@ Deno.test('erros do provedor são acionáveis sem expor o corpo privado', async 
         }
         if (url.pathname === '/rest/v1/ai_jobs')
           return json({ status: 'running', output: null, created_at: new Date().toISOString() });
-        if (url.pathname === '/v1/images/generations')
+        if (url.pathname === '/v1/images/generations') {
+          const body = JSON.parse(String(init?.body));
+          assertEquals(body.model, 'gpt-image-2.5-flare');
+          assertEquals(body.quality, 'low');
           return json(
             { error: { code: scenario.code, message: 'private-sentinel' } },
             scenario.upstream,
           );
+        }
         throw new Error(`Chamada inesperada: ${url.pathname}`);
       };
       const response = await handle(request({ careerId }), 'avatar');
