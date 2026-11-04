@@ -85,6 +85,8 @@ export const playerSchema = z.object({
   attributes: attributesSchema,
   /** Número da camisa quando conhecido na fonte; o restante é atribuído pela carreira. */
   number: z.number().int().min(1).max(99).optional(),
+  /** Posições secundárias/terciárias, em ordem de domínio. */
+  secondary: z.array(positionSchema).max(3).optional(),
 });
 export type Player = z.infer<typeof playerSchema>;
 export const worldSchema = z
@@ -180,6 +182,12 @@ export const playerStateSchema = z.object({
   relationship: percent,
   benchGames: z.number().int().nonnegative(),
   retired: z.boolean().optional(),
+  /** Posição principal escolhida pelo treinador (sobrepõe o snapshot). */
+  position: positionSchema.optional(),
+  /** Posição em treinamento. */
+  training: positionSchema.optional(),
+  /** Familiaridade conquistada em treino por posição (0–100). */
+  trained: z.record(z.string(), z.number().min(0).max(100)).optional(),
 });
 export type PlayerState = z.infer<typeof playerStateSchema>;
 export const tacticSchema = z.object({
@@ -381,6 +389,8 @@ export const careerSchema = z.object({
     .default([]),
   /** Números de camisa definidos na carreira (sobrepõem o snapshot). */
   numbers: z.record(z.string(), z.number().int().min(1).max(99)).default({}),
+  /** Conquistas desbloqueadas (id → data). */
+  achievements: z.record(z.string(), isoDate).default({}),
   /** Lista de observação do mercado. */
   shortlist: z.array(z.string()).default([]),
   history: z

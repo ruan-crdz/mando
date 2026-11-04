@@ -4858,3 +4858,496 @@ button.tile:focus-visible {
   margin: 0;
   text-align: center;
 }
+
+/* ---------- Modo edição: seletores e campos numéricos ---------- */
+.option-cycler:not(.editing) .cycler-arrow {
+  opacity: 0.35;
+}
+.option-cycler.editing > button,
+.number-stepper.editing .stepper-row {
+  border-color: var(--lime);
+  background: linear-gradient(90deg, rgba(198, 255, 0, 0.18), rgba(0, 8, 46, 0.55));
+  box-shadow: 0 0 16px rgba(198, 255, 0, 0.35);
+}
+.option-cycler.editing .cycler-value {
+  color: var(--lime);
+}
+.stepper-hint {
+  display: block;
+  margin-top: 2px;
+  font: 700 10px var(--display);
+  letter-spacing: 1px;
+  color: var(--lime);
+}
+/* ---------- Camisas e posições ---------- */
+.kit-editor {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 210px minmax(0, 1fr);
+  gap: 14px;
+  overflow: hidden;
+}
+.kit-side {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+}
+.kit-main {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  min-height: 0;
+  overflow: auto;
+}
+.shirt-dial {
+  display: grid;
+  gap: 4px;
+  justify-items: center;
+}
+.shirt-dial > button {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 6px 10px;
+  background: linear-gradient(180deg, rgba(0, 229, 255, 0.18), rgba(0, 8, 46, 0.65));
+  border: 2px solid var(--line);
+  clip-path: polygon(
+    18% 0,
+    38% 8%,
+    62% 8%,
+    82% 0,
+    100% 16%,
+    90% 34%,
+    90% 100%,
+    10% 100%,
+    10% 34%,
+    0 16%
+  );
+  min-height: 96px;
+}
+.shirt-dial > button:focus {
+  border-color: var(--focus);
+  background: linear-gradient(180deg, rgba(0, 229, 255, 0.35), rgba(0, 8, 46, 0.65));
+}
+.shirt-dial.editing > button {
+  background: linear-gradient(180deg, rgba(198, 255, 0, 0.42), rgba(0, 8, 46, 0.7));
+  box-shadow: 0 0 20px rgba(198, 255, 0, 0.45);
+}
+.dial-number {
+  font: 900 54px/1 var(--display);
+  letter-spacing: -1px;
+  text-shadow: 0 3px 0 rgba(0, 0, 0, 0.35);
+}
+.dial-arrow {
+  color: var(--lime);
+}
+.dial-hint {
+  font: 700 10px var(--display);
+  letter-spacing: 1px;
+  color: var(--ink-3);
+  text-transform: uppercase;
+}
+.shirt-dial.editing .dial-hint {
+  color: var(--lime);
+}
+.dial-note {
+  color: var(--gold, #ffd400);
+  font-weight: 700;
+  text-align: center;
+}
+.position-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 6px;
+}
+.position-chip {
+  position: relative;
+  display: grid;
+  gap: 2px;
+  justify-items: center;
+  padding: 6px 4px;
+  background: rgba(0, 8, 46, 0.55);
+  border: 2px solid var(--line);
+}
+.position-chip strong {
+  font: 800 16px var(--display);
+}
+.position-chip span {
+  font: 700 13px var(--display);
+  color: var(--ink-2);
+}
+.position-chip i {
+  width: 100%;
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.12);
+  overflow: hidden;
+}
+.position-chip i b {
+  display: block;
+  height: 100%;
+  background: #ff4d4d;
+}
+.position-chip.ok i b {
+  background: #ffb800;
+}
+.position-chip.known i b,
+.position-chip.main i b {
+  background: var(--lime);
+}
+.position-chip.main {
+  border-color: rgba(198, 255, 0, 0.6);
+}
+.position-chip.active {
+  background: linear-gradient(180deg, #ffffff, #d8e6ff);
+  color: #082062;
+  border-color: #fff;
+}
+.position-chip.active span {
+  color: #082062;
+}
+.position-chip.training {
+  box-shadow: inset 0 0 0 2px #ffb800;
+}
+.chip-train {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  color: #ffb800;
+}
+.kit-status {
+  display: grid;
+  gap: 2px;
+  padding: 8px 10px;
+  background: rgba(255, 255, 255, 0.06);
+  border-left: 4px solid var(--cyan);
+}
+.kit-status strong {
+  font: 800 18px var(--display);
+  text-transform: uppercase;
+}
+.kit-status small {
+  color: #ffb800;
+  font-weight: 700;
+}
+.kit-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.detail-kit {
+  display: grid;
+  grid-template-columns: 170px 130px;
+  align-items: start;
+  gap: 14px;
+}
+.pitch-player.out-of-position {
+  box-shadow:
+    0 0 0 2px #ff4d4d,
+    0 0 14px rgba(255, 77, 77, 0.6);
+}
+.oop-icon {
+  color: #ffb800;
+  vertical-align: -1px;
+  margin-right: 2px;
+}
+
+/* ---------- Mapa de calor ---------- */
+.heat-map {
+  margin: 0;
+  display: grid;
+  gap: 4px;
+  justify-items: center;
+}
+.heat-map svg {
+  width: 100%;
+  max-width: 200px;
+  max-height: 32vh;
+  border-radius: 4px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+}
+.heat-map.compact svg {
+  max-width: 130px;
+  max-height: 24vh;
+}
+.hm-grass {
+  fill: #0d6b34;
+}
+.hm-lines * {
+  stroke: rgba(255, 255, 255, 0.55);
+  stroke-width: 0.7;
+}
+.hm-role {
+  fill: #fff;
+  stroke: #082062;
+  stroke-width: 0.8;
+}
+.heat-map figcaption {
+  font: 700 12px var(--display);
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+.heat-map.good figcaption strong {
+  color: var(--lime);
+}
+.heat-map.mid figcaption strong {
+  color: #ffb800;
+}
+.heat-map.bad figcaption strong {
+  color: #ff4d4d;
+}
+/* Caixa postal, barra de voz e conquistas */
+.message-list > button.mailbox-button {
+  grid-template-columns: 24px minmax(0, 1fr);
+  gap: 10px;
+  margin-bottom: 4px;
+  background: linear-gradient(100deg, var(--purple), var(--pink));
+  border-left-color: var(--lime);
+}
+.message-list > button.mailbox-button small {
+  color: rgba(255, 255, 255, 0.85);
+}
+.message-list > button.mailbox-button.speaking {
+  background: linear-gradient(100deg, var(--pink), var(--orange));
+  animation: mailbox-glow 1.6s ease-in-out infinite;
+}
+.message-list > button.playing {
+  border-left-color: var(--lime);
+  box-shadow: inset 0 0 0 2px var(--lime);
+}
+@keyframes mailbox-glow {
+  50% {
+    filter: brightness(1.18);
+  }
+}
+.voice-bar {
+  position: fixed;
+  z-index: 68;
+  right: 104px;
+  bottom: 3px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 38px;
+  max-width: min(440px, 60vw);
+  padding: 2px 3px 2px 12px;
+  background: linear-gradient(100deg, rgba(139, 69, 255, 0.96), rgba(255, 46, 136, 0.96));
+  border-left: 4px solid var(--lime);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+}
+.voice-bar > span {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.05;
+  min-width: 0;
+  flex: 1;
+}
+.voice-bar small {
+  font-family: var(--display);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  opacity: 0.85;
+}
+.voice-bar b {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.voice-bar button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 0 12px;
+  background: rgba(0, 0, 0, 0.3);
+}
+.voice-bar .pulse {
+  flex-shrink: 0;
+  animation: mailbox-glow 1s ease-in-out infinite;
+}
+.achievement-toast {
+  position: fixed;
+  z-index: 80;
+  right: 18px;
+  bottom: 120px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: min(380px, 90vw);
+  padding: 14px 18px;
+  pointer-events: none;
+  background: linear-gradient(110deg, #06164f, #0b3fae);
+  border-left: 6px solid var(--tier, var(--yellow));
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.55);
+  animation: achievement-in 4.2s ease both;
+}
+.achievement-toast svg {
+  flex-shrink: 0;
+  color: var(--tier, var(--yellow));
+}
+.achievement-toast span {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.achievement-toast small {
+  font-family: var(--display);
+  font-size: 12px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--tier, var(--yellow));
+}
+.achievement-toast b {
+  font-family: var(--display);
+  font-size: 22px;
+  line-height: 1.1;
+}
+.achievement-toast em {
+  font-style: normal;
+  font-size: 13px;
+  color: var(--ink-2);
+}
+.tier-bronze {
+  --tier: #e0904a;
+}
+.tier-silver {
+  --tier: #d8e3f0;
+}
+.tier-gold {
+  --tier: #ffd400;
+}
+@keyframes achievement-in {
+  0% {
+    opacity: 0;
+    transform: translateX(110%);
+  }
+  8%,
+  88% {
+    opacity: 1;
+    transform: none;
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(40%);
+  }
+}
+.achievement-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 10px;
+  max-height: 62vh;
+  overflow-y: auto;
+  padding: 4px;
+}
+.achievement-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  min-height: 132px;
+  padding: 12px 14px;
+  text-align: left;
+  text-transform: none;
+  letter-spacing: normal;
+  background: rgba(255, 255, 255, 0.05);
+  border-top: 4px solid rgba(255, 255, 255, 0.15);
+  opacity: 0.6;
+}
+.achievement-card.unlocked {
+  opacity: 1;
+  border-top-color: var(--tier);
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.03));
+}
+.achievement-card.unlocked svg {
+  color: var(--tier);
+}
+.achievement-card b {
+  font-family: var(--display);
+  font-size: 18px;
+  line-height: 1.1;
+}
+.achievement-card span {
+  font-size: 13px;
+  color: var(--ink-2);
+}
+.achievement-card small {
+  margin-top: auto;
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+/* Câmera do retrato */
+.portrait-camera {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+  gap: 20px;
+  align-items: stretch;
+}
+.camera-frame {
+  position: relative;
+  aspect-ratio: 1;
+  max-height: 56vh;
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+  background: radial-gradient(circle at 50% 40%, #0b56c9, #040b33);
+  border: 3px solid var(--cyan);
+}
+.camera-frame video,
+.camera-frame img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.camera-frame video {
+  transform: scaleX(-1);
+}
+.camera-frame p {
+  position: absolute;
+  inset: auto 16px 16px;
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  text-align: center;
+  font-weight: 600;
+}
+.face-guide {
+  position: absolute;
+  left: 50%;
+  top: 46%;
+  width: 46%;
+  height: 60%;
+  transform: translate(-50%, -50%);
+  border: 3px dashed rgba(198, 255, 0, 0.85);
+  border-radius: 50% 50% 46% 46%;
+  pointer-events: none;
+}
+.camera-side {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.camera-side h3 {
+  margin: 0;
+  font-family: var(--display);
+  font-size: 30px;
+}
+.camera-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: auto;
+}
+.camera-actions button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  justify-content: center;
+  min-height: 46px;
+}

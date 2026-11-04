@@ -3,6 +3,7 @@ import { bestLineup, reconcileSquad, simulateMatch, squad } from './matches';
 import { competitionName, createSchedule, fixtureLabel, nextFixture } from './calendar';
 import { expireThread, processOffers } from './transfers';
 import { overall } from './ratings';
+import { LEARNED, TRAIN_CAP, familiarity, positionNames, trainingGain } from './positions';
 import { clubById, findPlayer, knownClub } from './npc';
 import { baseWorld, careerWorld } from './live';
 import {
@@ -23,6 +24,7 @@ import {
   type Match,
   type Message,
   type Player,
+  type PlayerState,
   type Position,
   type TableRow,
   type World,
@@ -130,6 +132,7 @@ export function createCareer(
     youth: [],
     honours: [],
     numbers: {},
+    achievements: {},
     shortlist: [],
     history: [],
   };
@@ -371,6 +374,30 @@ export function finishMatch(career: Career, world: World): Career {
   return c;
 }
 
+/** Um dia de treino na posição escolhida; avisa quando o atleta aprende a função. */
+function trainPosition(c: Career, player: Player, s: PlayerState) {
+  const role = s.training!;
+  if (role === player.position) {
+    delete s.training;
+    return;
+  }
+  const before = familiarity(player, role, s);
+  const after = Math.min(
+    TRAIN_CAP,
+    before + (s.injuryDays ? 0.2 : trainingGain(ageAt(player.birthDate, c.date))),
+  );
+  s.trained = { ...s.trained, [role]: Math.round(after * 10) / 10 };
+  if (before < LEARNED && after >= LEARNED)
+    message(c, {
+      kind: 'staff',
+      from: 'Auxiliar técnico',
+      title: `${player.name} já joga de ${positionNames[role].toLowerCase()}`,
+      body: `Depois das sessões específicas, ${player.name} entendeu a função de ${positionNames[role].toLowerCase()}. Ele já pode atuar ali sem perder rendimento.`,
+      playerId: player.id,
+    });
+  if (after >= TRAIN_CAP) delete s.training;
+}
+
 export function advanceDay(career: Career, world: World): Career {
   const c = structuredClone(career);
   const live = careerWorld(world, c);
@@ -391,6 +418,7 @@ export function advanceDay(career: Career, world: World): Career {
     const rng = random(hash(`${c.seed}:${c.date}:${player.id}`));
     s.injuryDays = Math.max(0, s.injuryDays - 1);
     s.fitness = clamp(s.fitness + (s.injuryDays ? 1 : 4));
+    if (s.training && s.clubId === c.clubId) trainPosition(c, player, s);
     if (s.clubId && ageAt(player.birthDate, c.date) <= 27 && s.injuryDays === 0 && rng() < 0.035) {
       const target =
         player.potential +

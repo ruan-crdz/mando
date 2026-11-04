@@ -17,7 +17,13 @@ beforeAll(async () => {
   api = await import('./supabase');
 });
 beforeEach(() => invoke.mockReset());
-const manager = { firstName: 'Ruan', lastName: 'Montanari', age: 34, style: 'Terno', appearance: '' };
+const manager = {
+  firstName: 'Ruan',
+  lastName: 'Montanari',
+  age: 34,
+  style: 'Terno',
+  appearance: '',
+};
 afterAll(() => vi.unstubAllEnvs());
 
 it('preserva a explicação do servidor para diálogos e retratos', async () => {

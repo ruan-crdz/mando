@@ -1,10 +1,13 @@
 import { useState, type ReactNode } from 'react';
 import { ChevronLeft, ChevronRight, Minus, Plus } from 'lucide-react';
-import { useStepper } from '../controller/GamepadProvider';
+import { useCancelEdit, useStepper, useToggleEdit } from '../controller/GamepadProvider';
 
 export type Option<T extends string> = { value: T; label: string };
 
-/** Substitui o `<select>`: ←/→ do controle trocam a opção, A avança. */
+/**
+ * Substitui o `<select>`. Navegar passa por ele sem alterar nada;
+ * A (✕) entra no modo edição, ←/→ trocam a opção e A (✕) ou B saem.
+ */
 export function OptionCycler<T extends string>({
   label,
   value,
@@ -24,16 +27,20 @@ export function OptionCycler<T extends string>({
   );
   const step = (dir: number) =>
     onChange(options[(index + dir + options.length) % options.length].value);
+  const [editing, setEditing] = useState(false);
   const ref = useStepper<HTMLButtonElement>(step);
   return (
-    <div className={`option-cycler ${className}`}>
+    <div className={`option-cycler ${editing ? 'editing' : ''} ${className}`}>
       {label && <span className="control-label">{label}</span>}
       <button
         ref={ref}
         type="button"
-        data-stepper
-        aria-label={`${label ? `${label}: ` : ''}${options[index]?.label}. Use esquerda e direita para trocar`}
-        onClick={() => step(1)}
+        data-stepper={editing ? '' : undefined}
+        data-toggle-edit=""
+        aria-pressed={editing}
+        aria-label={`${label ? `${label}: ` : ''}${options[index]?.label}. ${editing ? 'Esquerda e direita trocam, confirme para sair' : 'Confirme para editar'}`}
+        onClick={() => setEditing((e) => !e)}
+        onBlur={() => setEditing(false)}
       >
         <ChevronLeft
           size={18}
@@ -48,7 +55,14 @@ export function OptionCycler<T extends string>({
           {options.length <= 12 &&
             options.map((o) => <i key={o.value} className={o.value === value ? 'on' : ''} />)}
         </span>
-        <ChevronRight size={18} className="cycler-arrow" />
+        <ChevronRight
+          size={18}
+          className="cycler-arrow"
+          onClick={(e) => {
+            e.stopPropagation();
+            step(1);
+          }}
+        />
       </button>
     </div>
   );
@@ -154,7 +168,8 @@ export const niceStep = (value: number) =>
   Math.max(1, 10 ** Math.max(0, Math.floor(Math.log10(Math.max(1, Math.abs(value)))) - 1));
 
 /**
- * Campo numérico para controle: ←/→ ajustam, A abre o teclado numérico.
+ * Campo numérico para controle: A abre o teclado numérico; □ entra no modo
+ * ajuste (←/→ mudam o valor) e □ ou B saem. Fora do modo, as setas navegam.
  * Nunca exibe zeros à esquerda ("0123") e aceita apagar tudo.
  */
 export function NumberStepper({
@@ -186,10 +201,12 @@ export function NumberStepper({
     const base = value ?? (dir > 0 ? min : max === Number.MAX_SAFE_INTEGER ? min : max);
     onChange(clampValue(value === null ? base : base + dir * (step ?? niceStep(base))));
   };
+  const [editing, setEditing] = useState(false);
   const ref = useStepper<HTMLInputElement>(bump);
+  useToggleEdit(ref, () => setEditing((e) => !e));
   const shown = draft ?? (value === null ? '' : String(value));
   return (
-    <div className="number-stepper">
+    <div className={`number-stepper ${editing ? 'editing' : ''}`}>
       {label && <span className="control-label">{label}</span>}
       <div className="stepper-row">
         <button type="button" tabIndex={-1} aria-hidden="true" onClick={() => bump(-1)}>
@@ -199,7 +216,9 @@ export function NumberStepper({
           ref={ref}
           type="text"
           inputMode="numeric"
-          data-stepper
+          data-stepper={editing ? '' : undefined}
+          data-toggle-edit=""
+          aria-pressed={editing}
           aria-label={label}
           placeholder={placeholder ?? (optional ? 'Qualquer' : String(min))}
           value={shown}
@@ -210,6 +229,7 @@ export function NumberStepper({
             else onChange(Math.min(max, Number(digits)));
           }}
           onBlur={() => {
+            setEditing(false);
             setDraft(null);
             if (value !== null && value < min) onChange(min);
           }}
@@ -219,6 +239,67 @@ export function NumberStepper({
         </button>
       </div>
       {format && value !== null && <small className="stepper-format">{format(value)}</small>}
+      {editing && <small className="stepper-hint">← → ajustar · □/B sair</small>}
+    </div>
+  );
+}
+
+/**
+ * Número de camisa grande, no padrão de modo edição: A (✕) edita, ←/→ trocam,
+ * A (✕) salva e B cancela.
+ */
+export function ShirtNumberDial({
+  value,
+  onSave,
+  conflict,
+}: {
+  value: number;
+  onSave: (value: number) => void;
+  conflict?: (value: number) => string | undefined;
+}) {
+  const [draft, setDraft] = useState<number | null>(null);
+  const editing = draft !== null;
+  const ref = useStepper<HTMLButtonElement>((dir) =>
+    setDraft((d) => (((d ?? value) - 1 + dir + 99) % 99) + 1),
+  );
+  useCancelEdit(ref, () => {
+    setDraft(null);
+    return true;
+  });
+  const shown = draft ?? value;
+  const note = editing && draft !== value ? conflict?.(draft) : undefined;
+  return (
+    <div className={`shirt-dial ${editing ? 'editing' : ''}`}>
+      <button
+        ref={ref}
+        type="button"
+        data-stepper={editing ? '' : undefined}
+        data-toggle-edit=""
+        aria-pressed={editing}
+        aria-label={`Número da camisa ${shown}. ${editing ? 'Esquerda e direita trocam, confirme para salvar, voltar cancela' : 'Confirme para editar'}`}
+        onClick={() => {
+          if (!editing) setDraft(value);
+          else {
+            if (draft !== value) onSave(draft);
+            setDraft(null);
+          }
+        }}
+        onBlur={() => setDraft(null)}
+        onKeyDown={(e) => {
+          if (e.key === 'Escape' && editing) {
+            e.stopPropagation();
+            setDraft(null);
+          }
+        }}
+      >
+        {editing && <ChevronLeft size={26} className="dial-arrow" />}
+        <span className="dial-number">{shown}</span>
+        {editing && <ChevronRight size={26} className="dial-arrow" />}
+      </button>
+      <small className="dial-hint">
+        {editing ? '← → trocar · X/✕ salvar · B cancelar' : 'X/✕ editar número'}
+      </small>
+      {note && <small className="dial-note">{note}</small>}
     </div>
   );
 }

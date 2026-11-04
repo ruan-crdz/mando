@@ -1,22 +1,24 @@
 import { useState } from 'react';
 import {
   BriefcaseBusiness,
+  Camera,
   Check,
   ChevronRight,
   Landmark,
   MessageSquare,
-  Sparkles,
   Square,
   Target,
   TrendingUp,
   Users,
+  Voicemail,
   Volume2,
 } from 'lucide-react';
-import { type Career, type World } from '../game/types';
-import { speechAvailable, useSpeech } from '../components/voice';
+import { type Career, type Message, type World } from '../game/types';
+import { playVoice, speechAvailable, stopVoice, useVoice } from '../components/voice';
 import { squad } from '../game/matches';
 import { standings } from '../game/engine';
 import { competitionName } from '../game/calendar';
+import { PortraitCamera } from '../components/PortraitCamera';
 import { dateLabel, ManagerPortrait, Metric, money, SectionTitle } from '../components/ui';
 
 export function Office({
@@ -32,16 +34,29 @@ export function Office({
   world: World;
   onMessage: (id: string, choice: 'support' | 'firm') => void;
   onRead: (id: string) => void;
-  onAvatar: () => void;
+  onAvatar: (photo?: string) => void;
   aiAvailable: boolean;
   busy: boolean;
 }) {
+  const [camera, setCamera] = useState(false);
   const [view, setView] = useState<'inbox' | 'finances' | 'board' | 'staff'>('inbox');
   const [selectedId, setSelected] = useState(
     c.messages.find((m) => m.important && !m.resolved)?.id || c.messages[0]?.id,
   );
   const m = c.messages.find((m) => m.id === selectedId);
-  const { speaking, speak, stop } = useSpeech();
+  const voice = useVoice();
+  const speaking = voice.mailbox ? null : voice.current?.id;
+  const voiceItem = (msg: Message) => ({
+    id: msg.id,
+    title: msg.title,
+    text: `${msg.from}. ${msg.title}. ${msg.aiText || msg.body}`,
+  });
+  const unread = c.messages.filter((msg) => !msg.read);
+  const listenAll = () => {
+    if (voice.mailbox) return stopVoice();
+    // Caixa postal: primeiro as não lidas (da mais antiga para a mais nova); sem novas, todas.
+    playVoice([...(unread.length ? unread : c.messages)].reverse().map(voiceItem), true);
+  };
   const club = world.clubs.find((club) => club.id === c.clubId)!;
   const finance = c.finances[c.clubId];
   const players = squad(c, world);
@@ -108,12 +123,33 @@ export function Office({
       {view === 'inbox' && (
         <div className="office-inbox">
           <section className="panel message-list">
+            {speechAvailable() && (
+              <button
+                className={`mailbox-button ${voice.mailbox ? 'speaking' : ''}`}
+                onClick={listenAll}
+                aria-label={
+                  voice.mailbox ? 'Parar caixa postal' : 'Ouvir todas as mensagens da caixa postal'
+                }
+              >
+                {voice.mailbox ? <Square size={16} /> : <Voicemail size={18} />}
+                <span>
+                  <strong>{voice.mailbox ? 'Parar caixa postal' : 'Ouvir caixa postal'}</strong>
+                  <small>
+                    {voice.mailbox
+                      ? `Recado ${voice.position} de ${voice.total}`
+                      : unread.length
+                        ? `${unread.length} recado${unread.length > 1 ? 's' : ''} novo${unread.length > 1 ? 's' : ''}`
+                        : `Todas as ${c.messages.length} mensagens`}
+                  </small>
+                </span>
+              </button>
+            )}
             {c.messages.map((msg) => (
               <button
                 key={msg.id}
-                className={`${msg.id === selectedId ? 'selected' : ''} ${!msg.read ? 'unread' : ''}`}
+                className={`${msg.id === selectedId ? 'selected' : ''} ${!msg.read ? 'unread' : ''} ${voice.current?.id === msg.id ? 'playing' : ''}`}
                 onClick={() => {
-                  stop();
+                  if (!voice.mailbox && voice.current) stopVoice();
                   setSelected(msg.id);
                   onRead(msg.id);
                 }}
@@ -146,7 +182,7 @@ export function Office({
                 {speechAvailable() && (
                   <button
                     className={`voice-button ${speaking === m.id ? 'speaking' : ''}`}
-                    onClick={() => speak(m.id, `${m.from}. ${m.title}. ${m.aiText || m.body}`)}
+                    onClick={() => (speaking === m.id ? stopVoice() : playVoice([voiceItem(m)]))}
                     aria-label={speaking === m.id ? 'Parar áudio' : 'Ouvir mensagem'}
                   >
                     {speaking === m.id ? <Square size={16} /> : <Volume2 size={18} />}
@@ -259,7 +295,11 @@ export function Office({
                   role="img"
                   aria-label={`Caixa de ${money(balances[0])} para ${money(balances.at(-1)!)}`}
                 >
-                  <path d="M0 150H560M0 85H560M0 20H560" stroke="rgba(255,255,255,.18)" fill="none" />
+                  <path
+                    d="M0 150H560M0 85H560M0 20H560"
+                    stroke="rgba(255,255,255,.18)"
+                    fill="none"
+                  />
                   <polyline points={path} fill="none" stroke="#c6ff00" strokeWidth="3" />
                 </svg>
               ) : (
@@ -393,11 +433,21 @@ export function Office({
               <button
                 className="primary"
                 disabled={!aiAvailable || busy}
-                onClick={onAvatar}
+                onClick={() => setCamera(true)}
               >
-                <Sparkles size={16} />
-                {c.manager.avatar ? 'Gerar novo retrato com IA' : 'Gerar retrato com IA'}
+                <Camera size={16} />
+                {c.manager.avatar ? 'Novo retrato com sua foto' : 'Criar retrato com sua foto'}
               </button>
+              {camera && (
+                <PortraitCamera
+                  style={c.manager.style}
+                  onClose={() => setCamera(false)}
+                  onCapture={(photo) => {
+                    setCamera(false);
+                    onAvatar(photo);
+                  }}
+                />
+              )}
             </div>
           </section>
           <section className="panel staff-reports">

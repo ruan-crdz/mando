@@ -6,6 +6,7 @@ import {
   useRef,
   useState,
   type ReactNode,
+  type RefObject,
 } from 'react';
 import { FocusManager } from './FocusManager';
 import { standardButtons, xboxMapping } from './xboxMapping';
@@ -74,6 +75,8 @@ const Context = createContext<ControllerContext | null>(null);
 const focus = new FocusManager();
 const STICK_X_EVENT = 'mando:stick-x';
 const STEP_EVENT = 'mando:step';
+const TOGGLE_EVENT = 'mando:toggle-edit';
+const CANCEL_EVENT = 'mando:cancel-edit';
 const R3 = 11;
 const letterRows = ['1234567890', 'qwertyuiop', 'asdfghjklç', 'zxcvbnm-.@'];
 const specialRows = ['!?#$%&*()_', '+=/\\:;,"\'´', 'áàâãéêíóôõ', 'úüñ~^<>[]|'];
@@ -267,7 +270,13 @@ export function GamepadProvider({ children }: { children: ReactNode }) {
         (action === 'secondary' ||
           (action === 'back' && active.getAttribute('aria-pressed') === 'true'))
       ) {
-        active.click();
+        const cancel = new CustomEvent(CANCEL_EVENT, { cancelable: true });
+        if (action === 'back') active.dispatchEvent(cancel);
+        if (cancel.defaultPrevented) {
+          // O controle tratou o cancelamento (ex.: descartar o rascunho).
+        } else if (active instanceof HTMLInputElement)
+          active.dispatchEvent(new CustomEvent(TOGGLE_EVENT));
+        else active.click();
         rumble(action === 'back' ? 'back' : 'confirm');
         beep();
         return;
@@ -669,4 +678,42 @@ export function useStepper<T extends HTMLElement>(onStep: (dir: number) => void)
     return () => el.removeEventListener(STEP_EVENT, listener);
   }, []);
   return ref;
+}
+
+/** Campos de texto com modo edição (□ entra/sai, B sai) recebem este evento. */
+export function useToggleEdit<T extends HTMLElement>(
+  ref: RefObject<T | null>,
+  onToggle: () => void,
+) {
+  const handler = useRef(onToggle);
+  useEffect(() => {
+    handler.current = onToggle;
+  });
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const listener = () => handler.current();
+    el.addEventListener(TOGGLE_EVENT, listener);
+    return () => el.removeEventListener(TOGGLE_EVENT, listener);
+  }, [ref]);
+}
+
+/** B no modo edição: o controle pode descartar o rascunho em vez de salvar. */
+export function useCancelEdit<T extends HTMLElement>(
+  ref: RefObject<T | null>,
+  onCancel: () => boolean,
+) {
+  const handler = useRef(onCancel);
+  useEffect(() => {
+    handler.current = onCancel;
+  });
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const listener = (e: Event) => {
+      if (handler.current()) e.preventDefault();
+    };
+    el.addEventListener(CANCEL_EVENT, listener);
+    return () => el.removeEventListener(CANCEL_EVENT, listener);
+  }, [ref]);
 }

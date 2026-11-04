@@ -64,7 +64,8 @@ export function negotiationOutlook(
   ask?: number,
 ) {
   const exact = Math.min(askingPrice(c, world, player) * difficultyFactor(c), ask ?? Infinity);
-  const noise = c.difficulty === 'Profissional' ? ((hash(`${player.id}:${c.season}`) % 15) - 7) / 100 : 0;
+  const noise =
+    c.difficulty === 'Profissional' ? ((hash(`${player.id}:${c.season}`) % 15) - 7) / 100 : 0;
   const minimum = exact * (1 + noise);
   const exchange = exchangePlayerId && world.players.find((p) => p.id === exchangePlayerId);
   const amount = fee + (exchange ? marketValue(c, exchange) * 0.8 : 0);
@@ -115,7 +116,10 @@ export function activeThread(c: Career, playerId: string) {
     .reverse()
     .find(
       (o) =>
-        !o.incoming && o.playerId === playerId && o.toClubId === sellerId && o.status !== 'completed',
+        !o.incoming &&
+        o.playerId === playerId &&
+        o.toClubId === sellerId &&
+        o.status !== 'completed',
     );
 }
 
@@ -126,7 +130,10 @@ function notify(c: Career, world: World, offer: Offer) {
   c.messages.unshift({
     id: `${offer.id}-${threadOf(offer).length}`,
     date: c.date,
-    from: last.from === 'agent' ? `Agente de ${player.name}` : clubName(world, offer.incoming ? offer.fromClubId : offer.toClubId),
+    from:
+      last.from === 'agent'
+        ? `Agente de ${player.name}`
+        : clubName(world, offer.incoming ? offer.fromClubId : offer.toClubId),
     kind: 'market',
     title: `Negociação por ${player.name}`,
     body: last.text,
@@ -172,7 +179,8 @@ export function createOffer(
       `${clubName(world, sellerId)} encerrou as conversas por ${player.name} até ${existing.lockedUntil.split('-').reverse().slice(0, 2).join('/')}.`,
     );
   const contractStage =
-    existing?.stage === 'player' && (existing.status === 'countered' || existing.status === 'rejected');
+    existing?.stage === 'player' &&
+    (existing.status === 'countered' || existing.status === 'rejected');
   // Com o acordo entre clubes fechado, só o contrato do atleta continua em discussão.
   if (contractStage) {
     fee = existing.fee;
@@ -409,10 +417,7 @@ function clubDecision(c: Career, world: World, offer: Offer) {
     return;
   }
   const midpoint = offer.minimum - (offer.minimum - amount) * 0.35;
-  const ask = Math.min(
-    offer.ask ?? Infinity,
-    roundUp(Math.max(amount * 1.04, midpoint), 100000),
-  );
+  const ask = Math.min(offer.ask ?? Infinity, roundUp(Math.max(amount * 1.04, midpoint), 100000));
   const fee = Math.max(offer.fee + 50000, roundUp(ask - exVal, 50000));
   offer.ask = ask;
   offer.patience = patience - 1;
@@ -479,7 +484,8 @@ export function respondCounter(
     ...(offer.stage === 'player'
       ? { wage: offer.wage, years: offer.years, bonus: offer.bonus }
       : { fee, exchangePlayerId: offer.exchangePlayerId }),
-    text: offer.stage === 'player' ? 'Aceitamos os termos do contrato.' : 'Aceitamos o valor pedido.',
+    text:
+      offer.stage === 'player' ? 'Aceitamos os termos do contrato.' : 'Aceitamos o valor pedido.',
   });
   if (offer.stage === 'player') agentDecision(c, world, offer);
   else clubDecision(c, world, offer);
@@ -549,24 +555,46 @@ export function answerIncoming(
     throw new Error('Proposta não está disponível.');
   offer.messages = threadOf(offer);
   if (accept) {
-    say(offer, { date: c.date, from: 'me', kind: 'accept', fee: offer.fee, text: 'Proposta aceita. Negócio fechado.' });
+    say(offer, {
+      date: c.date,
+      from: 'me',
+      kind: 'accept',
+      fee: offer.fee,
+      text: 'Proposta aceita. Negócio fechado.',
+    });
     completeTransfer(c, world, offer);
     const player = world.players.find((p) => p.id === offer.playerId)!;
-    say(offer, { date: c.date, from: 'system', kind: 'info', text: `Venda concluída. ${player.name} deixou o clube.` });
+    say(offer, {
+      date: c.date,
+      from: 'system',
+      kind: 'info',
+      text: `Venda concluída. ${player.name} deixou o clube.`,
+    });
   } else {
     offer.status = 'declined';
-    say(offer, { date: c.date, from: 'me', kind: 'reject', text: 'O atleta não está à venda por esse valor.' });
+    say(offer, {
+      date: c.date,
+      from: 'me',
+      kind: 'reject',
+      text: 'O atleta não está à venda por esse valor.',
+    });
   }
   return c;
 }
 
 /** Pede um valor maior ao clube interessado; ele aceita, devolve uma contraproposta ou desiste. */
-export function counterIncoming(career: Career, world: World, offerId: string, fee: number): Career {
+export function counterIncoming(
+  career: Career,
+  world: World,
+  offerId: string,
+  fee: number,
+): Career {
   const c = structuredClone(career);
   const offer = c.offers.find((o) => o.id === offerId);
   if (!offer || !offer.incoming || offer.status !== 'pending')
     throw new Error('Proposta não está disponível.');
-  if (!Number.isFinite(fee) || fee <= offer.fee) throw new Error('Peça um valor acima da oferta atual.');
+  if (!Number.isFinite(fee) || fee <= offer.fee)
+    throw new Error('Peça um valor acima da oferta atual.');
   offer.messages = threadOf(offer);
   const player = world.players.find((p) => p.id === offer.playerId)!;
   const ceiling = Math.min(
@@ -574,20 +602,40 @@ export function counterIncoming(career: Career, world: World, offerId: string, f
     Math.max(offer.fee * 1.1, offer.minimum * (0.95 + (hash(offer.id) % 20) / 100)),
   );
   const patience = offer.patience ?? 3;
-  say(offer, { date: c.date, from: 'me', kind: 'counter', fee, text: `Por ${player.name}, só negociamos neste valor.` });
+  say(offer, {
+    date: c.date,
+    from: 'me',
+    kind: 'counter',
+    fee,
+    text: `Por ${player.name}, só negociamos neste valor.`,
+  });
   if (fee <= ceiling) {
     offer.fee = fee;
-    say(offer, { date: c.date, from: 'club', kind: 'accept', fee, text: 'Aceitamos. Pode preparar a documentação.' });
+    say(offer, {
+      date: c.date,
+      from: 'club',
+      kind: 'accept',
+      fee,
+      text: 'Aceitamos. Pode preparar a documentação.',
+    });
     offer.status = 'accepted';
     finish(c, world, offer);
     return c;
   }
   if (fee > ceiling * 1.5 || patience <= 1) {
     offer.status = 'declined';
-    say(offer, { date: c.date, from: 'club', kind: 'reject', text: `Muito acima do que podemos pagar. Desistimos de ${player.name}.` });
+    say(offer, {
+      date: c.date,
+      from: 'club',
+      kind: 'reject',
+      text: `Muito acima do que podemos pagar. Desistimos de ${player.name}.`,
+    });
     return c;
   }
-  offer.fee = Math.max(offer.fee + 50000, roundUp(Math.min(ceiling, offer.fee + (fee - offer.fee) * 0.5), 50000));
+  offer.fee = Math.max(
+    offer.fee + 50000,
+    roundUp(Math.min(ceiling, offer.fee + (fee - offer.fee) * 0.5), 50000),
+  );
   offer.patience = patience - 1;
   offer.responseDate = addDays(c.date, 5);
   say(offer, {
@@ -595,7 +643,10 @@ export function counterIncoming(career: Career, world: World, offerId: string, f
     from: 'club',
     kind: 'counter',
     fee: offer.fee,
-    text: offer.patience <= 1 ? 'Este é o nosso limite. Última oferta.' : 'Não chegamos lá, mas melhoramos a proposta.',
+    text:
+      offer.patience <= 1
+        ? 'Este é o nosso limite. Última oferta.'
+        : 'Não chegamos lá, mas melhoramos a proposta.',
   });
   return c;
 }
@@ -686,12 +737,7 @@ export function renewalTerms(c: Career, playerId: string, months = 36) {
   return { wage, bonus, contractEnd: addMonths(start, months) };
 }
 
-export function renewContract(
-  career: Career,
-  world: World,
-  playerId: string,
-  months = 36,
-): Career {
+export function renewContract(career: Career, world: World, playerId: string, months = 36): Career {
   const c = structuredClone(career);
   const p = c.players[playerId];
   if (!p || p.clubId !== c.clubId) throw new Error('Contrato indisponível.');

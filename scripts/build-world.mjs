@@ -10,6 +10,38 @@ const WORLD_ID = '2026a000-0101-4000-8000-0000000000a1';
 const EUR_BRL = 6;
 const MAX_VALUE_EUR = 35_000_000;
 
+// Funções secundárias conhecidas de atletas de destaque (complementam a pesquisa).
+const knownSecondary = {
+  'São Paulo': {
+    Luciano: ['AM'],
+    'Lucas Moura': ['AM', 'LW'],
+    'Pablo Maia': ['CM'],
+    'Marcos Antônio': ['CM'],
+    'Damián Bobadilla': ['CM'],
+    Cauly: ['RW'],
+    Ferreira: ['LW'],
+    'Robert Arboleda': [],
+  },
+  Flamengo: {
+    'Giorgian De Arrascaeta': ['CM', 'LW'],
+    'Lucas Paquetá': ['AM', 'DM'],
+    'Bruno Henrique': ['ST'],
+    'Samuel Lino': ['RW'],
+    Jorginho: ['CM'],
+    'Léo Ortiz': ['DM'],
+    'Ayrton Lucas': ['LW'],
+    'Erick Pulgar': ['CB'],
+    'Luiz Araújo': ['LW', 'AM'],
+    'Gonzalo Plata': ['LW'],
+  },
+  Palmeiras: {
+    'Vitor Roque': ['LW'],
+    'Andreas Pereira': ['AM', 'DM'],
+    'Raphael Veiga': ['CM'],
+    'Facundo Torres': ['LW', 'AM'],
+  },
+};
+
 // Posições conhecidas de atletas cuja fonte só informa a macroposição.
 const known = {
   Flamengo: {
@@ -116,6 +148,16 @@ const shares = {
   MEI: { DM: 0.36, CM: 0.36, AM: 0.28 },
   ATA: { ST: 0.4, LW: 0.3, RW: 0.3 },
 };
+// Mínimo por clube que a cota tenta garantir antes de distribuir proporcionalmente.
+const minimum = { CB: 3, LB: 2, RB: 2, DM: 2, CM: 2, AM: 1, LW: 2, RW: 2, ST: 2 };
+const shareOf = Object.assign({}, ...Object.values(shares));
+// Posições reais levantadas por scripts/fetch-positions.mjs (Wikipedia/Wikidata).
+// `position` fixa a posição; `candidates` restringe a cota (ex.: lateral de lado desconhecido).
+const researched = JSON.parse(
+  await readFile(fileURLToPath(new URL('../data/positions.json', import.meta.url)), 'utf8').catch(
+    () => '{}',
+  ),
+);
 
 const server = await createServer({
   root,
@@ -160,43 +202,94 @@ try {
   const attributesById = new Map(attributeRows.map((r) => [r.player_id, r]));
 
   const position = new Map();
+  /** Atletas remanejados pela cobertura: a posição original vira secundária. */
+  const moved = new Map();
+  const neighbours = {
+    CM: ['DM', 'AM'],
+    DM: ['CM', 'CB'],
+    AM: ['CM', 'LW', 'RW', 'ST'],
+    LW: ['RW', 'AM', 'ST'],
+    RW: ['LW', 'AM', 'ST'],
+    ST: ['AM', 'LW', 'RW'],
+    LB: ['RB', 'CB'],
+    RB: ['LB', 'CB'],
+    CB: ['DM', 'LB', 'RB'],
+  };
   const byClub = Map.groupBy(playerRows, (r) => r.club_name);
   for (const [clubName, rows] of byClub) {
     const overrides = known[clubName] || {};
     for (const name of Object.keys(overrides))
       if (!rows.some((r) => r.display_name === name))
         throw new Error(`Atleta conhecido ausente: ${name} (${clubName})`);
-    for (const macro of ['GOL', 'DEF', 'MEI', 'ATA']) {
-      const group = rows
-        .filter((r) => r.macro_position === macro)
-        .sort(
-          (a, b) => b.overall_mando - a.overall_mando || a.player_id.localeCompare(b.player_id),
-        );
-      if (macro === 'GOL') {
-        group.forEach((r) => position.set(r.player_id, 'GK'));
-        continue;
+    const count = Object.fromEntries(Object.keys(shareOf).map((p) => [p, 0]));
+    const fixed = (r) =>
+      r.macro_position === 'GOL'
+        ? 'GK'
+        : overrides[r.display_name]?.[0] ||
+          researched[r.player_id]?.position ||
+          specific[r.primary_position];
+    for (const r of rows)
+      if (fixed(r)) {
+        position.set(r.player_id, fixed(r));
+        if (fixed(r) in count) count[fixed(r)]++;
       }
-      const count = Object.fromEntries(Object.keys(shares[macro]).map((p) => [p, 0]));
-      const fixed = (r) => overrides[r.display_name]?.[0] || specific[r.primary_position];
-      for (const r of group)
-        if (fixed(r)) {
-          position.set(r.player_id, fixed(r));
-          if (fixed(r) in count) count[fixed(r)]++;
-        }
-      group
-        .filter((r) => !fixed(r))
-        .forEach((r, i, rest) => {
-          const total = group.length - rest.length + i + 1;
-          const pick = Object.entries(shares[macro]).sort(
-            ([a, sa], [b, sb]) =>
-              sb * total - count[b] - (sa * total - count[a]) || a.localeCompare(b),
-          )[0][0];
-          count[pick]++;
-          position.set(r.player_id, pick);
-        });
+    rows
+      .filter((r) => !fixed(r))
+      .sort((a, b) => b.overall_mando - a.overall_mando || a.player_id.localeCompare(b.player_id))
+      .forEach((r) => {
+        const options =
+          researched[r.player_id]?.candidates || Object.keys(shares[r.macro_position]);
+        const total = options.reduce((s, p) => s + count[p], 0) + 1;
+        const weight = options.reduce((s, p) => s + shareOf[p], 0);
+        const pick = [...options].sort(
+          (a, b) =>
+            Math.max(0, minimum[b] - count[b]) - Math.max(0, minimum[a] - count[a]) ||
+            (shareOf[b] / weight) * total - count[b] - ((shareOf[a] / weight) * total - count[a]) ||
+            a.localeCompare(b),
+        )[0];
+        count[pick]++;
+        position.set(r.player_id, pick);
+      });
+    // Cobertura: todo elenco precisa de ao menos um titular natural por função.
+    for (const [need, donors] of Object.entries(neighbours)) {
+      if (rows.some((r) => position.get(r.player_id) === need)) continue;
+      const size = (pos) => rows.filter((r) => position.get(r.player_id) === pos).length;
+      const donor = rows
+        .filter(
+          (r) =>
+            donors.includes(position.get(r.player_id)) &&
+            size(position.get(r.player_id)) > 1 &&
+            !overrides[r.display_name],
+        )
+        .sort(
+          (a, b) =>
+            Number(Boolean(researched[b.player_id]?.secondary?.includes(need))) -
+              Number(Boolean(researched[a.player_id]?.secondary?.includes(need))) ||
+            donors.indexOf(position.get(a.player_id)) - donors.indexOf(position.get(b.player_id)) ||
+            b.overall_mando - a.overall_mando ||
+            a.player_id.localeCompare(b.player_id),
+        )[0];
+      if (!donor) throw new Error(`${clubName} sem atleta para ${need}`);
+      moved.set(donor.player_id, position.get(donor.player_id));
+      position.set(donor.player_id, need);
     }
   }
 
+  /**
+   * Posições secundárias: pesquisa (Wikipedia/Wikidata/oGol) + lista curada.
+   */
+  const secondaryOf = (r, pos) => {
+    const curated = knownSecondary[r.club_name]?.[r.display_name.trim()] || [];
+    const list0 = [
+      ...(moved.has(r.player_id) ? [moved.get(r.player_id)] : []),
+      ...curated,
+      ...(researched[r.player_id]?.secondary || []),
+    ];
+    const list = list0.filter(
+      (p, i, all) => p !== pos && (p === 'GK') === (pos === 'GK') && all.indexOf(p) === i,
+    );
+    return list.length ? { secondary: list.slice(0, 3) } : {};
+  };
   const players = playerRows.map((r) => {
     const rng = random(hash(r.player_id));
     const noise = (spread) => Math.round((rng() - 0.5) * 2 * spread);
@@ -271,6 +364,7 @@ try {
       wage: Math.round((Number(r.salary_mando_eur_month) * EUR_BRL) / 100) * 100,
       contractEnd: `${2025 + years}-12-31`,
       attributes,
+      ...secondaryOf(r, pos),
       ...(Number(r.shirt_number) >= 1 && Number(r.shirt_number) <= 99
         ? { number: Number(r.shirt_number) }
         : {}),

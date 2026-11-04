@@ -239,3 +239,50 @@ Deno.test('erros do provedor são acionáveis sem expor o corpo privado', async 
     console.error = oldLog;
   }
 });
+
+Deno.test('retrato com foto usa images/edits com a imagem em multipart', async () => {
+  configure();
+  const oldFetch = globalThis.fetch;
+  const oldLog = console.error;
+  console.error = () => undefined;
+  let form: FormData | undefined;
+  try {
+    globalThis.fetch = async (input, init) => {
+      const url = new URL(input instanceof Request ? input.url : String(input));
+      if (url.pathname === '/auth/v1/user') return json({ id: userId, aud: 'authenticated' });
+      if (url.pathname === '/rest/v1/rpc/claim_portrait_job') return json(jobId);
+      if (url.pathname === '/rest/v1/ai_jobs' && init?.method === 'PATCH') {
+        const change = JSON.parse(String(init.body));
+        return json(change.status ? null : [{ id: jobId }]);
+      }
+      if (url.pathname === '/rest/v1/ai_jobs')
+        return json({ status: 'running', output: null, created_at: new Date().toISOString() });
+      if (url.pathname === '/v1/images/edits') {
+        form = init?.body as FormData;
+        return json({ error: { code: null, message: 'x' } }, 400);
+      }
+      throw new Error(`Chamada inesperada: ${url.pathname}`);
+    };
+    const photo = `data:image/jpeg;base64,${btoa('fake-jpeg-bytes')}`;
+    const response = await handle(
+      request({ attemptId: careerId, manager: { ...state.manager }, photo }),
+      'avatar',
+    );
+    assertEquals(response.status, 502);
+    assertEquals(form instanceof FormData, true);
+    assertEquals(form!.get('model'), 'gpt-image-2.5-flare');
+    assertEquals(form!.get('background'), 'transparent');
+    const image = form!.get('image') as File;
+    assertEquals(image.type, 'image/jpeg');
+    assertEquals(await image.text(), 'fake-jpeg-bytes');
+    assertMatch(String(form!.get('prompt')), /Outfit/);
+    const invalid = await handle(
+      request({ attemptId: careerId, manager: { ...state.manager }, photo: 'javascript:1' }),
+      'avatar',
+    );
+    assertEquals(invalid.status, 400);
+  } finally {
+    globalThis.fetch = oldFetch;
+    console.error = oldLog;
+  }
+});

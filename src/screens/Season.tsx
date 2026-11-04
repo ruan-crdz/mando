@@ -185,7 +185,7 @@ export function Season({ career: c, world }: { career: Career; world: World }) {
             ['table', isLeague ? 'Classificação' : 'Chaves e grupos', Trophy],
             ['calendar', 'Calendário', CalendarDays],
             ['stats', 'Estatísticas', Medal],
-            ['trophies', 'Conquistas', Trophy],
+            ['trophies', 'Troféus', Trophy],
           ] as const
         ).map(([id, name, Icon]) => (
           <button className={view === id ? 'active' : ''} key={id} onClick={() => setView(id)}>

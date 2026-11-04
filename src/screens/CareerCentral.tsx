@@ -201,9 +201,7 @@ export function CareerCentral({
           <span className="big-stat">
             {position}º<small>NA TABELA</small>
           </span>
-          <span className="tile-sub">
-            Caixa {money(c.finances[c.clubId].cash)}
-          </span>
+          <span className="tile-sub">Caixa {money(c.finances[c.clubId].cash)}</span>
           <span className="tile-cta">
             TEMPORADA <ArrowRight size={16} />
           </span>

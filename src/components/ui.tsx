@@ -153,7 +153,11 @@ export function ManagerPortrait({ manager, large = false }: { manager: Manager; 
     );
   const initials = `${manager.firstName[0] || 'M'}${manager.lastName[0] || ''}`.toUpperCase();
   const suit =
-    manager.style === 'Agasalho' ? '#1b9e5a' : manager.style === 'Camisa social' ? '#e9eef7' : '#13285e';
+    manager.style === 'Agasalho'
+      ? '#1b9e5a'
+      : manager.style === 'Camisa social'
+        ? '#e9eef7'
+        : '#13285e';
   return (
     <svg
       className={`manager-portrait silhouette ${large ? 'large' : ''}`}
@@ -176,8 +180,20 @@ export function ManagerPortrait({ manager, large = false }: { manager: Manager; 
       <path d="M138 276l22 46 22-46 14 6-36 118-36-118z" fill="#ffffff" opacity=".9" />
       <path d="M156 296h8l6 90h-20z" fill={manager.style === 'Agasalho' ? 'none' : '#e5323b'} />
       <ellipse cx="160" cy="170" rx="66" ry="84" fill="url(#mp-skin)" />
-      <path d="M94 160q-10-96 66-98 78 0 68 98-10-46-68-48-58 2-66 48z" fill="#0b1a46" opacity=".85" />
-      <text x="160" y="196" textAnchor="middle" fontSize="54" fontWeight="800" fill="#0b1a46" opacity=".55">
+      <path
+        d="M94 160q-10-96 66-98 78 0 68 98-10-46-68-48-58 2-66 48z"
+        fill="#0b1a46"
+        opacity=".85"
+      />
+      <text
+        x="160"
+        y="196"
+        textAnchor="middle"
+        fontSize="54"
+        fontWeight="800"
+        fill="#0b1a46"
+        opacity=".55"
+      >
         {initials}
       </text>
     </svg>

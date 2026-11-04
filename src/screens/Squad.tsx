@@ -1,13 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ArrowLeftRight,
   ChevronLeft,
+  Dumbbell,
+  Hash,
   ClipboardList,
   Crown,
   Shield,
   Shirt,
   SlidersHorizontal,
   Sparkles,
+  TriangleAlert,
   UserX,
 } from 'lucide-react';
 import { available, bestLineup, squad } from '../game/matches';
@@ -17,16 +19,29 @@ import { pitchCoordinates } from '../game/pitch';
 import { setShirtNumber, shirtNumbers } from '../game/numbers';
 import { renewalOptions, renewalTerms } from '../game/transfers';
 import {
+  LEARNED,
+  TRAIN_CAP,
+  familiarity,
+  familiarityLabel,
+  knownPositions,
+  positionNames,
+  setMainPosition,
+  setTraining,
+} from '../game/positions';
+import { HeatMap } from '../components/HeatMap';
+import {
   formations,
+  positions,
   roleNames,
   type Career,
   type Formation,
   type Player,
+  type Position,
   type Tactic,
   type World,
 } from '../game/types';
 import { dateLabel, Metric, Modal, money, SectionTitle } from '../components/ui';
-import { ChipGroup, NumberStepper, TacticSlider } from '../components/controls';
+import { ChipGroup, ShirtNumberDial, TacticSlider } from '../components/controls';
 import {
   byPosition,
   PlayerCard,
@@ -99,10 +114,11 @@ export function Squad({
   detail: Player | null;
   setDetail: (p: Player | null) => void;
 }) {
-  const [view, setView] = useState<'lineup' | 'tactics' | 'roles'>('lineup');
+  const [view, setView] = useState<'lineup' | 'tactics' | 'roles' | 'kit'>('lineup');
+  const [kitId, setKitId] = useState<string | null>(null);
+  const [kitPos, setKitPos] = useState<Position | null>(null);
   const [picking, setPicking] = useState<Picking>(null);
   const [months, setMonths] = useState(36);
-  const [numberDraft, setNumberDraft] = useState<number | null>(null);
   const panel = useRef<HTMLElement>(null);
   const returnFocus = useRef<string | null>(null);
   const players = useMemo(() => squad(c, world), [c, world]);
@@ -124,6 +140,15 @@ export function Squad({
       if (!picking) returnFocus.current = null;
     });
   }, [picking]);
+  useEffect(() => {
+    requestAnimationFrame(() => {
+      if (kitId) panel.current?.querySelector<HTMLElement>('.shirt-dial button')?.focus();
+      else if (returnFocus.current) {
+        document.querySelector<HTMLElement>(returnFocus.current)?.focus();
+        returnFocus.current = null;
+      }
+    });
+  }, [kitId]);
 
   const updateTactic = (change: Partial<Tactic>) => {
     const next = { ...c, tactic: { ...c.tactic, ...change } };
@@ -172,9 +197,23 @@ export function Squad({
   };
   const openDetail = (p: Player) => {
     setMonths(36);
-    setNumberDraft(null);
     setDetail(p);
   };
+  const apply = (fn: () => Career) => {
+    try {
+      onChange(fn());
+    } catch (e) {
+      onError(e instanceof Error ? e.message : String(e));
+    }
+  };
+  const numberConflict = (playerId: string) => (n: number) => {
+    const holder = Object.keys(numbers).find((id) => numbers[id] === n && id !== playerId);
+    return holder ? `Em uso por ${shortName(byId(holder).name)}: os dois trocam` : undefined;
+  };
+  const positionsLine = (p: Player) =>
+    knownPositions(p, c.players[p.id])
+      .sort((a, b) => (a === p.position ? -1 : b === p.position ? 1 : 0))
+      .join(' · ');
 
   const sortedRoster = [...players].sort(byPosition(c));
   let pickerContent = null;
@@ -185,14 +224,22 @@ export function Squad({
       (p) => p.id !== currentId && (picking.index !== 0 || p.position === 'GK'),
     );
     const fit = roleFits[role] || [role];
+    // Recomendados: quem é da posição ou já é apto nela (secundária/treinada), pelo OVR na função.
     const recommended = pool
-      .filter((p) => fit.includes(p.position) && available(c, p.id))
-      .sort(
-        (a, b) =>
-          fit.indexOf(a.position) - fit.indexOf(b.position) ||
-          overall(b, role, c.players[b.id]) - overall(a, role, c.players[a.id]),
+      .filter(
+        (p) =>
+          available(c, p.id) &&
+          (fit[0] === p.position || familiarity(p, role, c.players[p.id]) >= LEARNED),
       )
+      .sort((a, b) => overall(b, role, c.players[b.id]) - overall(a, role, c.players[a.id]))
       .slice(0, 5);
+    if (recommended.length < 5)
+      recommended.push(
+        ...pool
+          .filter((p) => !recommended.includes(p) && fit.includes(p.position) && available(c, p.id))
+          .sort((a, b) => overall(b, role, c.players[b.id]) - overall(a, role, c.players[a.id]))
+          .slice(0, 5 - recommended.length),
+      );
     const others = pool.filter((p) => !recommended.includes(p)).sort(byPosition(c));
     const current = byId(currentId);
     pickerContent = (
@@ -297,10 +344,14 @@ export function Squad({
   const d = detail && c.players[detail.id] ? detail : null;
   const ds = d ? c.players[d.id] : null;
   const terms = d ? renewalTerms(c, d.id, months) : null;
-  const holder =
-    d && numberDraft !== null
-      ? Object.keys(numbers).find((id) => numbers[id] === numberDraft && id !== d.id)
-      : undefined;
+  const kit = kitId && c.players[kitId]?.clubId === c.clubId ? byId(kitId) : null;
+  const ks = kit ? c.players[kit.id] : null;
+  const kitRole = kitPos ?? kit?.position ?? 'ST';
+  const closeKit = () => {
+    if (kitId) returnFocus.current = `[data-player="${kitId}"]`;
+    setKitId(null);
+    setKitPos(null);
+  };
 
   return (
     <div className="screen-enter">
@@ -343,6 +394,16 @@ export function Squad({
         >
           <ClipboardList size={16} /> Responsabilidades
         </button>
+        <button
+          className={view === 'kit' ? 'active' : ''}
+          onClick={() => {
+            setView('kit');
+            setPicking(null);
+            setKitId(null);
+          }}
+        >
+          <Hash size={16} /> Camisas e posições
+        </button>
       </div>
       <div className="squad-layout">
         <section className="panel pitch-panel" data-focus-region="pitch">
@@ -358,12 +419,13 @@ export function Squad({
               const p = byId(id);
               const s = c.players[id];
               const selected = picking?.kind === 'slot' && picking.index === i;
+              const fam = familiarity(p, rolePositions[i], s);
               const swapping = picking?.kind === 'slot' && !selected;
               return (
                 <button
                   key={`${i}-${id}`}
                   data-slot={i}
-                  className={`pitch-player ${!available(c, id) ? 'unavailable' : ''} ${selected ? 'selected' : ''} ${swapping ? 'swap-target' : ''}`}
+                  className={`pitch-player ${!available(c, id) ? 'unavailable' : ''} ${selected ? 'selected' : ''} ${swapping ? 'swap-target' : ''} ${fam < LEARNED ? 'out-of-position' : ''}`}
                   style={{ left: `${coordinates[i].x}%`, top: `${coordinates[i].y}%` }}
                   onClick={() => {
                     setView('lineup');
@@ -381,11 +443,12 @@ export function Squad({
                     const dropped = e.dataTransfer.getData('text/plain');
                     if (players.some((p) => p.id === dropped)) changeSlot(i, dropped);
                   }}
-                  aria-label={`${rolePositions[i]} ${p.name}, camisa ${numbers[id]}, overall ${overall(p, rolePositions[i], s)}. Trocar atleta`}
+                  aria-label={`${rolePositions[i]} ${p.name}, camisa ${numbers[id]}, overall ${overall(p, rolePositions[i], s)}${fam < LEARNED ? `, improvisado (${familiarityLabel(fam).toLowerCase()})` : ''}. Trocar atleta`}
                 >
                   <span className="shirt-number">{numbers[id]}</span>
                   <strong>{shortName(p.name)}</strong>
                   <small>
+                    {fam < LEARNED && <TriangleAlert size={11} className="oop-icon" />}
                     {rolePositions[i]} · <b>{overall(p, rolePositions[i], s)}</b>
                   </small>
                   <i className="pitch-fitness" style={{ width: `${Math.round(s.fitness)}%` }} />
@@ -401,7 +464,125 @@ export function Squad({
         </section>
         <section ref={panel} className="panel squad-controls" data-focus-region="panel">
           {pickerContent ||
-            (view === 'tactics' ? (
+            (view === 'kit' ? (
+              kit && ks ? (
+                <>
+                  <div className="panel-heading picker-heading">
+                    <button className="text-button" data-back-action onClick={closeKit}>
+                      <ChevronLeft size={16} /> Elenco
+                    </button>
+                    <h2>{kit.name}</h2>
+                    <span className="pill">{positionsLine(kit)}</span>
+                  </div>
+                  <div className="kit-editor">
+                    <div className="kit-side">
+                      <ShirtNumberDial
+                        value={numbers[kit.id] ?? 1}
+                        conflict={numberConflict(kit.id)}
+                        onSave={(n) => apply(() => setShirtNumber(c, world, kit.id, n))}
+                      />
+                      <HeatMap player={kit} position={kitRole} state={ks} />
+                    </div>
+                    <div className="kit-main">
+                      <p className="eyebrow">POSIÇÕES · ESCOLHA UMA PARA VER O MAPA DE CALOR</p>
+                      <div className="position-grid">
+                        {positions.map((pos) => {
+                          const f = familiarity(kit, pos, ks);
+                          return (
+                            <button
+                              key={pos}
+                              type="button"
+                              className={`position-chip ${pos === kitRole ? 'active' : ''} ${f >= 100 ? 'main' : f >= LEARNED ? 'known' : f >= 60 ? 'ok' : 'bad'} ${ks.training === pos ? 'training' : ''}`}
+                              aria-pressed={pos === kitRole}
+                              aria-label={`${positionNames[pos]}: ${familiarityLabel(f)}, ${Math.round(f)}%, overall ${overall(kit, pos, ks)}`}
+                              onClick={() => setKitPos(pos)}
+                            >
+                              <strong>{pos}</strong>
+                              <span>{overall(kit, pos, ks)}</span>
+                              <i>
+                                <b style={{ width: `${f}%` }} />
+                              </i>
+                              {ks.training === pos && <Dumbbell size={12} className="chip-train" />}
+                            </button>
+                          );
+                        })}
+                      </div>
+                      <div className="kit-status">
+                        <strong>{positionNames[kitRole]}</strong>
+                        <span>
+                          {familiarityLabel(familiarity(kit, kitRole, ks))} ·{' '}
+                          {Math.round(familiarity(kit, kitRole, ks))}% · OVR{' '}
+                          {overall(kit, kitRole, ks)}
+                        </span>
+                        {ks.training && (
+                          <small>
+                            Treinando {positionNames[ks.training].toLowerCase()} ·{' '}
+                            {Math.round(familiarity(kit, ks.training, ks))}% (apto a partir de{' '}
+                            {LEARNED}%)
+                          </small>
+                        )}
+                      </div>
+                      <div className="kit-actions">
+                        {ks.training === kitRole ? (
+                          <button onClick={() => apply(() => setTraining(c, kit, null))}>
+                            <Dumbbell size={16} /> Parar treino
+                          </button>
+                        ) : (
+                          <button
+                            disabled={
+                              kitRole === kit.position ||
+                              familiarity(kit, kitRole, ks) >= TRAIN_CAP ||
+                              (kitRole === 'GK') !== (kit.position === 'GK')
+                            }
+                            onClick={() => apply(() => setTraining(c, kit, kitRole))}
+                          >
+                            <Dumbbell size={16} /> Treinar como {kitRole}
+                          </button>
+                        )}
+                        <button
+                          className="primary"
+                          disabled={
+                            kitRole === kit.position || familiarity(kit, kitRole, ks) < LEARNED
+                          }
+                          onClick={() => apply(() => setMainPosition(c, kit, kitRole))}
+                        >
+                          <Crown size={16} /> Tornar posição principal
+                        </button>
+                      </div>
+                      <p className="muted small">
+                        O treino evolui um pouco por dia (mais rápido em jovens). Fora de posição o
+                        OVR cai e o mapa de calor se espalha.
+                      </p>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="panel-heading">
+                    <h2>Camisas e posições</h2>
+                    <span>A edita número, posição e treino</span>
+                  </div>
+                  <div className="card-scroll">
+                    <div className="card-grid">
+                      {sortedRoster.map((p) => (
+                        <PlayerCard
+                          key={p.id}
+                          player={p}
+                          career={c}
+                          number={numbers[p.id]}
+                          badge={c.players[p.id].training ? <Dumbbell size={12} /> : undefined}
+                          note={positionsLine(p)}
+                          onClick={() => {
+                            setKitId(p.id);
+                            setKitPos(p.position);
+                          }}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                </>
+              )
+            ) : view === 'tactics' ? (
               <>
                 <p className="eyebrow">IDENTIDADE EM CAMPO</p>
                 <h2>Como vamos jogar?</h2>
@@ -524,7 +705,7 @@ export function Squad({
             <div className="detail-side">
               <div className="detail-metrics">
                 <Metric label="CAMISA" value={numbers[d.id] ?? '—'} />
-                <Metric label="POSIÇÃO" value={d.position} />
+                <Metric label="POSIÇÃO" value={positionsLine(d) || d.position} />
                 <Metric label="OVERALL" value={overall(d, d.position, ds)} />
                 <Metric
                   label="POTENCIAL"
@@ -544,35 +725,16 @@ export function Squad({
               </div>
               {ds.clubId === c.clubId && (
                 <>
-                  <div className="detail-block">
-                    <p className="eyebrow">NÚMERO DA CAMISA</p>
-                    <div className="number-editor">
-                      <NumberStepper
-                        value={numberDraft ?? numbers[d.id] ?? 1}
-                        min={1}
-                        max={99}
-                        step={1}
-                        onChange={(n) => setNumberDraft(n)}
+                  <div className="detail-block detail-kit">
+                    <div>
+                      <p className="eyebrow">NÚMERO DA CAMISA</p>
+                      <ShirtNumberDial
+                        value={numbers[d.id] ?? 1}
+                        conflict={numberConflict(d.id)}
+                        onSave={(n) => apply(() => setShirtNumber(c, world, d.id, n))}
                       />
-                      <button
-                        disabled={numberDraft === null || numberDraft === numbers[d.id]}
-                        onClick={() => {
-                          try {
-                            onChange(setShirtNumber(c, world, d.id, numberDraft!));
-                            setNumberDraft(null);
-                          } catch (e) {
-                            onError(e instanceof Error ? e.message : String(e));
-                          }
-                        }}
-                      >
-                        <ArrowLeftRight size={15} /> Aplicar
-                      </button>
                     </div>
-                    {holder && (
-                      <small className="muted">
-                        Em uso por {byId(holder).name}: os dois trocam de número.
-                      </small>
-                    )}
+                    <HeatMap player={d} position={d.position} state={ds} compact />
                   </div>
                   <div className="detail-block">
                     <p className="eyebrow">RENOVAR CONTRATO · ESTENDER POR</p>

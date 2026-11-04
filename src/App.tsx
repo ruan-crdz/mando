@@ -1,10 +1,16 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import {
   ArrowLeft,
   ArrowRight,
+  Award,
   CheckCircle2,
   Gamepad2,
   LoaderCircle,
+  Lock,
+  Music,
+  Radio,
+  SkipForward,
+  Square,
   Trophy,
   Vibrate,
   VibrateOff,
@@ -50,9 +56,12 @@ import { type Career, type Player, type World } from './game/types';
 import { listLocal, removeLocal, saveLocal, type SavedCareer } from './services/storage';
 import { ensureSession, requestPortrait, saveCloud, supabase } from './services/supabase';
 import { registerSW } from 'virtual:pwa-register';
+import { musicEnabled, startMusic, subscribeMusic, toggleMusic } from './audio/music';
+import { skipVoice, stopVoice, useVoice } from './components/voice';
+import { achievements, unlockAchievements, type Achievement } from './game/achievements';
 
 const tabs = ['CENTRAL', 'TIME', 'TRANSFERÊNCIAS', 'ESCRITÓRIO', 'TEMPORADA'];
-type Popup = 'world' | 'pause' | 'prematch' | null;
+type Popup = 'world' | 'pause' | 'prematch' | 'achievements' | null;
 
 function Game() {
   const controller = useGamepad();
@@ -85,6 +94,35 @@ function Game() {
   const lastSaved = useRef<Career | null>(null);
   const lock = useRef(false);
   const { rumble } = controller;
+  const music = useSyncExternalStore(subscribeMusic, musicEnabled, musicEnabled);
+  const voice = useVoice();
+  const [unlocked, setUnlocked] = useState<Achievement[]>([]);
+  useEffect(() => {
+    if (controller.input === 'xbox' || controller.input === 'playstation') startMusic();
+  }, [controller.input]);
+  useEffect(() => {
+    if (!career) return;
+    const result = unlockAchievements(career);
+    if (!result.unlocked.length) return;
+    setCareer(result.career);
+    setUnlocked((list) => [...list, ...result.unlocked]);
+    rumble('goal');
+  }, [career, rumble]);
+  useEffect(() => {
+    if (!unlocked.length) return;
+    const timer = window.setTimeout(() => setUnlocked((list) => list.slice(1)), 4200);
+    return () => window.clearTimeout(timer);
+  }, [unlocked]);
+  // Recado ouvido na caixa postal conta como lido, mesmo fora do Escritório.
+  const heard = voice.current?.id;
+  useEffect(() => {
+    if (!heard) return;
+    setCareer((c) =>
+      c && c.messages.some((m) => m.id === heard && !m.read)
+        ? { ...c, messages: c.messages.map((m) => (m.id === heard ? { ...m, read: true } : m)) }
+        : c,
+    );
+  }, [heard]);
   const fail = useCallback(
     (message: string) => {
       setError(message);
@@ -196,6 +234,7 @@ function Game() {
         await queue.current;
         if (career && world) await saveLocal(career, world, revisions.current.get(career.id) || 0);
         setSaves(await listLocal());
+        stopVoice();
         setScreen('menu');
         setPopup(null);
         setDetail(null);
@@ -256,15 +295,18 @@ function Game() {
           },
         },
   );
-  const portrait = (manager: Career['manager']) =>
-    requestPortrait({
-      firstName: manager.firstName,
-      lastName: manager.lastName,
-      age: manager.age,
-      nationality: manager.nationality,
-      style: manager.style,
-      appearance: manager.appearance,
-    });
+  const portrait = (manager: Career['manager'], photo?: string) =>
+    requestPortrait(
+      {
+        firstName: manager.firstName,
+        lastName: manager.lastName,
+        age: manager.age,
+        nationality: manager.nationality,
+        style: manager.style,
+        appearance: manager.appearance,
+      },
+      photo,
+    );
   const club = career && world?.clubs.find((club) => club.id === career.clubId);
   const inMatch = Boolean(career?.activeMatch);
   return (
@@ -486,9 +528,9 @@ function Game() {
                         ),
                       });
                   }}
-                  onAvatar={() =>
+                  onAvatar={(photo) =>
                     run(async () => {
-                      const url = await portrait(career.manager);
+                      const url = await portrait(career.manager, photo);
                       setCareer({ ...career, manager: { ...career.manager, avatar: url } });
                       setNotice('Novo retrato pronto.');
                     })
@@ -541,6 +583,35 @@ function Game() {
           >
             <X size={18} />
           </button>
+        </div>
+      )}
+      {voice.current && (
+        <div className="voice-bar" role="status">
+          <Radio size={18} className="pulse" />
+          <span>
+            <small>
+              {voice.mailbox ? `Caixa postal · ${voice.position}/${voice.total}` : 'Recado'}
+            </small>
+            <b>{voice.current.title}</b>
+          </span>
+          {voice.total > 1 && (
+            <button aria-label="Pular recado" onClick={skipVoice}>
+              <SkipForward size={16} />
+            </button>
+          )}
+          <button aria-label="Parar caixa postal" onClick={stopVoice}>
+            <Square size={14} /> Parar
+          </button>
+        </div>
+      )}
+      {unlocked[0] && (
+        <div className={`achievement-toast tier-${unlocked[0].tier}`} role="status">
+          <Award size={30} />
+          <span>
+            <small>Conquista desbloqueada</small>
+            <b>{unlocked[0].title}</b>
+            <em>{unlocked[0].description}</em>
+          </span>
         </div>
       )}
       {busy && (
@@ -623,6 +694,19 @@ function Game() {
               {controller.sound ? <Volume2 size={18} /> : <VolumeX size={18} />}
               Sons do menu: {controller.sound ? 'Ligados' : 'Desligados'}
             </button>
+            <button onClick={toggleMusic}>
+              {music ? <Music size={18} /> : <VolumeX size={18} />}
+              Música: {music ? 'Ligada' : 'Desligada'}
+            </button>
+            {voice.current && (
+              <button onClick={stopVoice}>
+                <Square size={16} /> Parar caixa postal
+              </button>
+            )}
+            <button onClick={() => setPopup('achievements')}>
+              <Award size={18} /> Conquistas ({Object.keys(career.achievements || {}).length}/
+              {achievements.length})
+            </button>
             {installPrompt && (
               <button
                 onClick={() =>
@@ -636,6 +720,27 @@ function Game() {
               </button>
             )}
             <button onClick={menu}>Salvar e sair para o menu</button>
+          </div>
+        </Modal>
+      )}
+      {popup === 'achievements' && career && (
+        <Modal title="Conquistas" onClose={() => setPopup('pause')} wide>
+          <div className="achievement-grid">
+            {achievements.map((a) => {
+              const date = career.achievements?.[a.id];
+              return (
+                <button
+                  key={a.id}
+                  className={`achievement-card tier-${a.tier}${date ? ' unlocked' : ''}`}
+                  aria-label={`${a.title}: ${a.description}. ${date ? `Desbloqueada em ${dateLabel(date)}` : 'Bloqueada'}`}
+                >
+                  {date ? <Award size={30} /> : <Lock size={26} />}
+                  <b>{a.title}</b>
+                  <span>{a.description}</span>
+                  <small>{date ? dateLabel(date) : 'Bloqueada'}</small>
+                </button>
+              );
+            })}
           </div>
         </Modal>
       )}

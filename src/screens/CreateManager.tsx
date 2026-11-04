@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { ArrowLeft, ArrowRight, Check, Dices, Flag, LoaderCircle, Sparkles } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Camera, Check, Dices, Flag, LoaderCircle } from 'lucide-react';
+import { PortraitCamera } from '../components/PortraitCamera';
 import { Badge, ManagerPortrait, money } from '../components/ui';
 import {
   challenges,
@@ -43,7 +44,14 @@ const nationalities = [
   'Japão',
   'Angola',
 ];
-const tileColors = ['tile-blue', 'tile-green', 'tile-orange', 'tile-purple', 'tile-pink', 'tile-cyan'];
+const tileColors = [
+  'tile-blue',
+  'tile-green',
+  'tile-orange',
+  'tile-purple',
+  'tile-pink',
+  'tile-cyan',
+];
 
 export function CreateManager({
   world,
@@ -61,7 +69,7 @@ export function CreateManager({
   ) => void;
   onBack: () => void;
   onError: (message: string) => void;
-  onPortrait: (manager: Manager) => Promise<string>;
+  onPortrait: (manager: Manager, photo?: string) => Promise<string>;
 }) {
   const { rumble } = useGamepad();
   const [step, setStep] = useState(0);
@@ -74,6 +82,7 @@ export function CreateManager({
     appearance: 'Cabelo curto escuro, barba curta, olhos castanhos',
   });
   const [generating, setGenerating] = useState(false);
+  const [camera, setCamera] = useState(false);
   const [league, setLeague] = useState<'A' | 'B'>('A');
   const [clubId, setClub] = useState('sao-paulo');
   const [challenge, setChallenge] = useState<Career['challenge']>('Realista');
@@ -97,14 +106,18 @@ export function CreateManager({
     if (step === 2) onStart(result.data, club.id, difficulty, challenge);
     else setStep(step + 1);
   };
-  const generate = async () => {
+  const openCamera = () => {
     if (!manager.firstName.trim() || !manager.lastName.trim()) {
       onError('Preencha nome e sobrenome antes de gerar o retrato.');
       return;
     }
+    setCamera(true);
+  };
+  const generate = async (photo?: string) => {
+    setCamera(false);
     setGenerating(true);
     try {
-      const avatar = await onPortrait(manager);
+      const avatar = await onPortrait(manager, photo);
       setManager((m) => ({ ...m, avatar }));
       rumble('confirm');
     } catch (e) {
@@ -114,13 +127,15 @@ export function CreateManager({
     }
   };
   useControllerActions({
-    back,
+    back: () => {
+      if (!camera) back();
+    },
     previousTab: back,
     nextTab: () => {
-      if (step < 2) next();
+      if (step < 2 && !camera) next();
     },
     info: () => {
-      if (step === 0 && !generating) void generate();
+      if (step === 0 && !generating && !camera) openCamera();
     },
   });
   return (
@@ -217,10 +232,21 @@ export function CreateManager({
                 {manager.nationality} · {manager.age} anos
               </p>
             </div>
-            <button className="ai-portrait-button" disabled={generating} onClick={() => void generate()}>
-              <Sparkles size={18} />
-              {generating ? 'Gerando…' : manager.avatar ? 'Gerar outro retrato' : 'Gerar retrato com IA'}
+            <button className="ai-portrait-button" disabled={generating} onClick={openCamera}>
+              <Camera size={18} />
+              {generating
+                ? 'Gerando…'
+                : manager.avatar
+                  ? 'Gerar outro retrato'
+                  : 'Criar retrato com sua foto'}
             </button>
+            {camera && (
+              <PortraitCamera
+                style={manager.style}
+                onClose={() => setCamera(false)}
+                onCapture={(photo) => void generate(photo)}
+              />
+            )}
           </section>
         </div>
       )}
@@ -229,7 +255,11 @@ export function CreateManager({
           <div className="club-step-bar">
             <div className="segmented">
               {(['A', 'B'] as const).map((l) => (
-                <button key={l} className={league === l ? 'active' : ''} onClick={() => setLeague(l)}>
+                <button
+                  key={l}
+                  className={league === l ? 'active' : ''}
+                  onClick={() => setLeague(l)}
+                >
                   SÉRIE {l}
                 </button>
               ))}

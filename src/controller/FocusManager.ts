@@ -3,6 +3,11 @@ const focusable =
 
 const regionOf = (el: HTMLElement) =>
   el.closest('[data-focus-region], header, main, footer, [data-focus-scope="modal"]');
+/** Bloco visual (painel, barra de abas) que contém o elemento. */
+const boxOf = (el: HTMLElement) =>
+  el.closest<HTMLElement>(
+    '.panel, .segmented, [role="tablist"], nav, header, footer, [data-focus-region], [data-focus-scope="modal"]',
+  );
 
 export class FocusManager {
   private last: HTMLElement | null = null;
@@ -41,7 +46,14 @@ export class FocusManager {
     const x = rect.x + rect.width / 2;
     const y = rect.y + rect.height / 2;
     const region = regionOf(current);
+    const ownBox = boxOf(current);
+    const lineUp = (r: DOMRect) =>
+      dx
+        ? Math.min(r.bottom, rect.bottom) - Math.max(r.top, rect.top) > 4
+        : Math.min(r.right, rect.right) - Math.max(r.left, rect.left) > 4;
     // Prioridade: mesma região e alinhado no eixo perpendicular > mesma região > alinhado > resto.
+    // "Alinhado" também vale quando o painel vizinho inteiro está na mesma linha/coluna do foco:
+    // assim → numa lista vai para o painel ao lado, e não para uma aba distante.
     const candidates = elements
       .filter((el) => el !== current)
       .map((el) => {
@@ -50,9 +62,13 @@ export class FocusManager {
         const ry = r.y + r.height / 2 - y;
         const forward = rx * dx + ry * dy;
         const side = Math.abs(rx * dy - ry * dx);
-        const overlap = dx
-          ? Math.min(r.bottom, rect.bottom) - Math.max(r.top, rect.top) > 4
-          : Math.min(r.right, rect.right) - Math.max(r.left, rect.left) > 4;
+        const box = boxOf(el);
+        const overlap =
+          lineUp(r) ||
+          (!!box &&
+            box !== ownBox &&
+            !box.contains(current) &&
+            lineUp(box.getBoundingClientRect()));
         const gap = dx
           ? dx > 0
             ? r.left - rect.right

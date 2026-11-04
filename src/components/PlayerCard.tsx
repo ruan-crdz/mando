@@ -12,7 +12,18 @@ const group = (pos: string) =>
         ? 'mid'
         : 'att';
 
-export const positionOrder: Position[] = ['GK', 'CB', 'LB', 'RB', 'DM', 'CM', 'AM', 'LW', 'RW', 'ST'];
+export const positionOrder: Position[] = [
+  'GK',
+  'CB',
+  'LB',
+  'RB',
+  'DM',
+  'CM',
+  'AM',
+  'LW',
+  'RW',
+  'ST',
+];
 export const shortName = (name: string) => {
   const parts = name.trim().split(/\s+/);
   return parts.length > 2 ? parts.at(-1)! : name;
@@ -55,6 +66,7 @@ export function PlayerCard({
       className={`player-card ${group(player.position)} ${active ? 'active' : ''} ${status ? 'out' : ''}`}
       onClick={onClick}
       disabled={disabled}
+      data-player={player.id}
       data-autofocus={autoFocus ? '' : undefined}
       aria-label={`${player.name}, ${player.position}, overall ${ovr}${status ? `, ${status}` : ''}`}
     >

@@ -1,5 +1,6 @@
 import { type Attributes, type Player, type PlayerState, type Position } from './types';
 import { clamp } from './random';
+import { familiarity, positionPenalty, roleOf } from './positions';
 
 export const weights: Record<Position, Partial<Record<keyof Attributes, number>>> = {
   GK: { reflexes: 30, handling: 25, diving: 25, positioning: 10, composure: 5, shortPass: 5 },
@@ -51,7 +52,7 @@ export function overall(
   position: string = player.position,
   state?: PlayerState,
 ): number {
-  const role = position === 'LM' ? 'LW' : position === 'RM' ? 'RW' : position;
+  const role = roleOf(position);
   const entries = Object.entries(weights[role as Position] || weights[player.position]) as [
     keyof Attributes,
     number,
@@ -59,7 +60,8 @@ export function overall(
   return Math.round(
     clamp(
       entries.reduce((sum, [key, w]) => sum + player.attributes[key] * w, 0) / 100 +
-        (state?.growth || 0),
+        (state?.growth || 0) -
+        (role === player.position ? 0 : positionPenalty(familiarity(player, role, state))),
       1,
       99,
     ),

@@ -31,9 +31,7 @@ export function shirtNumbers(c: Career, world: World, clubId = c.clubId) {
   };
   for (const p of players) give(p.id, c.numbers[p.id]);
   for (const p of players) give(p.id, p.number);
-  const ordered = players
-    .filter((p) => !result[p.id])
-    .sort((a, b) => overall(b) - overall(a));
+  const ordered = players.filter((p) => !result[p.id]).sort((a, b) => overall(b) - overall(a));
   for (const p of ordered) {
     const n = preferred[p.position].find((n) => !taken.has(n));
     give(p.id, n ?? Array.from({ length: 99 }, (_, i) => i + 1).find((n) => !taken.has(n)));
