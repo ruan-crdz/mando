@@ -566,6 +566,7 @@ export function Transfers({
                       onClause(deal.player.id);
                       setDeal(null);
                     }}
+                  >
                     Acionar multa · {money(c.players[deal.player.id].clause!)}
                   </button>
                 )}
