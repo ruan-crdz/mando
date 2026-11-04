@@ -165,6 +165,12 @@ test('partida completa registra placar e volta à tabela sem duplicar resultado'
   await page.getByRole('button', { name: 'Segundo tempo', exact: true }).click();
   await playUntil(page.getByRole('button', { name: /Confirmar resultado/ }));
   await page.getByRole('button', { name: /Confirmar resultado/ }).click();
+  // A coletiva pós-jogo abre após a partida; responde todas as perguntas.
+  const pressRoom = page.getByRole('dialog', { name: 'Sala de imprensa' });
+  await expect(pressRoom).toBeVisible();
+  while (await pressRoom.isVisible()) {
+    await pressRoom.locator('.press-answer').first().click();
+  }
   await page
     .getByRole('navigation')
     .getByRole('button', { name: /TEMPORADA/ })
