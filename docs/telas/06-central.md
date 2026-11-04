@@ -4,6 +4,8 @@
 
 A Central é a **primeira aba** do modo carreira (`tab === 0`, rótulo `CENTRAL` na navegação superior). É o "hub" no estilo FIFA 14: uma grade de **tiles coloridos grandes** com o próximo jogo, o botão de avançar o calendário, o card do manager, prévia das mensagens, resumo do elenco e posição na tabela. Abaixo ficam o painel **Mercado da Bola** (`MarketFeed`, mundo vivo) e o **ticker MANDO NEWS**.
 
+Após o redesign, a Central também mostra uma faixa compacta com os próximos cinco dias: destaca o dia atual e marca o próximo jogo do clube com a sigla do adversário. Em celular, a tela é suportada apenas na horizontal; a orientação retrato é bloqueada pela casca do app.
+
 É a tela onde o jogador passa o tempo do calendário (dia a dia, até o próximo evento ou em modo automático), por isso concentra os estados mais importantes da carreira: dia de jogo, decisão pendente, temporada encerrada, demitido ("CARGO ENCERRADO") e modo automático.
 
 ## Como se chega / como se sai

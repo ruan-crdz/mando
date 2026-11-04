@@ -11,6 +11,7 @@ import {
   Music,
   Radio,
   SkipForward,
+  Smartphone,
   Square,
   Trophy,
   Vibrate,
@@ -439,6 +440,11 @@ function Game() {
     <div
       className={`game-shell input-${controller.input} on-${screen}${inMatch ? ' in-match' : ''}`}
     >
+      <div className="orientation-warning" role="status">
+        <Smartphone size={42} aria-hidden="true" />
+        <strong>Vire o celular</strong>
+        <span>O Mando foi pensado para jogar com a tela na horizontal.</span>
+      </div>
       <div className="bg-stage" aria-hidden="true" />
       <header className="app-header">
         <div className="brand" aria-label="Mando">

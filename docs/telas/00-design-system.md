@@ -8,7 +8,7 @@ Mando é um jogo web (React + TypeScript + Vite, PWA) de carreira de técnico no
 ## Arquivos-fonte
 | Arquivo | Papel |
 |---|---|
-| `src/styles/index.css` + 46 arquivos em `src/styles/` | Tokens (`:root`), reset, botões, inputs, shell, tiles, painéis, modais, cards, telas, responsivo. Era o antigo `src/styles.css` (~6.300 linhas), dividido sem mudar a cascata; veja a tabela "Mapa do antigo styles.css" abaixo |
+| `src/styles/index.css` + 48 arquivos em `src/styles/` | Tokens (`:root`), reset, botões, inputs, shell, tiles, painéis, modais, cards, telas, responsivo. Era o antigo `src/styles.css` (~6.300 linhas), dividido sem mudar a cascata; veja a tabela "Mapa do antigo styles.css" abaixo |
 | `src/main.tsx` | Carrega as fontes (`@fontsource/saira-condensed` 500/600/700/800 e `@fontsource/saira-semi-condensed` 400/500/600) e o `ErrorBoundary` (tela `.fatal-error`) |
 | `index.html` | Splash de boot: logo `logo-mando.png` 220px pulsando (`@keyframes boot`) sobre `radial-gradient(#1f6fff → #0a1f5c)`; `theme-color #0a1f5c`; título "Mando \| Carreira de manager" |
 | `src/components/ui.tsx` | `money`, `dateLabel`, `Badge`, `Tile`, `SectionTitle`, `Metric`, `Modal`, `ManagerPortrait` |

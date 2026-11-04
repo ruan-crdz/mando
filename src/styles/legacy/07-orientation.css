@@ -1,0 +1,38 @@
+.orientation-warning {
+  display: none;
+}
+
+@media (orientation: portrait) and (max-width: 900px) {
+  .orientation-warning {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 24px;
+    background:
+      radial-gradient(60% 50% at 50% 0%, rgba(54, 214, 231, 0.12), transparent 80%),
+      var(--mando-bg-deep);
+    color: var(--mando-text);
+    text-align: center;
+  }
+
+  .orientation-warning svg {
+    color: var(--mando-cyan);
+    transform: rotate(90deg);
+  }
+
+  .orientation-warning strong {
+    font: 700 26px var(--mando-title-font);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  .orientation-warning span {
+    max-width: 28ch;
+    color: var(--mando-text-secondary);
+  }
+}

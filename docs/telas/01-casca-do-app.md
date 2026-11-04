@@ -1,7 +1,7 @@
 # Tela: Casca do app (moldura do jogo)
 
 ## Resumo
-A casca (`Game` em `src/App.tsx`) é a moldura persistente de todo o jogo: fundo animado, **header** (marca, abas principais, clube/data/caixa, status de conexão e controle), **área de palco** (`main.stage`) onde as telas são trocadas com animação, **footer** com dicas de controle e status do save, e uma camada de **overlays globais** (toasts, barra de voz, conquistas, "Processando…", overlay de simulação contínua, aviso de atualização PWA) e **modais globais** (Nova carreira, Pausa, Preferências de avanço, Conquistas, Dia de jogo, Sala de imprensa, Excluir carreira). Também concentra os atalhos globais do controle e todo o estado da carreira (salvamento local e na nuvem).
+A casca (`Game` em `src/App.tsx`) é a moldura persistente de todo o jogo: fundo animado, **header** (marca, abas principais, clube/data/caixa, status de conexão e controle), **área de palco** (`main.stage`) onde as telas são trocadas com animação, **footer** com dicas de controle e status do save, e uma camada de **overlays globais** (toasts, barra de voz, conquistas, "Processando…", overlay de simulação contínua, aviso de atualização PWA e orientação de tela) e **modais globais** (Nova carreira, Pausa, Preferências de avanço, Conquistas, Dia de jogo, Sala de imprensa, Excluir carreira). Também concentra os atalhos globais do controle e todo o estado da carreira (salvamento local e na nuvem). Em celulares, o jogo só funciona na horizontal: o manifesto PWA solicita orientação landscape e uma tela de instrução cobre o jogo em retrato.
 
 ## Como se chega / como se sai
 - É montada uma vez em `App()` dentro de `<GamepadProvider>`; nunca sai.
@@ -46,6 +46,7 @@ No menu e na criação o header tem só marca + status (sem abas e sem clube); n
 |---|---|
 | `.game-shell` | Classes dinâmicas: `input-{mouse\|keyboard\|xbox\|playstation}`, `on-{menu\|create\|career}`, `in-match` durante a partida |
 | `.bg-stage` | Grade 64px + 3 feixes `.beam.b1/b2/b3` (ciano, lima, rosa) animados (ver design system) |
+| `.orientation-warning` | Em celular estreito na vertical, cobre o jogo com "Vire o celular"; desaparece ao girar para landscape. O PWA também solicita `orientation: landscape` |
 
 ### Header (`header.app-header`, grid `auto 1fr auto auto`, min-height 64px)
 | Elemento | O que mostra | Quando |

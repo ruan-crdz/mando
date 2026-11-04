@@ -39,6 +39,18 @@ export function CareerCentral({
   const unread = c.messages.filter((m) => !m.read);
   const pending = c.messages.filter((m) => m.important && !m.resolved);
   const isMatchDay = Boolean(fixture && fixture.date <= c.date);
+  const agenda = Array.from({ length: 5 }, (_, offset) => {
+    const date = addDays(c.date, offset);
+    const match = c.fixtures.find(
+      (item) =>
+        item.date === date &&
+        !item.result &&
+        (item.homeId === c.clubId || item.awayId === c.clubId),
+    );
+    const opponent =
+      match && clubById(world, match.homeId === c.clubId ? match.awayId : match.homeId);
+    return { date, offset, opponent };
+  });
   const mode = c.prefs?.advance || 'day';
   const auto = mode === 'auto' && !c.seasonEnded && !c.sacked;
   const advanceAction = c.sacked
@@ -66,6 +78,24 @@ export function CareerCentral({
           · {dateLabel(c.date, true).toUpperCase()}
         </span>
       </div>
+      <ol className="central-agenda" aria-label="Agenda dos próximos cinco dias">
+        {agenda.map(({ date, offset, opponent }) => (
+          <li
+              className={`${offset === 0 ? 'today ' : ''}${opponent ? 'match-day' : ''}`}
+              key={date}
+              aria-current={offset === 0 ? 'date' : undefined}
+          >
+              <small>
+                {new Date(`${date}T12:00:00Z`)
+                  .toLocaleDateString('pt-BR', { weekday: 'short', timeZone: 'UTC' })
+                  .replace('.', '')
+                  .toUpperCase()}
+              </small>
+              <strong>{date.slice(8)}</strong>
+              <em>{offset === 0 ? 'HOJE' : opponent ? opponent.short : '—'}</em>
+          </li>
+        ))}
+      </ol>
       <div className="central-grid">
         <button
           className="tile tile-blue fixture-tile"
