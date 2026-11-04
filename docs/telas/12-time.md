@@ -13,7 +13,7 @@ Ela é composta por:
    | 1 | **Escalação** | `Shield` (16 px) | `'lineup'` (padrão ao montar) |
    | 2 | **Tática** | `SlidersHorizontal` (16 px) | `'tactics'` |
    | 3 | **Responsabilidades** | `ClipboardList` (16 px) | `'roles'` |
-   | 4 | **Jogadores** | `Hash` (16 px) | `'kit'` |
+   | 4 | **Jogadores** | `Users` (16 px) | `'kit'` |
 3. **Layout de duas colunas** (`.squad-layout`, grid `minmax(300px, 0.9fr) | minmax(0, 1.3fr)`, gap 8 px):
    - **Coluna esquerda**: nas abas Escalação/Tática/Responsabilidades é sempre o **campinho** (`section.panel.pitch-panel`, `data-focus-region="pitch"`); na aba Jogadores é substituída pelo **painel de stats do jogador focado** (`section.panel.player-stats`).
    - **Coluna direita** (`section.panel.squad-controls`, `data-focus-region="panel"`): conteúdo muda conforme a aba e conforme o "modo de escolha" (`picking`) ativo.
@@ -596,3 +596,9 @@ Editor "Posições e treino" (dentro da linha expandida no painel direito):
 - Mouse: clicar no menu do header com linha aberta troca de aba mas mantém `detail` setado (L1/R1 ficam bloqueados ao voltar até fechar com B).
 - Sem multi-seleção, sem filtro (posição, titular/reserva, à venda), sem busca.
 - Não há confirmação antes de colocar à venda/emprestar (ações imediatas).
+
+## Ajustes pós-Ato 7: aba Jogadores
+
+- O ícone da aba Jogadores (e do link "Ver elenco completo") trocou de `Hash` (#) para `Users`.
+- A ficha do jogador (`.player-stats`) tem `data-stick-scroll`: o **RS rola apenas a ficha**, enquanto LS/D-pad continuam percorrendo a lista de jogadores à direita. Com controle conectado aparece a dica "RS Rolar ficha".
+- O `GamepadProvider` passou a priorizar qualquer área visível e rolável marcada com `data-stick-scroll` no rolar vertical do RS.

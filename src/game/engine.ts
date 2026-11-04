@@ -654,6 +654,17 @@ export function fireScout(career: Career, scoutId: string): Career {
   return careerSchema.parse(c);
 }
 
+/** Muda o destino de um olheiro; a observação em andamento recomeça do zero. */
+export function reassignScout(career: Career, scoutId: string, region: string): Career {
+  const c = structuredClone(career);
+  const scout = c.scouts.find((s) => s.id === scoutId);
+  if (!scout) throw new Error('Olheiro não encontrado.');
+  if (scout.region === region) return career;
+  scout.region = region;
+  scout.progress = 0;
+  return careerSchema.parse(c);
+}
+
 export function signProspect(career: Career, prospectId: string): Career {
   const c = structuredClone(career);
   const index = c.prospects.findIndex((player) => player.id === prospectId);

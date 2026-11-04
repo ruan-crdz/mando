@@ -53,6 +53,7 @@ import {
   acceptJobOffer,
   hireScout,
   fireScout,
+  reassignScout,
   signProspect,
   playerConversation,
   setDevelopmentPlan,
@@ -784,8 +785,15 @@ function Game() {
                   }
                   onFireScout={(id) =>
                     act(() => {
+                      const name = career.scouts.find((s) => s.id === id)?.name;
                       setCareer(fireScout(career, id));
-                      setNotice('Olheiro demitido.');
+                      setNotice(`${name || 'Olheiro'} foi dispensado. A vaga está livre na rede.`);
+                    })
+                  }
+                  onReassignScout={(id, region) =>
+                    act(() => {
+                      setCareer(reassignScout(career, id, region));
+                      setNotice(`Olheiro realocado para ${region}. A observação recomeça do zero.`);
                     })
                   }
                   onSignProspect={(id) =>

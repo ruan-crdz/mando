@@ -387,3 +387,12 @@ Layout `.staff-layout` com 3 `section.panel`:
 - Olheiros/base ganhou mapa esquemático do Brasil como elemento editorial, explicitamente sem indicar localização de atletas ou olheiros. Destinos e progresso exibidos continuam vindo dos scouts do save.
 - O painel contextual de Clube vivo acompanha o foco entre Diretoria e torcida, Comissão e preparação e Técnicos rivais, resumindo os valores reais do save.
 - CSS isolado em `src/styles/legacy/10-office-season.css`; o layout móvel continua restrito a landscape. As oportunidades restantes acima não foram alteradas nem implicam novas regras de jogo.
+
+## Ajustes pós-Ato 7: olheiros e Clube vivo
+
+- **Olheiros**: cada profissional virou um card com iniciais, região, nível em 5 marcadores, progresso e prazo do próximo relatório (com aviso quando a observação pausa porque a caixa tem 5 relatórios). A vaga livre aparece como card de contratação com os três destinos e o custo.
+- **Gerenciar olheiro** substitui o antigo botão vermelho "Demitir": abre um modal para **mudar o destino** (`reassignScout`, sem custo, reinicia a observação) ou **dispensar**. A dispensa pede confirmação listando as consequências reais (dias perdidos, sem reembolso, relatórios mantidos, custo da próxima contratação); o foco do controle vai para "Manter".
+- **Clube vivo** foi repaginado: 4 indicadores no topo (cargo, torcida, treino, analista) e sub-abas Diretoria, Preparação, Analista, Vestiário e imprensa, Técnicos rivais. Cada área explica o efeito real na engine.
+- **Analista**: escada de níveis 1–5 com erro da força do rival (±6, ±4, ±2, exato, exato), pontos fracos no relatório (1 a 5) e previsão de resultado a partir do nível 3. Só o próximo nível pode ser contratado (pagamento único de 400 mil × nível).
+- **Treino** virou cards de escolha com o efeito diário e no jogo; **marcação individual** mostra o ganho (−55% na chance de gol do marcado) e o custo (−1,5% no meio-campo).
+- Ícone do Clube vivo passou a ser `HeartPulse` (antes repetia o `Landmark` da Diretoria).

@@ -118,9 +118,18 @@ const scrollable = (el: HTMLElement, axis: 'x' | 'y') => {
     : el.scrollWidth > el.clientWidth + 4 && /(auto|scroll)/.test(style.overflowX);
 };
 
-/** Área rolável mais próxima do foco; senão, a maior área rolável visível da tela. */
+/**
+ * Área rolável do analógico direito. Um painel marcado com `data-stick-scroll` tem prioridade:
+ * o RS rola esse painel enquanto o LS/D-pad seguem movendo o foco em outra lista.
+ */
 function scrollTarget(axis: 'x' | 'y') {
   const scope = topModal() || document.querySelector('main');
+  if (axis === 'y' && scope) {
+    const pinned = [...scope.querySelectorAll<HTMLElement>('[data-stick-scroll]')].find(
+      (node) => node.getClientRects().length > 0 && scrollable(node, 'y'),
+    );
+    if (pinned) return pinned;
+  }
   let el = document.activeElement as HTMLElement | null;
   while (el && el !== document.body) {
     if (scrollable(el, axis) && (!scope || scope.contains(el))) return el;

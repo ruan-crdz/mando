@@ -405,23 +405,373 @@
   color: var(--mando-cyan);
 }
 
-/* Clube vivo e painel contextual que acompanha o foco. */
-.office-screen .club-living-layout {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+/* Clube vivo: indicadores no topo, sub-abas e explicações com os números da engine. */
+.office-screen .club-living {
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
+  gap: 8px;
 }
 
-.office-screen .club-living-layout > .club-focus-panel {
-  grid-column: 1 / -1;
-  background: var(--os-slate);
+.office-screen .club-kpis {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.office-screen .club-kpi {
+  display: grid;
+  justify-content: stretch;
+  justify-items: start;
+  gap: 2px;
+  padding: 10px 12px;
+  border: 1px solid var(--mando-border);
   border-left: 3px solid var(--mando-cyan);
+  border-radius: var(--mando-radius-panel);
+  background: var(--os-slate);
+  color: var(--mando-text);
+  text-align: left;
 }
 
-.office-screen .club-focus-panel h2 {
-  margin: 2px 0 4px;
+.office-screen .club-kpi span {
+  color: var(--mando-text-muted);
+  font: 700 10px var(--display);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
-.office-screen .club-living-layout > .panel {
+.office-screen .club-kpi strong {
+  font: 700 clamp(18px, 1.8vw, 24px) var(--display);
+}
+
+.office-screen .club-kpi small {
+  color: var(--mando-text-secondary);
+}
+
+.office-screen .club-tabs > button {
+  min-height: 32px;
+}
+
+.office-screen .club-grid {
+  display: grid;
+  min-height: 0;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.office-screen .club-living .panel {
   border-top-color: var(--mando-violet);
+}
+
+.office-screen .club-living h3 {
+  margin: 14px 0 4px;
+}
+
+.office-screen .club-axis {
+  display: grid;
+  gap: 1px;
+  margin-bottom: 6px;
+}
+
+.office-screen .club-axis small {
+  color: var(--mando-text-muted);
+}
+
+.office-screen .club-rules {
+  display: grid;
+  gap: 4px;
+  margin: 8px 0 12px;
+  padding-left: 18px;
+  color: var(--mando-text-secondary);
+}
+
+.office-screen .club-rules .good::marker {
+  color: var(--mando-positive);
+}
+
+.office-screen .club-rules .bad::marker {
+  color: var(--mando-danger);
+}
+
+.office-screen .club-demand {
+  padding: 6px 8px;
+  border-left: 2px solid var(--mando-warning);
+  background: rgba(248, 193, 107, 0.07);
+}
+
+.office-screen .training-options {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.office-screen .training-options > button {
+  display: grid;
+  justify-content: stretch;
+  justify-items: start;
+  gap: 3px;
+  padding: 10px;
+  border: 1px solid var(--mando-border);
+  background: var(--os-raised);
+  color: var(--mando-text);
+  text-align: left;
+}
+
+.office-screen .training-options > button small {
+  color: var(--mando-text-secondary);
+  letter-spacing: normal;
+  text-transform: none;
+}
+
+.office-screen .training-options > button.active {
+  border-color: var(--mando-cyan);
+  background: rgba(54, 214, 231, 0.12);
+  box-shadow: inset 3px 0 0 var(--mando-cyan);
+}
+
+.office-screen .analyst-ladder {
+  display: grid;
+  align-content: start;
+  gap: 4px;
+}
+
+.office-screen .analyst-step {
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  min-height: 46px;
+  padding: 6px 10px;
+  border: 1px solid var(--mando-border);
+  background: var(--os-raised);
+  color: var(--mando-text-secondary);
+}
+
+.office-screen .analyst-step b {
+  display: grid;
+  width: 30px;
+  height: 30px;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--os-coal);
+  font: 700 15px var(--display);
+}
+
+.office-screen .analyst-step.past {
+  opacity: 0.55;
+}
+
+.office-screen .analyst-step.current {
+  border-color: var(--mando-cyan);
+  color: var(--mando-text);
+}
+
+.office-screen .analyst-step.current b {
+  background: var(--mando-cyan);
+  color: var(--mando-bg);
+}
+
+.office-screen .analyst-step.current em {
+  color: var(--mando-cyan);
+  font: 700 11px var(--display);
+  font-style: normal;
+  letter-spacing: 0.08em;
+}
+
+.office-screen .analyst-step.next {
+  border-color: rgba(140, 108, 255, 0.6);
+  color: var(--mando-text);
+}
+
+.office-screen .analyst-step.locked {
+  opacity: 0.7;
+}
+
+.office-screen .analyst-step small {
+  color: var(--mando-text-muted);
+}
+
+.office-screen .club-relation {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.office-screen .club-relation span {
+  padding: 2px 6px;
+  font: 700 10px var(--display);
+  letter-spacing: 0.06em;
+}
+
+.office-screen .club-relation.amizade span {
+  background: rgba(85, 201, 155, 0.16);
+  color: var(--mando-positive);
+}
+
+.office-screen .club-relation.rixa span {
+  background: rgba(255, 111, 131, 0.16);
+  color: var(--mando-danger);
+}
+
+.office-screen .rival-table {
+  display: grid;
+  margin-top: 8px;
+}
+
+.office-screen .rival-table > div {
+  display: grid;
+  grid-template-columns: 1.2fr 1.2fr 1fr 0.5fr 0.9fr;
+  gap: 8px;
+  padding: 7px 4px;
+  border-bottom: 1px solid var(--mando-border);
+}
+
+.office-screen .rival-table .rival-head {
+  color: var(--mando-text-muted);
+  font: 700 10px var(--display);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.office-screen .rival-table .pressure {
+  background: rgba(255, 111, 131, 0.07);
+}
+
+.office-screen .rival-table .pressure > span:last-child {
+  color: var(--mando-danger);
+}
+
+/* Rede de olheiros: um card por profissional e a vaga livre como card de contratação. */
+.office-screen .scout-cards {
+  display: grid;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.office-screen .staff-reports .scout-card {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 10px;
+  border: 1px solid var(--mando-border);
+  background: var(--os-raised);
+}
+
+.office-screen .scout-avatar {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--mando-petrol);
+  color: var(--mando-text);
+  font: 700 14px var(--display);
+}
+
+.office-screen .scout-avatar.empty {
+  border: 1px dashed var(--mando-text-muted);
+  background: transparent;
+  color: var(--mando-text-muted);
+}
+
+.office-screen .scout-card-body {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.office-screen .scout-card-body meter {
+  width: 100%;
+}
+
+.office-screen .scout-card-body small {
+  color: var(--mando-text-secondary);
+}
+
+.office-screen .scout-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--mando-cyan);
+  font: 700 11px var(--display);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.office-screen .scout-pips {
+  display: inline-flex;
+  gap: 2px;
+}
+
+.office-screen .scout-pips i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: rgba(207, 225, 247, 0.18);
+}
+
+.office-screen .scout-pips i.on {
+  background: var(--mando-gold);
+}
+
+.office-screen .scout-manage {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 34px;
+}
+
+.office-screen .scout-card.scout-slot {
+  border-style: dashed;
+  background: transparent;
+}
+
+.office-screen .scout-regions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.office-screen .scout-regions button[aria-pressed='true'] {
+  border-color: var(--mando-cyan);
+  color: var(--mando-cyan);
+  opacity: 1;
+}
+
+.office-screen .scout-warning,
+.office-screen .scout-paused {
+  color: var(--mando-warning) !important;
+}
+
+.office-screen .scout-paused {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 6px 0 0;
+}
+
+.office-screen .scout-manage-dialog h3 {
+  margin: 14px 0 2px;
+}
+
+.office-screen .scout-fire {
+  display: inline-flex;
+  width: auto;
+  align-items: center;
+  gap: 6px;
+  border-color: rgba(255, 111, 131, 0.45);
+  color: var(--mando-danger);
+}
+
+.office-screen .scout-consequences {
+  display: grid;
+  gap: 6px;
+  margin: 0 0 14px;
+  padding-left: 18px;
+  color: var(--mando-text-secondary);
 }
 
 .office-screen .living-headline {
@@ -768,18 +1118,18 @@
   .office-screen .board-layout,
   .office-screen .staff-layout,
   .office-screen .scout-layout,
-  .office-screen .club-living-layout,
+  .office-screen .club-grid,
   .season-screen .season-layout,
   .season-screen .calendar-layout {
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .office-screen .metrics-strip {
+  .office-screen .metrics-strip,
+  .office-screen .club-kpis {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .office-screen .scout-network-panel,
-  .office-screen .club-living-layout > .club-focus-panel {
+  .office-screen .scout-network-panel {
     grid-column: auto;
   }
 

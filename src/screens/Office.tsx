@@ -4,13 +4,18 @@ import {
   Camera,
   Check,
   ChevronRight,
+  HeartPulse,
   Landmark,
   MapPinned,
   MessageSquare,
   Radar,
+  Settings2,
   Square,
   Target,
   TrendingUp,
+  TriangleAlert,
+  UserMinus,
+  UserPlus,
   Users,
   Voicemail,
   Volume2,
@@ -29,7 +34,9 @@ import { squad } from '../game/matches';
 import { standings } from '../game/engine';
 import { competitionName } from '../game/calendar';
 import { PortraitCamera } from '../components/PortraitCamera';
-import { dateLabel, ManagerPortrait, Metric, money, SectionTitle } from '../components/ui';
+import { dateLabel, ManagerPortrait, Metric, Modal, money, SectionTitle } from '../components/ui';
+
+const scoutRegions = ['Brasil', 'América do Sul', 'Europa'] as const;
 
 const messageVoice: Record<Message['kind'], VoiceRole> = {
   board: 'president',
@@ -58,6 +65,7 @@ export function Office({
   onApplyPlan,
   onHireScout,
   onFireScout,
+  onReassignScout,
   onSignProspect,
   onAcceptJob,
   onDeclineJob,
@@ -74,6 +82,7 @@ export function Office({
   onApplyPlan: (id: string) => void;
   onHireScout: (region: string) => void;
   onFireScout: (id: string) => void;
+  onReassignScout: (id: string, region: string) => void;
   onSignProspect: (id: string) => void;
   onAcceptJob: (id: string) => void;
   onDeclineJob: (id: string) => void;
@@ -110,6 +119,25 @@ export function Office({
   const club = world.clubs.find((club) => club.id === c.clubId)!;
   const finance = c.finances[c.clubId];
   const scoutCost = 500000 + c.scouts.length * 250000;
+  const inboxFull = c.prospects.length >= 5;
+  const [managingId, setManaging] = useState<string | null>(null);
+  const [confirmFire, setConfirmFire] = useState(false);
+  const managed = c.scouts.find((scout) => scout.id === managingId);
+  const closeManage = () => {
+    setManaging(null);
+    setConfirmFire(false);
+  };
+  // Ao trocar de etapa no modal o botão focado some; o foco segue para a opção segura.
+  const fireStep = (confirm: boolean) => {
+    setConfirmFire(confirm);
+    requestAnimationFrame(() =>
+      document
+        .querySelector<HTMLElement>(
+          confirm ? '.scout-manage-dialog [data-autofocus]' : '.scout-manage-dialog .scout-fire',
+        )
+        ?.focus(),
+    );
+  };
   const players = squad(c, world);
   const wages = players.reduce((sum, p) => sum + c.players[p.id].wage, 0);
   const expenses = wages + club.reputation * 30000 + finance.debt * 0.002;
@@ -173,7 +201,7 @@ export function Office({
           </div>
           <div className="scout-destinations">
             <p className="eyebrow">DESTINOS CONFIGURADOS</p>
-            {(['Brasil', 'América do Sul', 'Europa'] as const).map((region) => {
+            {scoutRegions.map((region) => {
               const assigned = c.scouts.filter((scout) => scout.region === region);
               return (
                 <div className={assigned.length ? 'assigned' : ''} key={region}>
@@ -192,36 +220,96 @@ export function Office({
           </div>
         </div>
       </section>
-      <section className="panel staff-reports">
+      <section className="panel staff-reports scout-team">
         <h2>
           <MapPinned size={22} /> Rede de olheiros
         </h2>
         <p className="muted">
-          Cada olheiro encontra um jovem talento a cada sete dias. A qualidade da rede reduz a
-          incerteza do potencial.
+          A cada 7 dias de observação, o olheiro entrega um jovem talento. Quanto maior o nível, maior
+          o potencial e menor a incerteza do relatório. A caixa guarda até 5 relatórios.
         </p>
-        {c.scouts.map((scout) => (
-          <div key={scout.id}>
-            <span>
-              {scout.region.toUpperCase()} · NÍVEL {scout.skill}
-            </span>
-            <strong>{scout.name}</strong>
-            <p>Progresso da próxima observação: {scout.progress}/7 dias</p>
-            <meter min={0} max={7} value={scout.progress} />
-            <button className="danger" onClick={() => onFireScout(scout.id)}>
-              Demitir {scout.name.split(' ')[0]}
-            </button>
-          </div>
-        ))}
-        {c.scouts.length < 3 && (
-          <div className="button-row">
-            {['Brasil', 'América do Sul', 'Europa'].map((region) => (
-              <button key={region} onClick={() => onHireScout(region)}>
-                Contratar olheiro · {region} · {money(scoutCost)}
-              </button>
-            ))}
-          </div>
+        {inboxFull && c.scouts.length > 0 && (
+          <p className="scout-paused" role="status">
+            <TriangleAlert size={15} /> Observação pausada: 5/5 relatórios na caixa. Promova ou
+            aguarde para liberar espaço.
+          </p>
         )}
+        <div className="scout-cards">
+          {c.scouts.map((scout) => {
+            const left = 7 - scout.progress;
+            return (
+              <article className="scout-card" key={scout.id}>
+                <span className="scout-avatar" aria-hidden="true">
+                  {scout.name
+                    .split(' ')
+                    .map((part) => part[0])
+                    .slice(0, 2)
+                    .join('')}
+                </span>
+                <div className="scout-card-body">
+                  <strong>{scout.name}</strong>
+                  <span className="scout-meta">
+                    {scout.region}
+                    <span className="scout-pips" aria-label={`Nível ${scout.skill} de 5`}>
+                      {[1, 2, 3, 4, 5].map((n) => (
+                        <i key={n} className={n <= scout.skill ? 'on' : ''} />
+                      ))}
+                    </span>
+                  </span>
+                  <meter
+                    min={0}
+                    max={7}
+                    value={scout.progress}
+                    aria-label={`Observação de ${scout.name}`}
+                  />
+                  <small>
+                    {inboxFull
+                      ? 'Pausado até liberar a caixa'
+                      : left <= 1
+                        ? 'Relatório chega amanhã'
+                        : `Próximo relatório em ${left} dias`}
+                    {' · '}+{scout.skill} de potencial por achado
+                  </small>
+                </div>
+                <button
+                  className="scout-manage"
+                  onClick={() => {
+                    setManaging(scout.id);
+                    setConfirmFire(false);
+                  }}
+                  aria-label={`Gerenciar ${scout.name}`}
+                >
+                  <Settings2 size={15} /> Gerenciar
+                </button>
+              </article>
+            );
+          })}
+          {c.scouts.length < 3 && (
+            <article className="scout-card scout-slot">
+              <span className="scout-avatar empty" aria-hidden="true">
+                <UserPlus size={18} />
+              </span>
+              <div className="scout-card-body">
+                <strong>Vaga livre · {money(scoutCost)}</strong>
+                <small>Pagamento único. Escolha onde ele vai observar:</small>
+                <div className="scout-regions">
+                  {scoutRegions.map((region) => (
+                    <button
+                      key={region}
+                      onClick={() => onHireScout(region)}
+                      disabled={finance.cash < scoutCost}
+                    >
+                      {region}
+                    </button>
+                  ))}
+                </div>
+                {finance.cash < scoutCost && (
+                  <small className="scout-warning">Caixa insuficiente ({money(finance.cash)}).</small>
+                )}
+              </div>
+            </article>
+          )}
+        </div>
       </section>
       <section className="panel staff-reports">
         <h2>
@@ -246,6 +334,77 @@ export function Office({
           </div>
         ))}
       </section>
+      {managed && (
+        <Modal
+          title={confirmFire ? `Dispensar ${managed.name}?` : `Gerenciar ${managed.name}`}
+          onClose={closeManage}
+          className="scout-manage-dialog"
+        >
+          {!confirmFire ? (
+            <>
+              <p className="muted">
+                {managed.region} · nível {managed.skill}/5 · {managed.progress}/7 dias de observação
+                em andamento.
+              </p>
+              <h3>Mudar destino</h3>
+              <p className="muted small">
+                Ele passa a observar outra região. A observação atual recomeça do zero, sem custo.
+              </p>
+              <div className="scout-regions">
+                {scoutRegions.map((region) => (
+                  <button
+                    key={region}
+                    disabled={region === managed.region}
+                    aria-pressed={region === managed.region}
+                    onClick={() => {
+                      onReassignScout(managed.id, region);
+                      closeManage();
+                    }}
+                  >
+                    {region === managed.region ? `${region} · atual` : region}
+                  </button>
+                ))}
+              </div>
+              <h3>Encerrar contrato</h3>
+              <p className="muted small">
+                Libera a vaga na rede. Você confirma na próxima etapa.
+              </p>
+              <button className="scout-fire" onClick={() => fireStep(true)}>
+                <UserMinus size={15} /> Dispensar olheiro…
+              </button>
+            </>
+          ) : (
+            <>
+              <ul className="scout-consequences">
+                <li>
+                  Os <strong>{managed.progress} dias</strong> de observação em andamento são
+                  perdidos.
+                </li>
+                <li>O valor pago na contratação não é devolvido.</li>
+                <li>Os relatórios que ele já entregou continuam na sua caixa.</li>
+                <li>
+                  Uma nova contratação custará{' '}
+                  <strong>{money(500000 + (c.scouts.length - 1) * 250000)}</strong>.
+                </li>
+              </ul>
+              <div className="button-row">
+                <button data-autofocus onClick={() => fireStep(false)}>
+                  Manter {managed.name.split(' ')[0]}
+                </button>
+                <button
+                  className="danger"
+                  onClick={() => {
+                    onFireScout(managed.id);
+                    closeManage();
+                  }}
+                >
+                  Confirmar dispensa
+                </button>
+              </div>
+            </>
+          )}
+        </Modal>
+      )}
     </div>
   );
   return (
@@ -266,7 +425,7 @@ export function Office({
             ['board', 'Diretoria', Landmark],
             ['staff', 'Comissão e perfil', Users],
             ['scouts', 'Olheiros e base', MapPinned],
-            ['club', 'Clube vivo', Landmark],
+            ['club', 'Clube vivo', HeartPulse],
           ] as const
         ).map(([id, label, Icon]) => (
           <button

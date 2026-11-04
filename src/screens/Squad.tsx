@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ChevronLeft,
   Dumbbell,
-  Hash,
+  Users,
   ClipboardList,
   Crown,
   Shield,
@@ -13,6 +13,8 @@ import {
   UserX,
 } from 'lucide-react';
 import { available, bestLineup, squad } from '../game/matches';
+import { useGamepad } from '../controller/GamepadProvider';
+import { ControllerButtonHint } from '../controller/ControllerButtonHint';
 import { clubById } from '../game/npc';
 import { ageAt } from '../game/random';
 import { overall } from '../game/ratings';
@@ -152,6 +154,7 @@ export function Squad({
   detail: Player | null;
   setDetail: (p: Player | null) => void;
 }) {
+  const { input } = useGamepad();
   const [view, setView] = useState<'lineup' | 'tactics' | 'roles' | 'kit'>('lineup');
   const [sortMode, setSortMode] = useState(0);
   const [salePrice, setSalePrice] = useState(0);
@@ -880,7 +883,12 @@ export function Squad({
   const unavailableStarters = starters.filter(({ player }) => !available(c, player.id)).length;
   const statsPanel =
     fp && fs ? (
-      <section className="panel player-stats">
+      <section className="panel player-stats" data-stick-scroll aria-label="Ficha do jogador">
+        {(input === 'xbox' || input === 'playstation') && (
+          <span className="stats-scroll-hint">
+            <ControllerButtonHint action="stick" label="Rolar ficha" />
+          </span>
+        )}
         <div className="stats-head">
           <div className={`hub-card ${cardTier(overall(fp, fp.position, fs))}`}>
             <span className="hub-card-top">
@@ -1003,7 +1011,7 @@ export function Squad({
             setKitId(null);
           }}
         >
-          <Hash size={16} /> Jogadores
+          <Users size={16} /> Jogadores
         </button>
       </div>
       <div className="squad-layout">
@@ -1329,7 +1337,7 @@ export function Squad({
                       );
                     }}
                   >
-                    <Hash size={15} /> Ver elenco completo
+                    <Users size={15} /> Ver elenco completo
                   </button>
                 </div>
                 <div className="lineup-metrics">
