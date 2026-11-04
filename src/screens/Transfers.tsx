@@ -38,6 +38,7 @@ import { Badge, dateLabel, Modal, money, SectionTitle } from '../components/ui';
 import { ChipGroup, NumberStepper, OptionCycler } from '../components/controls';
 import { byPosition, PlayerCard } from '../components/PlayerCard';
 import { PlayerFace } from '../components/PlayerFace';
+import { cardTier } from '../components/cardTier';
 
 type Filters = {
   name: string;
@@ -510,7 +511,9 @@ export function Transfers({
         <Modal title="Sala de negociação" onClose={() => setDeal(null)} wide>
           <div className="deal-room">
             <aside className="deal-target">
-              <div className={`deal-card pos-${deal.player.position}`}>
+              <div
+                className={`deal-card pos-${deal.player.position} ${cardTier(overall(deal.player, deal.player.position, c.players[deal.player.id]))}`}
+              >
                 <span className="deal-ovr">
                   {overall(deal.player, deal.player.position, c.players[deal.player.id])}
                 </span>
@@ -992,7 +995,11 @@ export function Transfers({
                 <button className="market-row" key={p.id} onClick={() => startDeal(p)}>
                   <span>
                     <span className="position-tag">{p.position}</span>
-                    <PlayerFace player={p} size="sm" />
+                    <PlayerFace
+                      player={p}
+                      size="sm"
+                      className={`face-tier ${cardTier(overall(p, p.position, c.players[p.id]))}`}
+                    />
                     <span>
                       <strong>
                         {c.shortlist.includes(p.id) && <Star size={13} className="star-on" />}{' '}

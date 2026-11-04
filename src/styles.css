@@ -6060,6 +6060,25 @@ button.danger {
   background: var(--card-bg);
   color: #fff;
 }
+.deal-card.card-bronze,
+.deal-card.card-silver,
+.deal-card.card-gold,
+.deal-card.card-rare {
+  overflow: hidden;
+  background:
+    linear-gradient(115deg, rgba(255, 255, 255, 0.25), transparent 45%),
+    var(--card-bg);
+  color: #fff;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
+}
+.face-tier.card-bronze,
+.face-tier.card-silver,
+.face-tier.card-gold,
+.face-tier.card-rare {
+  position: relative;
+  overflow: hidden;
+  background: var(--card-bg) !important;
+}
 .pitch-player.card-bronze,
 .pitch-player.card-silver,
 .pitch-player.card-gold,
