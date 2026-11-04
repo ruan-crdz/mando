@@ -59,8 +59,16 @@ import { type Career, type Player, type World } from './game/types';
 import { listLocal, removeLocal, saveLocal, type SavedCareer } from './services/storage';
 import { ensureSession, requestPortrait, saveCloud, supabase } from './services/supabase';
 import { registerSW } from 'virtual:pwa-register';
-import { musicEnabled, startMusic, subscribeMusic, toggleMusic } from './audio/music';
-import { skipVoice, stopVoice, useVoice } from './components/voice';
+import {
+  musicEnabled,
+  setMusicSuspended,
+  startMusic,
+  subscribeMusic,
+  toggleMusic,
+} from './audio/music';
+import { startCrowd, stopCrowd } from './audio/crowd';
+import { applyPress, buildPress, type PressSession } from './game/press';
+import { playVoice, skipVoice, stopVoice, useVoice } from './components/voice';
 import { achievements, unlockAchievements, type Achievement } from './game/achievements';
 
 const tabs = ['CENTRAL', 'TIME', 'TRANSFERÊNCIAS', 'ESCRITÓRIO', 'TEMPORADA'];
@@ -107,6 +115,9 @@ function Game() {
   const [running, setRunning] = useState(false);
   const [played, setPlayed] = useState(0);
   const [hapticNote, setHapticNote] = useState('');
+  const [press, setPress] = useState<PressSession | null>(null);
+  const [pressStep, setPressStep] = useState(0);
+  const [pressAnswers, setPressAnswers] = useState<Record<string, number>>({});
   const [detail, setDetail] = useState<Player | null>(null);
   const [deleting, setDeleting] = useState<SavedCareer | null>(null);
   const [error, setError] = useState('');
@@ -129,6 +140,17 @@ function Game() {
   useEffect(() => {
     if (controller.input === 'xbox' || controller.input === 'playstation') startMusic();
   }, [controller.input]);
+  // Em jogo: a trilha some e entra o som do estádio.
+  const matchOn = screen === 'career' && Boolean(career?.activeMatch);
+  useEffect(() => {
+    if (!matchOn) return;
+    setMusicSuspended(true);
+    if (music) startCrowd();
+    return () => {
+      stopCrowd();
+      setMusicSuspended(false);
+    };
+  }, [matchOn, music]);
   useEffect(() => {
     if (!career) return;
     const result = unlockAchievements(career);
@@ -444,7 +466,7 @@ function Game() {
       <main
         key={`${screen}-${screen === 'career' ? (inMatch ? 'match' : tab) : ''}`}
         className="stage"
-        inert={popup || deleting || busy ? true : undefined}
+        inert={popup || press || deleting || busy ? true : undefined}
       >
         {screen === 'menu' && (
           <MainMenu
@@ -481,8 +503,19 @@ function Game() {
               paused={Boolean(popup) || busy}
               onFinish={() =>
                 act(() => {
+                  let session: PressSession | null = null;
+                  try {
+                    session = buildPress(career, live!);
+                  } catch {
+                    session = null;
+                  }
                   setCareer(finishMatch(career, live!));
                   setTab(0);
+                  if (session) {
+                    setPress(session);
+                    setPressStep(0);
+                    setPressAnswers({});
+                  }
                 })
               }
               onSubstitute={(outId, inId) =>
@@ -751,18 +784,46 @@ function Game() {
                 const status = controller.haptics();
                 controller.rumble('goal');
                 setHapticNote(
-                  status === 'ok'
-                    ? controller.vibration
-                      ? 'Sentiu? Se não vibrou, conecte o controle por USB no Chrome ou Edge.'
-                      : 'A vibração está desligada. Ligue no botão acima.'
-                    : status === 'nopad'
-                      ? 'Nenhum controle detectado. Aperte qualquer botão do controle.'
-                      : 'Este navegador não libera a vibração do controle. Use Chrome ou Edge.',
+                  !controller.vibration
+                    ? 'A vibração está desligada. Ligue no botão acima.'
+                    : controller.hid.connected
+                      ? 'DualSense conectado direto: deve ter vibrado agora.'
+                      : controller.hid.supported
+                        ? 'Não vibrou? Use "Conectar DualSense" abaixo e escolha o controle na lista.'
+                        : status === 'nopad'
+                          ? 'Nenhum controle detectado. Aperte qualquer botão do controle.'
+                          : 'Este navegador não libera a vibração. Use Chrome ou Edge no computador.',
                 );
               }}
             >
               <Vibrate size={18} /> Testar vibração
             </button>
+            {controller.hid.supported && !controller.hid.connected && (
+              <button
+                onClick={() =>
+                  void controller.hid
+                    .pair()
+                    .then((ok) =>
+                      setHapticNote(
+                        ok
+                          ? 'DualSense conectado. A vibração agora funciona em todo o jogo.'
+                          : 'Nenhum controle escolhido.',
+                      ),
+                    )
+                    .catch((e: unknown) =>
+                      setHapticNote(
+                        e instanceof Error && e.name === 'SecurityError'
+                          ? 'O navegador exige um clique: clique neste botão com o mouse uma vez.'
+                          : e instanceof Error
+                            ? e.message
+                            : String(e),
+                      ),
+                    )
+                }
+              >
+                <Gamepad2 size={18} /> Conectar DualSense (vibração)
+              </button>
+            )}
             {hapticNote && <p className="muted small haptic-note">{hapticNote}</p>}
             <button onClick={controller.toggleSound}>
               {controller.sound ? <Volume2 size={18} /> : <VolumeX size={18} />}
@@ -802,6 +863,31 @@ function Game() {
             <button onClick={menu}>Salvar e sair para o menu</button>
           </div>
         </Modal>
+      )}
+      {press && career && live && (
+        <PressConference
+          session={press}
+          step={pressStep}
+          answers={pressAnswers}
+          onAnswer={(questionId, index) => {
+            rumble('confirm');
+            const answers = { ...pressAnswers, [questionId]: index };
+            setPressAnswers(answers);
+            if (pressStep + 1 < press.questions.length) setPressStep(pressStep + 1);
+            else {
+              stopVoice();
+              act(() => setCareer(applyPress(career, live, press, answers)));
+              setPress(null);
+              setNotice('Coletiva encerrada. A repercussão está no Escritório.');
+            }
+          }}
+          onSkip={() => {
+            stopVoice();
+            if (Object.keys(pressAnswers).length)
+              act(() => setCareer(applyPress(career, live, press, pressAnswers)));
+            setPress(null);
+          }}
+        />
       )}
       {popup === 'prefs' && career && (
         <Modal title="Preferências de avanço" onClose={() => setPopup(null)}>
@@ -952,5 +1038,60 @@ export default function App() {
     <GamepadProvider>
       <Game />
     </GamepadProvider>
+  );
+}
+
+function PressConference({
+  session,
+  step,
+  answers,
+  onAnswer,
+  onSkip,
+}: {
+  session: PressSession;
+  step: number;
+  answers: Record<string, number>;
+  onAnswer: (questionId: string, index: number) => void;
+  onSkip: () => void;
+}) {
+  const q = session.questions[step];
+  useEffect(() => {
+    playVoice([
+      { id: `press-${session.fixtureId}-${q.id}`, title: q.reporter, text: q.text, voice: 'reporter' },
+    ]);
+  }, [session.fixtureId, q]);
+  return (
+    <Modal title="Sala de imprensa" onClose={onSkip} wide>
+      <div className="press-room">
+        <p className="eyebrow">{session.headline}</p>
+        <div className="press-progress" aria-label={`Pergunta ${step + 1} de ${session.questions.length}`}>
+          {session.questions.map((item, i) => (
+            <i key={item.id} className={i < step ? 'done' : i === step ? 'active' : ''} />
+          ))}
+        </div>
+        <div className="press-question">
+          <span className="press-mic" aria-hidden="true">🎙</span>
+          <div>
+            <strong>{q.reporter}</strong>
+            <small>{q.outlet}</small>
+            <p>{q.text}</p>
+          </div>
+        </div>
+        <div className="press-answers">
+          {q.answers.map((a, i) => (
+            <button
+              key={`${q.id}-${i}`}
+              className={`press-answer${answers[q.id] === i ? ' active' : ''}`}
+              data-autofocus={i === 0 || undefined}
+              onClick={() => onAnswer(q.id, i)}
+            >
+              <b>{a.tone}</b>
+              <span>{a.text}</span>
+            </button>
+          ))}
+        </div>
+        <p className="muted small">Suas respostas mexem com a confiança da diretoria e o moral do elenco.</p>
+      </div>
+    </Modal>
   );
 }

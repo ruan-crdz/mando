@@ -28,6 +28,7 @@ let noise: AudioBuffer;
 let timer: number | undefined;
 let nextTime = 0;
 let step = 0;
+let suspended = false;
 let enabled = typeof localStorage === 'undefined' || localStorage.getItem(KEY) !== '0';
 const listeners = new Set<() => void>();
 
@@ -179,7 +180,7 @@ function applyDuck() {
 
 /** Liga o áudio no primeiro gesto do jogador (exigência dos navegadores). */
 export function startMusic() {
-  if (!enabled || typeof window === 'undefined') return;
+  if (!enabled || suspended || typeof window === 'undefined') return;
   if (!ctx) {
     ctx = setup();
     if (!ctx) return;
@@ -206,6 +207,14 @@ export function stopMusic() {
 }
 
 export const musicEnabled = () => enabled;
+
+/** Durante a partida a trilha some e fica só o som do estádio. */
+export function setMusicSuspended(value: boolean) {
+  if (suspended === value) return;
+  suspended = value;
+  if (value) stopMusic();
+  else startMusic();
+}
 
 export function toggleMusic() {
   enabled = !enabled;

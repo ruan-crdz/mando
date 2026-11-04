@@ -76,6 +76,19 @@ export async function requestPortrait(manager: PortraitRequest, photo?: string) 
   return z.object({ url: z.string().url() }).parse(data).url;
 }
 
+export type VoiceRole = 'president' | 'staff' | 'player' | 'reporter' | 'narrator';
+
+/** Áudio mp3 da fala, gerado pela OpenAI na Edge Function `ai-voice`. */
+export async function requestVoice(text: string, voice: VoiceRole): Promise<Blob> {
+  await ensureSession();
+  const { data, error } = await client().functions.invoke('ai-voice', {
+    body: { text, voice },
+  });
+  if (error) await functionFailure(error, 'Não foi possível gerar a voz');
+  if (!(data instanceof Blob) || data.size < 200) throw new Error('Áudio de voz inválido.');
+  return data.type === 'audio/mpeg' ? data : new Blob([data], { type: 'audio/mpeg' });
+}
+
 export async function loadPublishedWorld(): Promise<World> {
   const { data, error } = await client()
     .from('world_snapshots')

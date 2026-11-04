@@ -2,7 +2,39 @@ import { createClient, type SupabaseClient } from 'npm:@supabase/supabase-js@2';
 import { z } from 'npm:zod@4.6.7';
 import { type Database, type Json } from './database.types.ts';
 
-type Kind = 'message' | 'news' | 'staff' | 'avatar';
+type Kind = 'message' | 'news' | 'staff' | 'avatar' | 'voice';
+const voiceInputSchema = z
+  .object({
+    text: z.string().min(1).max(1500),
+    voice: z.enum(['president', 'staff', 'player', 'reporter', 'narrator']),
+  })
+  .strict();
+/** Uma voz fixa por papel: o presidente sempre soa igual, o auxiliar também. */
+const voices: Record<z.infer<typeof voiceInputSchema>['voice'], { id: string; style: string }> = {
+  president: {
+    id: 'onyx',
+    style:
+      'Presidente de clube de futebol brasileiro, voz grave, firme e cordial, ritmo pausado de pronunciamento oficial.',
+  },
+  staff: {
+    id: 'ash',
+    style:
+      'Auxiliar técnico brasileiro, tom de vestiário, direto e animado, como quem passa a estratégia ao treinador.',
+  },
+  player: {
+    id: 'echo',
+    style: 'Jogador de futebol brasileiro jovem, informal e sincero, falando com o técnico.',
+  },
+  reporter: {
+    id: 'coral',
+    style: 'Repórter esportiva brasileira em coletiva de imprensa, clara, curiosa e objetiva.',
+  },
+  narrator: {
+    id: 'verse',
+    style:
+      'Locutor de telejornal esportivo brasileiro, entusiasmado e bem articulado, como num programa de TV.',
+  },
+};
 const inputSchema = z
   .object({ careerId: z.string().uuid(), eventId: z.string().min(1).max(200).optional() })
   .strict();
@@ -60,7 +92,7 @@ function cors(req: Request) {
   };
 }
 
-async function openai(path: string, body: unknown, timeout: number) {
+async function openai(path: string, body: unknown, timeout: number, raw = false) {
   const multipart = body instanceof FormData;
   const response = await fetch(`https://api.openai.com/v1/${path}`, {
     method: 'POST',
@@ -136,6 +168,7 @@ async function openai(path: string, body: unknown, timeout: number) {
         : 'A OpenAI não concluiu a geração. Consulte a cobrança e os logs do provedor.',
     );
   }
+  if (raw) return response;
   return (await response.json()) as unknown;
 }
 
@@ -298,6 +331,29 @@ export async function handle(req: Request, kind: Kind): Promise<Response> {
     if (new TextEncoder().encode(text).length > (kind === 'avatar' ? 1_600_000 : 4096))
       throw new HttpError(413, 'Pedido acima do limite.');
     admin = auth;
+    if (kind === 'voice') {
+      const input = voiceInputSchema.parse(JSON.parse(text));
+      const voice = voices[input.voice];
+      const audio = (await openai(
+        'audio/speech',
+        {
+          model: Deno.env.get('OPENAI_TTS_MODEL') || 'gpt-4o-mini-tts',
+          voice: voice.id,
+          input: input.text,
+          instructions: `Fale em português do Brasil, com sotaque brasileiro natural. ${voice.style}`,
+          response_format: 'mp3',
+        },
+        45000,
+        true,
+      )) as Response;
+      return new Response(await audio.arrayBuffer(), {
+        headers: {
+          ...headers,
+          'Content-Type': 'application/octet-stream',
+          'Cache-Control': 'private, max-age=31536000',
+        },
+      });
+    }
     if (kind === 'avatar') {
       const result = await portrait(auth, identity.user.id, JSON.parse(text), (id) => {
         jobId = id;

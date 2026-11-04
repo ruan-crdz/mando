@@ -14,12 +14,28 @@ import {
   Volume2,
 } from 'lucide-react';
 import { type Career, type Message, type World } from '../game/types';
-import { playVoice, speechAvailable, stopVoice, useVoice } from '../components/voice';
+import {
+  playVoice,
+  stopVoice,
+  useVoice,
+  voiceAvailable,
+  type VoiceItem,
+  type VoiceRole,
+} from '../components/voice';
 import { squad } from '../game/matches';
 import { standings } from '../game/engine';
 import { competitionName } from '../game/calendar';
 import { PortraitCamera } from '../components/PortraitCamera';
 import { dateLabel, ManagerPortrait, Metric, money, SectionTitle } from '../components/ui';
+
+const messageVoice: Record<Message['kind'], VoiceRole> = {
+  board: 'president',
+  finance: 'president',
+  staff: 'staff',
+  market: 'staff',
+  player: 'player',
+  news: 'narrator',
+};
 
 export function Office({
   career: c,
@@ -48,16 +64,17 @@ export function Office({
   const m = c.messages.find((m) => m.id === selectedId);
   const voice = useVoice();
   const speaking = voice.mailbox ? null : voice.current?.id;
-  const voiceItem = (msg: Message) => ({
+  const voiceItem = (msg: Message): VoiceItem => ({
     id: msg.id,
     title: msg.title,
     text: `${msg.from}. ${msg.title}. ${msg.aiText || msg.body}`,
+    voice: messageVoice[msg.kind],
   });
   const unread = c.messages.filter((msg) => !msg.read);
   const listenAll = () => {
     if (voice.mailbox) return stopVoice();
-    // Caixa postal: primeiro as não lidas (da mais antiga para a mais nova); sem novas, todas.
-    playVoice([...(unread.length ? unread : c.messages)].reverse().map(voiceItem), true);
+    // Caixa postal: primeiro as não lidas, da mais recente para a mais antiga; sem novas, todas.
+    playVoice((unread.length ? unread : c.messages).map(voiceItem), true);
   };
   const club = world.clubs.find((club) => club.id === c.clubId)!;
   const finance = c.finances[c.clubId];
@@ -125,7 +142,7 @@ export function Office({
       {view === 'inbox' && (
         <div className="office-inbox">
           <section className="panel message-list">
-            {speechAvailable() && (
+            {voiceAvailable() && (
               <button
                 className={`mailbox-button ${voice.mailbox ? 'speaking' : ''}`}
                 onClick={listenAll}
@@ -138,7 +155,7 @@ export function Office({
                   <strong>{voice.mailbox ? 'Parar caixa postal' : 'Ouvir caixa postal'}</strong>
                   <small>
                     {voice.mailbox
-                      ? `Recado ${voice.position} de ${voice.total}`
+                      ? `Recado ${voice.position} de ${voice.total}${voice.loading ? ' · preparando voz…' : ''}`
                       : unread.length
                         ? `${unread.length} recado${unread.length > 1 ? 's' : ''} novo${unread.length > 1 ? 's' : ''}`
                         : `Todas as ${c.messages.length} mensagens`}
@@ -181,7 +198,7 @@ export function Office({
                   <span className="pill">{m.kind.toUpperCase()}</span>
                 </div>
                 <h2>{m.title}</h2>
-                {speechAvailable() && (
+                {voiceAvailable() && (
                   <button
                     className={`voice-button ${speaking === m.id ? 'speaking' : ''}`}
                     onClick={() => (speaking === m.id ? stopVoice() : playVoice([voiceItem(m)]))}
@@ -195,7 +212,11 @@ export function Office({
                       <i />
                       <i />
                     </span>
-                    {speaking === m.id ? 'Parar' : 'Ouvir mensagem'}
+                    {speaking === m.id
+                      ? voice.loading
+                        ? 'Preparando voz…'
+                        : 'Parar'
+                      : 'Ouvir mensagem'}
                   </button>
                 )}
                 <p className="message-body">{m.aiText || m.body}</p>

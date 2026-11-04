@@ -12,7 +12,7 @@ if (!handler.includes(localImport)) {
   throw new Error('O import compartilhado mudou. Atualize o bundler antes de publicar.');
 }
 await mkdir(output, { recursive: true });
-for (const kind of ['message', 'news', 'staff', 'avatar']) {
+for (const kind of ['message', 'news', 'staff', 'avatar', 'voice']) {
   const name = kind === 'avatar' ? 'ai-manager-avatar' : `ai-${kind}`;
   const source = `${types}\n${handler.replace(localImport, '')}\nDeno.serve((req) => handle(req, '${kind}'));\n`;
   await writeFile(path.join(output, `${name}.ts`), source, 'utf8');

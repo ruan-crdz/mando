@@ -85,7 +85,7 @@ integração contra seu projeto Supabase hospedado.
 As funções também têm testes HTTP sem consumir OpenAI:
 
 ```powershell
-npx.cmd deno check supabase\functions\ai-message\index.ts supabase\functions\ai-news\index.ts supabase\functions\ai-staff\index.ts supabase\functions\ai-manager-avatar\index.ts
+npx.cmd deno check supabase\functions\ai-message\index.ts supabase\functions\ai-news\index.ts supabase\functions\ai-staff\index.ts supabase\functions\ai-manager-avatar\index.ts supabase\functions\ai-voice\index.ts
 npx.cmd deno test --allow-env supabase\functions\_shared\handler.test.ts
 ```
 
@@ -230,7 +230,12 @@ npx.cmd supabase functions deploy ai-message
 npx.cmd supabase functions deploy ai-news
 npx.cmd supabase functions deploy ai-staff
 npx.cmd supabase functions deploy ai-manager-avatar
+npx.cmd supabase functions deploy ai-voice
 ```
+
+`ai-voice` gera a voz dos recados, da caixa postal e da coletiva com a OpenAI
+(`OPENAI_TTS_MODEL`, padrão `gpt-4o-mini-tts`). O jogo guarda cada áudio no
+cache do navegador, então o mesmo recado nunca é gerado duas vezes.
 
 As configurações de JWT estão em [supabase/config.toml](supabase/config.toml).
 Cada função verifica explicitamente o bearer token com `auth.getUser()` antes
@@ -238,7 +243,7 @@ de consultar dados ou consumir a OpenAI, e filtra a carreira pelo proprietário.
 
 Alternativa sem CLI: execute `npm.cmd run bundle:edge` e carregue o conteúdo de
 cada arquivo gerado em `dist-edge/` no editor de Edge Functions do dashboard.
-Use exatamente os quatro nomes acima. Após publicar, confirme nas configurações
+Use exatamente os cinco nomes acima. Após publicar, confirme nas configurações
 de cada função que **Verify JWT with legacy secret** está desligado; a
 autenticação é realizada pelo handler, não removida.
 

@@ -11,6 +11,14 @@ import {
 import { FocusManager } from './FocusManager';
 import { standardButtons, xboxMapping } from './xboxMapping';
 import { dualsenseMapping, isPlayStation } from './dualsenseMapping';
+import {
+  hidConnected,
+  hidGamepad,
+  hidRumble,
+  hidSupported,
+  pairDualSense,
+  subscribeHid,
+} from './dualsenseHid';
 
 type Action = keyof typeof xboxMapping;
 type Input = 'mouse' | 'keyboard' | 'xbox' | 'playstation';
@@ -63,6 +71,8 @@ type ControllerContext = {
   rumble: (kind: RumbleKind) => void;
   /** Diagnóstico de vibração do controle ativo. */
   haptics: () => 'ok' | 'unsupported' | 'nopad';
+  /** DualSense conectado direto (WebHID): vibração real no Chrome/Edge. */
+  hid: { supported: boolean; connected: boolean; pair: () => Promise<boolean> };
   hints: Record<Action, string>;
   register: (actions: Actions) => () => void;
 };
@@ -151,8 +161,12 @@ export function GamepadProvider({ children }: { children: ReactNode }) {
   const vibrationRef = useRef(vibration);
   vibrationRef.current = vibration;
   const padIndex = useRef<number | null>(null);
+  const [hidOn, setHidOn] = useState(hidConnected);
+  useEffect(() => subscribeHid(() => setHidOn(hidConnected())), []);
   const rumble = useCallback((kind: RumbleKind) => {
-    if (!vibrationRef.current || padIndex.current === null || !navigator.getGamepads) return;
+    if (!vibrationRef.current) return;
+    if (hidRumble(rumblePatterns[kind])) return;
+    if (padIndex.current === null || !navigator.getGamepads) return;
     const pad = navigator.getGamepads()[padIndex.current] as HapticPad | null;
     if (!pad?.connected) return;
     let delay = 0;
@@ -365,9 +379,13 @@ export function GamepadProvider({ children }: { children: ReactNode }) {
       } else if (Math.abs(sx) < 0.3) lastStickX = 0;
     };
     const tick = (now: number) => {
-      const pads = navigator.getGamepads
-        ? [...navigator.getGamepads()].filter((p): p is Gamepad => p !== null && p.connected)
-        : [];
+      // No Bluetooth em modo completo o navegador para de ler o DualSense; o WebHID assume.
+      const direct = hidGamepad();
+      const pads = direct
+        ? [direct]
+        : navigator.getGamepads
+          ? [...navigator.getGamepads()].filter((p): p is Gamepad => p !== null && p.connected)
+          : [];
       const touched = pads.find(
         (p) => p.buttons.some((b) => b.pressed) || p.axes.some((axis) => Math.abs(axis) > 0.55),
       );
@@ -513,7 +531,9 @@ export function GamepadProvider({ children }: { children: ReactNode }) {
             return !v;
           }),
         rumble,
+        hid: { supported: hidSupported(), connected: hidOn, pair: pairDualSense },
         haptics: () => {
+          if (hidConnected()) return 'ok';
           const pads = navigator.getGamepads ? [...navigator.getGamepads()] : [];
           const pad = (pads.find((p) => p?.connected) || null) as HapticPad | null;
           if (!pad) return 'nopad';

@@ -35,6 +35,7 @@ import { ChipGroup, TacticSlider } from '../components/controls';
 import { LivePitch, type PitchTeam } from '../components/LivePitch';
 import { byPosition, PlayerCard, PlayerPicker, roleFits } from '../components/PlayerCard';
 import { useGamepad } from '../controller/GamepadProvider';
+import { crowdChance, crowdGoal, crowdWhistle } from '../audio/crowd';
 
 const fits = (p: Player, role: string) => (roleFits[role] || [role]).includes(p.position);
 
@@ -126,12 +127,23 @@ export function MatchScreen({
   useEffect(() => {
     const before = scoreRef.current;
     const ownHome = fixture.homeId === c.clubId;
-    if (match.homeGoals > before.home) rumble(ownHome ? 'goal' : 'concede');
-    if (match.awayGoals > before.away) rumble(ownHome ? 'concede' : 'goal');
-    if (match.minute !== before.minute && (match.minute === 45 || match.minute === 90))
+    const homeScored = match.homeGoals > before.home;
+    const awayScored = match.awayGoals > before.away;
+    if (homeScored) rumble(ownHome ? 'goal' : 'concede');
+    if (awayScored) rumble(ownHome ? 'concede' : 'goal');
+    if (homeScored || awayScored) crowdGoal(homeScored === ownHome);
+    else if (match.minute !== before.minute) {
+      const fresh = match.events.filter(
+        (e) => e.minute > before.minute && ['chance', 'save', 'miss'].includes(e.type),
+      );
+      if (fresh.length) crowdChance();
+    }
+    if (match.minute !== before.minute && (match.minute === 45 || match.minute === 90)) {
       rumble('whistle');
+      crowdWhistle(match.minute === 45 ? 2 : 3);
+    }
     scoreRef.current = { home: match.homeGoals, away: match.awayGoals, minute: match.minute };
-  }, [match.homeGoals, match.awayGoals, match.minute, fixture.homeId, c.clubId, rumble]);
+  }, [match.homeGoals, match.awayGoals, match.minute, match.events, fixture.homeId, c.clubId, rumble]);
   useEffect(() => {
     if (!playing || sub || tactic || paused || momentKey) return;
     const timer = setInterval(() => {
