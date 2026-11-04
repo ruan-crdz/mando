@@ -517,8 +517,12 @@ export function Season({ career: c, world }: { career: Career; world: World }) {
             </section>
           ) : (
             [...c.awards].reverse().map((award, index) => {
-              const athlete = award.playerId && world.players.find((p) => p.id === award.playerId);
-              const team = award.clubId && world.clubs.find((item) => item.id === award.clubId);
+              const athlete = award.playerId
+                ? world.players.find((p) => p.id === award.playerId)
+                : undefined;
+              const team = award.clubId
+                ? world.clubs.find((item) => item.id === award.clubId)
+                : undefined;
               const monthName = award.month
                 ? new Intl.DateTimeFormat('pt-BR', { month: 'long' }).format(
                     new Date(Date.UTC(award.season, award.month - 1, 1)),

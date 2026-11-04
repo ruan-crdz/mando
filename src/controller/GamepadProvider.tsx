@@ -162,7 +162,12 @@ export function GamepadProvider({ children }: { children: ReactNode }) {
   vibrationRef.current = vibration;
   const padIndex = useRef<number | null>(null);
   const [hidOn, setHidOn] = useState(hidConnected);
-  useEffect(() => subscribeHid(() => setHidOn(hidConnected())), []);
+  useEffect(() => {
+    const unsubscribe = subscribeHid(() => setHidOn(hidConnected()));
+    return () => {
+      unsubscribe();
+    };
+  }, []);
   const rumble = useCallback((kind: RumbleKind) => {
     if (!vibrationRef.current) return;
     if (hidRumble(rumblePatterns[kind])) return;
