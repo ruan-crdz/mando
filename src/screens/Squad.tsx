@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ChevronLeft,
+  ChevronRight,
   Dumbbell,
   Hash,
   ClipboardList,
@@ -42,7 +43,7 @@ import {
   type Tactic,
   type World,
 } from '../game/types';
-import { dateLabel, Metric, Modal, money, SectionTitle } from '../components/ui';
+import { dateLabel, Modal, money, SectionTitle } from '../components/ui';
 import {
   ChipGroup,
   NumberStepper,
@@ -105,6 +106,18 @@ const roleScore: Record<string, (p: Player, c: Career) => number> = {
 
 type Picking = { kind: 'slot'; index: number } | { kind: 'role'; role: string } | null;
 
+type PlayerAction = 'summary' | 'number' | 'sale' | 'loan' | 'renew' | 'talk' | 'develop' | 'release';
+const playerActions: { id: PlayerAction; label: string }[] = [
+  { id: 'summary', label: 'Visão geral' },
+  { id: 'number', label: 'Número da camisa' },
+  { id: 'renew', label: 'Renovar contrato' },
+  { id: 'sale', label: 'Lista de transferências' },
+  { id: 'loan', label: 'Lista de empréstimos' },
+  { id: 'talk', label: 'Conversar' },
+  { id: 'develop', label: 'Evolução e função' },
+  { id: 'release', label: 'Dispensar' },
+];
+
 export function Squad({
   career: c,
   world,
@@ -145,6 +158,7 @@ export function Squad({
   const [picking, setPicking] = useState<Picking>(null);
   const [months, setMonths] = useState(36);
   const [clauseValue, setClauseValue] = useState(0);
+  const [action, setAction] = useState<PlayerAction>('summary');
   const panel = useRef<HTMLElement>(null);
   const returnFocus = useRef<string | null>(null);
   const players = useMemo(() => squad(c, world), [c, world]);
@@ -231,6 +245,7 @@ export function Squad({
     setClauseValue(c.players[p.id]?.clause || Math.round(p.value * 2.5));
     setSalePrice(c.players[p.id]?.listed || Math.round(marketValue(c, p) / 50000) * 50000);
     setConfirmRelease(false);
+    setAction('summary');
     setDetail(p);
   };
   const apply = (fn: () => Career) => {
@@ -772,185 +787,276 @@ export function Squad({
       </div>
       {d && ds && terms && (
         <Modal title={d.name} onClose={() => setDetail(null)} wide>
-          <div className="player-detail">
-            <div className="detail-side">
-              <PlayerFace player={d} size="lg" className="detail-face" />
-              <div className="detail-metrics">
-                <Metric label="CAMISA" value={numbers[d.id] ?? '—'} />
-                <Metric label="POSIÇÃO" value={positionsLine(d) || d.position} />
-                <Metric label="OVERALL" value={overall(d, d.position, ds)} />
-                <Metric
-                  label="POTENCIAL"
-                  value={`${Math.max(1, Math.round(d.potential + ds.potentialDelta - d.uncertainty))}–${Math.min(99, Math.round(d.potential + ds.potentialDelta + d.uncertainty))}`}
-                />
-                <Metric label="IDADE" value={ageAt(d.birthDate, c.date)} />
-                <Metric label="RITMO DE JOGO" value={`${Math.round(ds.sharpness)}%`} />
+          <div className="player-hub">
+            <div className="hub-card-col">
+              <div className="hub-card">
+                <span className="hub-card-top">
+                  <strong>{overall(d, d.position, ds)}</strong>
+                  <span>{d.position}</span>
+                </span>
+                <PlayerFace player={d} className="hub-card-face" />
+                <strong className="hub-card-name">{shortName(d.name)}</strong>
               </div>
-              <div className="contract-info">
-                <p>
-                  Salário: <strong>{money(ds.wage)}/mês</strong> · Contrato até{' '}
-                  <strong>{dateLabel(ds.contractEnd)}</strong>
-                </p>
-                <p>
-                  Moral {Math.round(ds.morale)} · Relação {Math.round(ds.relationship)} · {ds.goals}{' '}
-                  gols · {ds.minutes} min
-                </p>
+              <div className="hub-facts">
+                <span>
+                  Idade <strong>{ageAt(d.birthDate, c.date)}</strong>
+                </span>
+                <span>
+                  Camisa <strong>{numbers[d.id] ?? '—'}</strong>
+                </span>
+                <span>
+                  Potencial{' '}
+                  <strong>
+                    {Math.max(1, Math.round(d.potential + ds.potentialDelta - d.uncertainty))}–
+                    {Math.min(99, Math.round(d.potential + ds.potentialDelta + d.uncertainty))}
+                  </strong>
+                </span>
+                <span>
+                  Moral <strong>{Math.round(ds.morale)}</strong>
+                </span>
+                <span>
+                  Salário <strong>{money(ds.wage)}</strong>
+                </span>
+                <span>
+                  Contrato <strong>{dateLabel(ds.contractEnd)}</strong>
+                </span>
               </div>
-              {ds.clubId === c.clubId && (
+              {ds.listed ? <p className="pill hub-flag">À VENDA · {money(ds.listed)}</p> : null}
+            </div>
+            <nav className="hub-actions" aria-label="Ações do jogador">
+              {playerActions
+                .filter((a) => a.id === 'summary' || ds.clubId === c.clubId)
+                .map((a) => (
+                  <button
+                    key={a.id}
+                    className={`hub-action ${action === a.id ? 'active' : ''} ${a.id === 'release' ? 'danger-text' : ''}`}
+                    aria-pressed={action === a.id}
+                    data-autofocus={action === a.id || undefined}
+                    onClick={() => {
+                      setAction(a.id);
+                      setConfirmRelease(false);
+                    }}
+                  >
+                    {a.label}
+                    <ChevronRight size={16} />
+                  </button>
+                ))}
+            </nav>
+            <div className="hub-panel">
+              {action === 'summary' && (
                 <>
-                  <div className="detail-block detail-market">
-                    <p className="eyebrow">
-                      MERCADO{ds.listed ? ` · À VENDA POR ${money(ds.listed)}` : ''}
-                    </p>
-                    <NumberStepper
-                      label="Preço pedido"
-                      value={salePrice}
-                      min={50000}
-                      step={250000}
-                      onChange={(value) => setSalePrice(value ?? 0)}
-                      format={money}
-                    />
-                    <div className="button-row">
-                      <button className="primary" onClick={() => onListForSale(d.id, salePrice)}>
-                        {ds.listed ? 'Atualizar preço' : 'Colocar à venda'}
-                      </button>
-                      {ds.listed ? (
-                        <button onClick={() => onListForSale(d.id, null)}>Tirar da venda</button>
-                      ) : null}
-                      <button
-                        onClick={() => {
-                          setDetail(null);
-                          setView('kit');
-                          setKitId(d.id);
-                          setKitPos(d.position);
-                        }}
-                      >
-                        <Dumbbell size={16} /> Posições e treino
-                      </button>
-                    </div>
-                    <div className="button-row">
-                      {confirmRelease ? (
-                        <>
-                          <button className="danger" onClick={() => onRelease(d.id)}>
-                            Confirmar rescisão · {money(releaseCost(c, d.id))}
-                          </button>
-                          <button onClick={() => setConfirmRelease(false)}>Cancelar</button>
-                        </>
-                      ) : (
-                        <button className="danger" onClick={() => setConfirmRelease(true)}>
-                          <UserX size={16} /> Dispensar · multa {money(releaseCost(c, d.id))}
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                  <div className="detail-block detail-kit">
-                    <div>
-                      <p className="eyebrow">NÚMERO DA CAMISA</p>
-                      <ShirtNumberDial
-                        value={numbers[d.id] ?? 1}
-                        conflict={numberConflict(d.id)}
-                        onSave={(n) => apply(() => setShirtNumber(c, world, d.id, n))}
-                      />
+                  <p className="eyebrow">
+                    {positionsLine(d) || d.position} · RITMO {Math.round(ds.sharpness)}% ·{' '}
+                    {ds.goals} GOLS · {ds.minutes} MIN
+                  </p>
+                  <div className="hub-summary">
+                    <div className="attribute-grid">
+                      {Object.entries(d.attributes).map(([k, v]) => (
+                        <div key={k} className={v >= 80 ? 'high' : v >= 65 ? 'mid' : 'low'}>
+                          <span>
+                            {attributeLabels[k]}: <strong>{v}</strong>
+                          </span>
+                          <i className="attr-bar">
+                            <b style={{ width: `${v}%` }} />
+                          </i>
+                        </div>
+                      ))}
                     </div>
                     <HeatMap player={d} position={d.position} state={ds} compact />
                   </div>
-                  <div className="detail-block">
-                    <p className="eyebrow">PERSONALIDADE · {ds.personality.toUpperCase()}</p>
-                    <div className="button-row">
-                      <button onClick={() => onConversation(d.id, 'praise')}>Elogiar</button>
-                      <button onClick={() => onConversation(d.id, 'challenge')}>Cobrar</button>
-                      <button onClick={() => onConversation(d.id, 'promise')}>Prometer minutos</button>
-                    </div>
-                  </div>
-                  <div className="detail-block">
-                    <p className="eyebrow">PLANO DE EVOLUÇÃO</p>
-                    <ChipGroup
-                      value={ds.development}
-                      options={(['Equilibrado', 'Ataque', 'Criação', 'Defesa', 'Físico'] as const).map((plan) => ({
-                        value: plan,
-                        label: plan,
-                      }))}
-                      onChange={(plan) => onDevelopment(d.id, plan as typeof ds.development)}
-                    />
-                    <OptionCycler
-                      label="Função em campo"
-                      value={ds.role}
-                      options={(
-                        [
-                          'Padrão',
-                          'Finalizador',
-                          'Armador',
-                          'Pivô',
-                          'Volante',
-                          'Zagueiro construtor',
-                          'Lateral ofensivo',
-                        ] as const
-                      ).map((role) => ({ value: role, label: role }))}
-                      onChange={(role) => onRole(d.id, role)}
-                    />
-                    <p className="muted small">O plano acelera a evolução individual. Ritmo de jogo, moral e minutos também influenciam o rendimento e o potencial.</p>
-                  </div>
-                  <div className="detail-block">
-                    <p className="eyebrow">MULTA RESCISÓRIA</p>
-                    <NumberStepper
-                      label="Valor da multa"
-                      value={clauseValue}
-                      min={0}
-                      step={100000}
-                      onChange={(value) => setClauseValue(value ?? 0)}
-                      format={money}
-                    />
-                    <button onClick={() => onSetClause(d.id, clauseValue)}>Definir multa</button>
-                  </div>
-                  <div className="detail-block">
-                    <p className="eyebrow">EMPRÉSTIMO · 6 MESES</p>
-                    <div className="button-row">
-                      {loanDestinations.map(({ club }) => (
-                        <button key={club.id} onClick={() => onLoanOut(d.id, club.id)}>
-                          {club.short} · {club.name}
+                </>
+              )}
+              {action === 'number' && (
+                <>
+                  <p className="eyebrow">
+                    NÚMERO DA CAMISA · ATUAL {numbers[d.id] ?? '—'}
+                  </p>
+                  <p className="muted small">
+                    Escolha um número livre ou um ocupado para trocar com o companheiro.
+                  </p>
+                  <div className="number-grid" role="listbox" aria-label="Números da camisa">
+                    {Array.from({ length: 99 }, (_, i) => i + 1).map((n) => {
+                      const holder = Object.keys(numbers).find((id) => numbers[id] === n);
+                      const mine = holder === d.id;
+                      const holderPlayer = holder && !mine ? byId(holder) : null;
+                      return (
+                        <button
+                          key={n}
+                          role="option"
+                          aria-selected={mine}
+                          className={`number-cell ${mine ? 'mine' : holderPlayer ? 'taken' : ''}`}
+                          title={holderPlayer ? `Trocar com ${holderPlayer.name}` : `Usar a ${n}`}
+                          onClick={() => !mine && apply(() => setShirtNumber(c, world, d.id, n))}
+                        >
+                          <strong>{n}</strong>
+                          {holderPlayer && <small>{shortName(holderPlayer.name)}</small>}
                         </button>
-                      ))}
-                    </div>
+                      );
+                    })}
                   </div>
-                  <div className="detail-block">
-                    <p className="eyebrow">RENOVAR CONTRATO · ESTENDER POR</p>
-                    <ChipGroup
-                      value={String(months)}
-                      options={renewalOptions.map((m) => ({
-                        value: String(m),
-                        label: m < 12 ? '6 meses' : m === 12 ? '1 ano' : `${m / 12} anos`,
-                      }))}
-                      onChange={(m) => setMonths(Number(m))}
-                    />
-                    <div className="renewal-terms">
-                      <span>
-                        Novo salário <strong>{money(terms.wage)}/mês</strong>
-                      </span>
-                      <span>
-                        Luvas <strong>{money(terms.bonus)}</strong>
-                      </span>
-                      <span>
-                        Até <strong>{dateLabel(terms.contractEnd)}</strong>
-                      </span>
-                    </div>
-                    <button className="primary" onClick={() => onRenew(d.id, months)}>
-                      Renovar contrato
+                </>
+              )}
+              {action === 'sale' && (
+                <>
+                  <p className="eyebrow">
+                    LISTA DE TRANSFERÊNCIAS{ds.listed ? ` · À VENDA POR ${money(ds.listed)}` : ''}
+                  </p>
+                  <p className="muted small">
+                    Valor de mercado estimado: <strong>{money(marketValue(c, d))}</strong>. Com o
+                    atleta listado, clubes da IA enviam propostas que você negocia em Transferências ›
+                    Negociações.
+                  </p>
+                  <NumberStepper
+                    label="Preço pedido"
+                    value={salePrice}
+                    min={50000}
+                    step={250000}
+                    onChange={(value) => setSalePrice(value ?? 0)}
+                    format={money}
+                  />
+                  <div className="button-row">
+                    <button className="primary" onClick={() => onListForSale(d.id, salePrice)}>
+                      {ds.listed ? 'Atualizar preço' : 'Colocar à venda'}
+                    </button>
+                    {ds.listed ? (
+                      <button onClick={() => onListForSale(d.id, null)}>Tirar da lista</button>
+                    ) : null}
+                  </div>
+                  <p className="eyebrow">MULTA RESCISÓRIA</p>
+                  <NumberStepper
+                    label="Valor da multa"
+                    value={clauseValue}
+                    min={0}
+                    step={100000}
+                    onChange={(value) => setClauseValue(value ?? 0)}
+                    format={money}
+                  />
+                  <button onClick={() => onSetClause(d.id, clauseValue)}>Definir multa</button>
+                </>
+              )}
+              {action === 'loan' && (
+                <>
+                  <p className="eyebrow">LISTA DE EMPRÉSTIMOS · 6 MESES</p>
+                  <p className="muted small">
+                    O clube de destino paga o salário e o atleta ganha ritmo de jogo.
+                  </p>
+                  <div className="hub-list">
+                    {loanDestinations.map(({ club }) => (
+                      <button key={club.id} onClick={() => onLoanOut(d.id, club.id)}>
+                        <strong>{club.short}</strong> {club.name}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+              {action === 'renew' && (
+                <>
+                  <p className="eyebrow">RENOVAR CONTRATO · ESTENDER POR</p>
+                  <ChipGroup
+                    value={String(months)}
+                    options={renewalOptions.map((m) => ({
+                      value: String(m),
+                      label: m < 12 ? '6 meses' : m === 12 ? '1 ano' : `${m / 12} anos`,
+                    }))}
+                    onChange={(m) => setMonths(Number(m))}
+                  />
+                  <div className="renewal-terms">
+                    <span>
+                      Novo salário <strong>{money(terms.wage)}/mês</strong>
+                    </span>
+                    <span>
+                      Luvas <strong>{money(terms.bonus)}</strong>
+                    </span>
+                    <span>
+                      Até <strong>{dateLabel(terms.contractEnd)}</strong>
+                    </span>
+                  </div>
+                  <button className="primary" onClick={() => onRenew(d.id, months)}>
+                    Renovar contrato
+                  </button>
+                </>
+              )}
+              {action === 'talk' && (
+                <>
+                  <p className="eyebrow">
+                    CONVERSA · {ds.personality.toUpperCase()} · RELAÇÃO {Math.round(ds.relationship)}
+                  </p>
+                  <div className="hub-list">
+                    <button onClick={() => onConversation(d.id, 'praise')}>
+                      <strong>Elogiar</strong> Reconhece o bom momento e aumenta a moral.
+                    </button>
+                    <button onClick={() => onConversation(d.id, 'challenge')}>
+                      <strong>Cobrar</strong> Exige mais rendimento; a reação depende da personalidade.
+                    </button>
+                    <button onClick={() => onConversation(d.id, 'promise')}>
+                      <strong>Prometer minutos</strong> Garante oportunidades nos próximos 30 dias.
                     </button>
                   </div>
                 </>
               )}
-            </div>
-            <div className="attribute-grid">
-              {Object.entries(d.attributes).map(([k, v]) => (
-                <div key={k} className={v >= 80 ? 'high' : v >= 65 ? 'mid' : 'low'}>
-                  <span>
-                    {attributeLabels[k]}: <strong>{v}</strong>
-                  </span>
-                  <i className="attr-bar">
-                    <b style={{ width: `${v}%` }} />
-                  </i>
-                </div>
-              ))}
+              {action === 'develop' && (
+                <>
+                  <p className="eyebrow">PLANO DE EVOLUÇÃO</p>
+                  <ChipGroup
+                    value={ds.development}
+                    options={(['Equilibrado', 'Ataque', 'Criação', 'Defesa', 'Físico'] as const).map(
+                      (plan) => ({ value: plan, label: plan }),
+                    )}
+                    onChange={(plan) => onDevelopment(d.id, plan as typeof ds.development)}
+                  />
+                  <OptionCycler
+                    label="Função em campo"
+                    value={ds.role}
+                    options={(
+                      [
+                        'Padrão',
+                        'Finalizador',
+                        'Armador',
+                        'Pivô',
+                        'Volante',
+                        'Zagueiro construtor',
+                        'Lateral ofensivo',
+                      ] as const
+                    ).map((role) => ({ value: role, label: role }))}
+                    onChange={(role) => onRole(d.id, role)}
+                  />
+                  <p className="muted small">
+                    O plano acelera a evolução individual. Ritmo de jogo, moral e minutos também
+                    influenciam o rendimento e o potencial.
+                  </p>
+                  <button
+                    onClick={() => {
+                      setDetail(null);
+                      setView('kit');
+                      setKitId(d.id);
+                      setKitPos(d.position);
+                    }}
+                  >
+                    <Dumbbell size={16} /> Posições e treino de posição
+                  </button>
+                </>
+              )}
+              {action === 'release' && (
+                <>
+                  <p className="eyebrow">DISPENSAR JOGADOR</p>
+                  <p className="muted small">
+                    A rescisão custa metade dos salários restantes do contrato (mínimo de 3
+                    salários). O atleta sai do elenco imediatamente.
+                  </p>
+                  {confirmRelease ? (
+                    <div className="button-row">
+                      <button className="danger" onClick={() => onRelease(d.id)}>
+                        Confirmar rescisão · {money(releaseCost(c, d.id))}
+                      </button>
+                      <button onClick={() => setConfirmRelease(false)}>Cancelar</button>
+                    </div>
+                  ) : (
+                    <button className="danger" onClick={() => setConfirmRelease(true)}>
+                      <UserX size={16} /> Dispensar · multa {money(releaseCost(c, d.id))}
+                    </button>
+                  )}
+                </>
+              )}
             </div>
           </div>
         </Modal>
