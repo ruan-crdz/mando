@@ -1,0 +1,206 @@
+/* ---------- Tipografia / blocos compartilhados ---------- */
+.eyebrow {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--cyan);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.muted {
+  color: var(--ink-3);
+}
+.small {
+  font-size: 13px;
+}
+.section-title {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+}
+.section-title h1 {
+  font-size: clamp(24px, 2.6vw, 38px);
+  font-weight: 800;
+  line-height: 1;
+  text-transform: uppercase;
+  font-style: italic;
+  letter-spacing: 0.5px;
+}
+.title-dot {
+  color: var(--lime);
+}
+.screen-title {
+  font: italic 800 clamp(26px, 3vw, 44px) / 1 var(--display);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.segmented {
+  display: flex;
+  gap: 4px;
+  align-self: flex-start;
+  padding: 4px;
+  background: rgba(0, 8, 46, 0.5);
+  border-radius: 4px;
+  max-width: 100%;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.segmented > button {
+  background: transparent;
+  color: var(--ink-2);
+  padding: 7px 16px;
+  font-size: 15px;
+  white-space: nowrap;
+}
+.segmented > button.active {
+  background: linear-gradient(180deg, #ffffff, #d8e6ff);
+  color: #082062;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
+}
+.segmented.compact > button {
+  padding: 5px 10px;
+  font-size: 13px;
+}
+.panel {
+  background: var(--glass);
+  border: 1px solid var(--line);
+  border-top: 3px solid var(--cyan);
+  border-radius: 4px;
+  padding: 16px 18px;
+  min-height: 0;
+  min-width: 0;
+  overflow: auto;
+  backdrop-filter: blur(10px);
+  box-shadow: 0 16px 40px rgba(0, 4, 30, 0.35);
+}
+.panel h2 {
+  font-size: 22px;
+  font-weight: 800;
+  text-transform: uppercase;
+  line-height: 1.1;
+  margin-bottom: 10px;
+}
+.panel h3 {
+  font-size: 18px;
+  text-transform: uppercase;
+}
+.panel > p + p {
+  margin-top: 8px;
+}
+.panel-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+.panel-heading h2 {
+  margin: 0;
+}
+.panel-heading > span:not(.pill) {
+  display: flex;
+  flex-direction: column;
+  margin-right: auto;
+}
+.pill,
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font: 700 12px var(--display);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  padding: 4px 10px;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.14);
+  white-space: nowrap;
+}
+.pill.success,
+.status-pill.open {
+  background: var(--lime);
+  color: #06204d;
+}
+.status-pill {
+  background: var(--orange);
+  color: #fff;
+  font-size: 13px;
+  padding: 6px 12px;
+}
+.count {
+  display: inline-grid;
+  place-items: center;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 6px;
+  border-radius: 11px;
+  background: var(--orange);
+  color: #fff;
+  font: 800 12px var(--display);
+}
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 10px;
+  color: var(--ink-2);
+  padding: 24px;
+}
+.metric {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 12px 16px;
+  border-radius: 4px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.04));
+  border-left: 4px solid var(--lime);
+}
+.metric span {
+  font: 700 12px var(--display);
+  letter-spacing: 1.5px;
+  color: var(--ink-2);
+}
+.metric strong {
+  font-size: clamp(20px, 2vw, 30px);
+  font-weight: 800;
+}
+.metric small {
+  color: var(--ink-3);
+}
+.button-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+.live-dot {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--lime);
+  box-shadow: 0 0 10px var(--lime);
+  animation: pulse 1.4s ease-in-out infinite;
+}
+.live-dot.paused {
+  background: var(--orange);
+  box-shadow: 0 0 8px var(--orange);
+  animation: none;
+}
+@keyframes pulse {
+  50% {
+    opacity: 0.35;
+  }
+}
+.spin {
+  animation: spin 0.9s linear infinite;
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

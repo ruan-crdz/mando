@@ -1,0 +1,57 @@
+/* MANDO 27 LEGACY — estrutura FIFA 14, acabamento noturno. Carregado depois de styles.css. */
+:root {
+  --mando-bg: #0b1020;
+  --mando-bg-deep: #080c18;
+  --mando-nav: #111a2c;
+  --mando-surface: #182747;
+  --mando-surface-raised: #223350;
+  --mando-surface-soft: #2a3b57;
+  --mando-surface-glass: rgba(21, 31, 54, 0.88);
+  --mando-overlay: rgba(5, 9, 18, 0.74);
+  --mando-border: rgba(207, 225, 247, 0.13);
+  --mando-text: #f4f7ff;
+  --mando-text-secondary: #c3d1e5;
+  --mando-text-muted: #93a5bf;
+  /* petróleo escurecido para AA (texto branco ≥ 4.5:1) */
+  --mando-petrol: #066b76;
+  --mando-petrol-bright: #087f8c;
+  --mando-cyan: #36d6e7;
+  --mando-violet: #8c6cff;
+  --mando-coral: #ff956e;
+  --mando-gold: #f9c968;
+  --mando-positive: #55c99b;
+  --mando-warning: #f8c16b;
+  --mando-danger: #ff6f83;
+  --mando-focus-outer: #f4f7ff;
+  --mando-focus-inner: #36d6e7;
+  --mando-tile-gap: 6px;
+  --mando-radius-panel: 5px;
+  --mando-radius-dialog: 7px;
+
+  /* variáveis legadas remapeadas para a paleta nova */
+  --bg0: var(--mando-bg);
+  --bg1: var(--mando-nav);
+  --bg2: var(--mando-surface);
+  --ink: var(--mando-text);
+  --ink-2: var(--mando-text-secondary);
+  --ink-3: var(--mando-text-muted);
+  --glass: var(--mando-surface-glass);
+  --glass-2: rgba(207, 225, 247, 0.06);
+  --line: var(--mando-border);
+  --blue: var(--mando-petrol-bright);
+  --cyan: var(--mando-cyan);
+  --green: var(--mando-positive);
+  --lime: var(--mando-cyan);
+  --orange: var(--mando-coral);
+  --pink: var(--mando-coral);
+  --purple: var(--mando-violet);
+  --yellow: var(--mando-gold);
+  --red: var(--mando-danger);
+  --focus: var(--mando-focus-inner);
+  background: var(--mando-bg);
+}
+
+::selection {
+  background: var(--mando-cyan);
+  color: var(--mando-bg);
+}

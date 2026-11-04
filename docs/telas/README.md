@@ -13,6 +13,8 @@ Uma doc por tela/popup do jogo, descrevendo o estado atual: wireframe, elementos
 - Nada de modais pesados onde uma linha expansível resolve (ex.: aba Jogadores).
 - Tudo navegável no controle, com dicas de botões visíveis.
 
+> As referências a `src\styles.css` e números de linha nas docs apontam para o arquivo antigo. Veja o mapa em [00-design-system.md](./00-design-system.md#mapa-do-antigo-stylescss).
+
 ## Índice
 
 | # | Doc | Tela |

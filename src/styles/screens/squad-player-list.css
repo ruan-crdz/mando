@@ -1,0 +1,44 @@
+/* ---------- Lista de jogadores ---------- */
+.roster-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.roster-row {
+  grid-template-columns: minmax(0, 2.6fr) 54px minmax(0, 1fr) minmax(0, 0.7fr);
+}
+.roster-row.starter {
+  box-shadow: inset 3px 0 0 var(--lime);
+}
+.roster-ovr {
+  font: 800 22px var(--display);
+  text-align: center;
+}
+.sort-pill {
+  padding: 4px 10px;
+  font-size: 12px;
+  letter-spacing: 1px;
+  background: rgba(255, 255, 255, 0.12);
+}
+.sort-pill strong {
+  color: var(--lime);
+}
+.market-row .player-face.sm,
+.market-row .player-face.md {
+  width: 56px;
+  height: 56px;
+  border-radius: 8px;
+  background: linear-gradient(160deg, #3d8bff 0%, #0b2f8f 75%);
+}
+.market-row .player-face img {
+  object-fit: contain;
+  object-position: 50% 100%;
+  transform: none;
+}
+.detail-market .button-row {
+  margin-top: 8px;
+}
+button.danger {
+  background: rgba(200, 20, 50, 0.75);
+  color: #fff;
+}

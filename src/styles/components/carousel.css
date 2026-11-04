@@ -1,0 +1,20 @@
+/* ---------- Carrossel horizontal ---------- */
+.carousel {
+  display: flex;
+  gap: 16px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-snap-type: x proximity;
+  scroll-padding: 0 24px;
+  padding: 16px 14px 18px;
+  margin-inline: -14px;
+  scrollbar-width: none;
+  overscroll-behavior-x: contain;
+}
+.carousel::-webkit-scrollbar {
+  display: none;
+}
+.carousel > * {
+  flex: 0 0 auto;
+  scroll-snap-align: center;
+}

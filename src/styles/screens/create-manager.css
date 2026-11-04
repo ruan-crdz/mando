@@ -1,0 +1,300 @@
+/* ---------- Criação de carreira ---------- */
+.creation {
+  gap: 14px;
+}
+.creation-top {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+.step-track {
+  display: flex;
+  gap: 6px;
+}
+.step-track > span {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px 6px 6px;
+  font: 800 14px var(--display);
+  letter-spacing: 1.5px;
+  color: var(--ink-3);
+  background: rgba(255, 255, 255, 0.07);
+  clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 50%, calc(100% - 10px) 100%, 0 100%);
+}
+.step-track b {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.15);
+}
+.step-track .active {
+  background: linear-gradient(90deg, var(--cyan), #0a8dff);
+  color: #fff;
+}
+.step-track .done {
+  color: var(--lime);
+}
+.demo-chip {
+  font: 800 12px var(--display);
+  letter-spacing: 1.5px;
+  background: var(--yellow);
+  color: #2b1d00;
+  padding: 4px 10px;
+}
+.creation-grid {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) minmax(280px, 1fr);
+  gap: 18px;
+}
+.manager-form {
+  border-top-color: var(--lime);
+}
+.form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px 16px;
+}
+.form-grid .full {
+  grid-column: 1 / -1;
+}
+.portrait-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border-radius: 4px;
+  overflow: hidden;
+  background:
+    radial-gradient(80% 60% at 50% 35%, rgba(255, 255, 255, 0.35), transparent 70%),
+    linear-gradient(160deg, #31b5ff, #6a35f0 70%, #3a128f);
+  box-shadow: 0 16px 44px rgba(0, 0, 0, 0.4);
+}
+.portrait-frame {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  justify-content: center;
+  padding-top: 10px;
+}
+.portrait-frame .manager-portrait {
+  max-height: 100%;
+}
+.portrait-loading {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  font: 700 18px var(--display);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  background: rgba(4, 11, 51, 0.55);
+  backdrop-filter: blur(3px);
+}
+.portrait-card.generating .manager-portrait {
+  animation: pulse 1.6s ease-in-out infinite;
+}
+.portrait-caption {
+  padding: 10px 18px 4px;
+  background: linear-gradient(0deg, rgba(4, 11, 51, 0.85), rgba(4, 11, 51, 0.4));
+}
+.portrait-caption span {
+  font: 800 12px var(--display);
+  letter-spacing: 2px;
+  color: var(--lime);
+}
+.portrait-caption h2 {
+  font: italic 800 26px/1.05 var(--display);
+  text-transform: uppercase;
+}
+.portrait-caption p {
+  color: var(--ink-2);
+}
+.ai-portrait-button {
+  margin: 0;
+  border-radius: 0;
+  padding: 14px;
+  font-size: 18px;
+  background: linear-gradient(90deg, var(--pink), var(--orange));
+}
+.ai-portrait-button:hover:not(:disabled) {
+  background: linear-gradient(90deg, #ff4f9c, #ffa030);
+}
+.club-step {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.club-step-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.club-grid {
+  flex: 1;
+  min-height: 0;
+  align-items: stretch;
+}
+.club-option {
+  position: relative;
+  width: clamp(190px, 16vw, 240px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  text-align: center;
+  text-transform: none;
+  letter-spacing: normal;
+  padding: 18px 14px;
+  border-radius: 4px;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35);
+  opacity: 0.86;
+}
+.club-option.selected {
+  opacity: 1;
+  outline: 4px solid #fff;
+  outline-offset: -4px;
+}
+.club-option .club-badge.large {
+  width: clamp(76px, 12vh, 120px);
+  height: clamp(88px, 14vh, 140px);
+}
+.club-option h3 {
+  font: italic 800 22px/1 var(--display);
+  text-transform: uppercase;
+}
+.club-option p {
+  font: 800 18px var(--display);
+}
+.club-option p span,
+.club-option small {
+  font-family: var(--body);
+  font-weight: 500;
+  font-size: 13px;
+  opacity: 0.85;
+}
+.stars {
+  color: var(--yellow);
+  font-size: 18px;
+  letter-spacing: 2px;
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+}
+.stars i {
+  font-style: normal;
+  color: rgba(255, 255, 255, 0.3);
+}
+.selected-check {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  padding: 3px;
+  border-radius: 50%;
+  background: #fff;
+  color: #082062;
+}
+.challenge-layout {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.challenge-grid {
+  flex: 1;
+  min-height: 0;
+  align-items: stretch;
+}
+.choice-card {
+  position: relative;
+  width: clamp(220px, 21vw, 300px);
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: flex-end;
+  text-align: left;
+  text-transform: none;
+  letter-spacing: normal;
+  font-weight: 500;
+  padding: 20px;
+  gap: 10px;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35);
+  opacity: 0.86;
+}
+.choice-card.selected {
+  opacity: 1;
+  outline: 4px solid #fff;
+  outline-offset: -4px;
+}
+.choice-card h3 {
+  font: italic 800 28px/1 var(--display);
+  text-transform: uppercase;
+}
+.choice-card p {
+  font-size: 14px;
+  line-height: 1.35;
+}
+.difficulty-row {
+  display: flex;
+  gap: 10px;
+}
+.difficulty-card {
+  flex: 1;
+  flex-direction: column;
+  align-items: flex-start;
+  text-align: left;
+  text-transform: none;
+  letter-spacing: normal;
+  font-weight: 500;
+  padding: 12px 16px;
+  background: rgba(255, 255, 255, 0.08);
+  border-left: 4px solid transparent;
+}
+.difficulty-card strong {
+  font-size: 20px;
+  text-transform: uppercase;
+}
+.difficulty-card p {
+  font-size: 13px;
+  color: inherit;
+  opacity: 0.85;
+}
+.difficulty-card.selected {
+  background: #fff;
+  color: #082062;
+  border-left-color: var(--lime);
+}
+.creation-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding-top: 4px;
+}
+.selected-club {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font: 800 18px var(--display);
+  text-transform: uppercase;
+}
+.selected-club span {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.1;
+}
+.selected-club small {
+  font-size: 12px;
+  color: var(--lime);
+  letter-spacing: 1.5px;
+}

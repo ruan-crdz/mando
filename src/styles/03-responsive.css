@@ -1,0 +1,169 @@
+/* ---------- Telas menores ---------- */
+@media (max-height: 760px) {
+  .app-header {
+    min-height: 54px;
+    padding-top: 8px;
+  }
+  .panel {
+    padding: 12px 14px;
+  }
+  .central-grid {
+    gap: 10px;
+  }
+  .news-ticker {
+    display: none;
+  }
+  .section-title h1 {
+    font-size: 26px;
+  }
+}
+@media (max-width: 1100px) {
+  .app-header {
+    grid-template-columns: auto 1fr auto;
+  }
+  .header-status {
+    display: none;
+  }
+  .match-layout {
+    grid-template-columns: minmax(0, 1.4fr) minmax(220px, 1fr);
+  }
+  .match-stats {
+    display: none;
+  }
+}
+@media (max-width: 760px) {
+  body {
+    font-size: 14px;
+  }
+  .app-header {
+    grid-template-columns: auto 1fr;
+    gap: 8px;
+    padding: 8px 12px 4px;
+  }
+  .brand-word,
+  .nav-shoulder,
+  .club-header {
+    display: none;
+  }
+  .main-nav {
+    justify-content: flex-start;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .main-nav > button {
+    font-size: 14px;
+    padding: 6px 8px;
+  }
+  main.stage {
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 6px 12px 10px;
+  }
+  .screen,
+  .screen-enter {
+    flex: none;
+    min-height: 100%;
+  }
+  .screen-enter > :last-child:not(.segmented):not(.section-title) {
+    flex: none;
+  }
+  .panel {
+    overflow: visible;
+  }
+  .creation-grid,
+  .squad-layout,
+  .market-layout,
+  .office-inbox,
+  .finance-layout,
+  .finance-charts,
+  .board-layout,
+  .staff-layout,
+  .season-layout,
+  .match-layout,
+  .profile-panel,
+  .form-grid,
+  .tactic-form {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .ledger {
+    grid-row: auto;
+    grid-column: auto;
+  }
+  .metrics-strip {
+    grid-template-columns: 1fr 1fr;
+  }
+  .central-grid {
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: none;
+    grid-auto-rows: minmax(150px, auto);
+    grid-template-areas:
+      'fix fix'
+      'adv man'
+      'inb inb'
+      'sq tab';
+  }
+  .menu-row {
+    height: 320px;
+  }
+  .continue-tile {
+    width: 84vw;
+  }
+  .new-career-tile {
+    width: 70vw;
+  }
+  .football-pitch {
+    flex: none;
+    height: 460px;
+  }
+  .live-field {
+    flex: none;
+    height: 220px;
+  }
+  .portrait-card {
+    min-height: 420px;
+  }
+  .club-grid,
+  .challenge-grid {
+    min-height: 300px;
+  }
+  .difficulty-row {
+    flex-direction: column;
+  }
+  .scoreboard {
+    padding: 8px 10px;
+    gap: 8px;
+  }
+  .scoreboard h2 {
+    display: none;
+  }
+  .match-stats {
+    display: flex;
+  }
+  .hints .control-hint:nth-child(n + 3) {
+    display: none;
+  }
+  .keyboard-grid {
+    grid-template-columns: repeat(8, 1fr);
+  }
+  .market-table-head,
+  .market-row {
+    grid-template-columns: minmax(0, 1.6fr) minmax(0, 0.8fr);
+  }
+  .market-table-head > :nth-child(n + 3),
+  .market-row > :nth-child(n + 3) {
+    display: none;
+  }
+  .fixture-list > div {
+    grid-template-columns: 90px 1fr auto 1fr;
+    font-size: 13px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

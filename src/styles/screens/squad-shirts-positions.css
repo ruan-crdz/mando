@@ -1,0 +1,175 @@
+/* ---------- Camisas e posições ---------- */
+.kit-editor {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 210px minmax(0, 1fr);
+  gap: 14px;
+  overflow: hidden;
+}
+.kit-side {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+}
+.kit-main {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  min-height: 0;
+  overflow: auto;
+}
+.shirt-dial {
+  display: grid;
+  gap: 4px;
+  justify-items: center;
+}
+.shirt-dial > button {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 6px 10px;
+  background: linear-gradient(180deg, rgba(0, 229, 255, 0.18), rgba(0, 8, 46, 0.65));
+  border: 2px solid var(--line);
+  clip-path: polygon(
+    18% 0,
+    38% 8%,
+    62% 8%,
+    82% 0,
+    100% 16%,
+    90% 34%,
+    90% 100%,
+    10% 100%,
+    10% 34%,
+    0 16%
+  );
+  min-height: 96px;
+}
+.shirt-dial > button:focus {
+  border-color: var(--focus);
+  background: linear-gradient(180deg, rgba(0, 229, 255, 0.35), rgba(0, 8, 46, 0.65));
+}
+.shirt-dial.editing > button {
+  background: linear-gradient(180deg, rgba(54, 214, 231, 0.42), rgba(0, 8, 46, 0.7));
+  box-shadow: 0 0 20px rgba(54, 214, 231, 0.45);
+}
+.dial-number {
+  font: 900 54px/1 var(--display);
+  letter-spacing: -1px;
+  text-shadow: 0 3px 0 rgba(0, 0, 0, 0.35);
+}
+.dial-arrow {
+  color: var(--lime);
+}
+.dial-hint {
+  font: 700 10px var(--display);
+  letter-spacing: 1px;
+  color: var(--ink-3);
+  text-transform: uppercase;
+}
+.shirt-dial.editing .dial-hint {
+  color: var(--lime);
+}
+.dial-note {
+  color: var(--gold, #ffd400);
+  font-weight: 700;
+  text-align: center;
+}
+.position-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 6px;
+}
+.position-chip {
+  position: relative;
+  display: grid;
+  gap: 2px;
+  justify-items: center;
+  padding: 6px 4px;
+  background: rgba(0, 8, 46, 0.55);
+  border: 2px solid var(--line);
+}
+.position-chip strong {
+  font: 800 16px var(--display);
+}
+.position-chip span {
+  font: 700 13px var(--display);
+  color: var(--ink-2);
+}
+.position-chip i {
+  width: 100%;
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.12);
+  overflow: hidden;
+}
+.position-chip i b {
+  display: block;
+  height: 100%;
+  background: #ff4d4d;
+}
+.position-chip.ok i b {
+  background: #ffb800;
+}
+.position-chip.known i b,
+.position-chip.main i b {
+  background: var(--lime);
+}
+.position-chip.main {
+  border-color: rgba(54, 214, 231, 0.6);
+}
+.position-chip.active {
+  background: linear-gradient(180deg, #ffffff, #d8e6ff);
+  color: #082062;
+  border-color: #fff;
+}
+.position-chip.active span {
+  color: #082062;
+}
+.position-chip.training {
+  box-shadow: inset 0 0 0 2px #ffb800;
+}
+.chip-train {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  color: #ffb800;
+}
+.kit-status {
+  display: grid;
+  gap: 2px;
+  padding: 8px 10px;
+  background: rgba(255, 255, 255, 0.06);
+  border-left: 4px solid var(--cyan);
+}
+.kit-status strong {
+  font: 800 18px var(--display);
+  text-transform: uppercase;
+}
+.kit-status small {
+  color: #ffb800;
+  font-weight: 700;
+}
+.kit-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.detail-kit {
+  display: grid;
+  grid-template-columns: 170px 130px;
+  align-items: start;
+  gap: 14px;
+}
+.pitch-player.out-of-position {
+  box-shadow:
+    0 0 0 2px #ff4d4d,
+    0 0 14px rgba(255, 77, 77, 0.6);
+}
+.oop-icon {
+  color: #ffb800;
+  vertical-align: -1px;
+  margin-right: 2px;
+}

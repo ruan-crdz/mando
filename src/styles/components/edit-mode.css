@@ -1,0 +1,20 @@
+/* ---------- Modo edição: seletores e campos numéricos ---------- */
+.option-cycler:not(.editing) .cycler-arrow {
+  opacity: 0.35;
+}
+.option-cycler.editing > button,
+.number-stepper.editing .stepper-row {
+  border-color: var(--lime);
+  background: linear-gradient(90deg, rgba(54, 214, 231, 0.18), rgba(0, 8, 46, 0.55));
+  box-shadow: 0 0 16px rgba(54, 214, 231, 0.35);
+}
+.option-cycler.editing .cycler-value {
+  color: var(--lime);
+}
+.stepper-hint {
+  display: block;
+  margin-top: 2px;
+  font: 700 10px var(--display);
+  letter-spacing: 1px;
+  color: var(--lime);
+}

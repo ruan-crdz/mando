@@ -8,7 +8,7 @@ Mando é um jogo web (React + TypeScript + Vite, PWA) de carreira de técnico no
 ## Arquivos-fonte
 | Arquivo | Papel |
 |---|---|
-| `src/styles.css` (~6.300 linhas, arquivo único) | Tokens (`:root`), reset, botões, inputs, shell, tiles, painéis, modais, cards, telas, responsivo |
+| `src/styles/index.css` + 46 arquivos em `src/styles/` | Tokens (`:root`), reset, botões, inputs, shell, tiles, painéis, modais, cards, telas, responsivo. Era o antigo `src/styles.css` (~6.300 linhas), dividido sem mudar a cascata; veja a tabela "Mapa do antigo styles.css" abaixo |
 | `src/main.tsx` | Carrega as fontes (`@fontsource/saira-condensed` 500/600/700/800 e `@fontsource/saira-semi-condensed` 400/500/600) e o `ErrorBoundary` (tela `.fatal-error`) |
 | `index.html` | Splash de boot: logo `logo-mando.png` 220px pulsando (`@keyframes boot`) sobre `radial-gradient(#1f6fff → #0a1f5c)`; `theme-color #0a1f5c`; título "Mando \| Carreira de manager" |
 | `src/components/ui.tsx` | `money`, `dateLabel`, `Badge`, `Tile`, `SectionTitle`, `Metric`, `Modal`, `ManagerPortrait` |
@@ -360,3 +360,51 @@ O alvo principal é **tela grande 16:9 (TV/monitor) sem rolagem da página**: ca
 - Faltam transições entre abas no estilo FIFA (deslizar na direção da aba escolhida); hoje sempre entra da direita.
 - Toasts no topo podem cobrir as abas; considerar posição fixa estilo "notificação do FIFA" no canto com barra de progresso do tempo restante.
 - Sons de menu desligados por padrão e não persistidos.
+
+## Mapa do antigo styles.css
+
+As outras docs citam linhas do antigo `src/styles.css`. O arquivo foi dividido em blocos contíguos, na mesma ordem; use esta tabela para achar o arquivo atual. Os overrides do tema MANDO 27 LEGACY (antigo `src/styles/legacy.css`) estão em `src/styles/legacy/` e carregam por último. A ordem de carregamento está em `src/styles/index.css` e é a própria cascata: não reordene.
+
+| Linhas no antigo styles.css | Arquivo atual |
+|---|---|
+| 1-98 | `src/styles/00-tokens.css` |
+| 99-229 | `src/styles/01-base.css` |
+| 230-539 | `src/styles/02-shell.css` |
+| 540-746 | `src/styles/components/typography.css` |
+| 747-767 | `src/styles/components/carousel.css` |
+| 768-896 | `src/styles/components/tiles.css` |
+| 897-959 | `src/styles/components/crest-portrait.css` |
+| 960-1052 | `src/styles/screens/main-menu.css` |
+| 1053-1353 | `src/styles/screens/create-manager.css` |
+| 1354-1567 | `src/styles/screens/central.css` |
+| 1568-1822 | `src/styles/screens/squad.css` |
+| 1823-1958 | `src/styles/screens/transfers.css` |
+| 1959-2338 | `src/styles/screens/office.css` |
+| 2339-2575 | `src/styles/screens/season.css` |
+| 2576-2969 | `src/styles/screens/match.css` |
+| 2970-3181 | `src/styles/components/modals.css` |
+| 3182-3351 | `src/styles/03-responsive.css` |
+| 3352-3474 | `src/styles/components/console-controls.css` |
+| 3475-3705 | `src/styles/components/player-cards.css` |
+| 3706-3786 | `src/styles/components/player-faces.css` |
+| 3787-3911 | `src/styles/screens/squad-pitch.css` |
+| 3912-3969 | `src/styles/components/virtual-keyboard.css` |
+| 3970-4233 | `src/styles/screens/season-calendar-trophies.css` |
+| 4234-4246 | `src/styles/screens/match-subs-tactic.css` |
+| 4247-4553 | `src/styles/screens/transfers-market.css` |
+| 4554-4574 | `src/styles/components/brand.css` |
+| 4575-4886 | `src/styles/screens/transfers-negotiations.css` |
+| 4887-4946 | `src/styles/components/tactic-slider.css` |
+| 4947-5074 | `src/styles/screens/match-moments.css` |
+| 5075-5105 | `src/styles/components/active-states.css` |
+| 5106-5125 | `src/styles/components/edit-mode.css` |
+| 5126-5301 | `src/styles/screens/squad-shirts-positions.css` |
+| 5302-5345 | `src/styles/components/heatmap.css` |
+| 5346-5528 | `src/styles/components/voice-achievements.css` |
+| 5529-5751 | `src/styles/components/portrait-camera.css` |
+| 5752-5803 | `src/styles/screens/squad-mini-cards.css` |
+| 5804-5848 | `src/styles/screens/squad-player-list.css` |
+| 5849-6034 | `src/styles/screens/squad-player-sheet.css` |
+| 6035-6209 | `src/styles/components/fifa-cards.css` |
+| 6210-6287 | `src/styles/screens/squad-roster.css` |
+| 6288-6302 | `src/styles/components/living-panels.css` |

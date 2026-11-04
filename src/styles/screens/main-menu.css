@@ -1,0 +1,92 @@
+/* ---------- Menu principal ---------- */
+.menu-screen {
+  justify-content: center;
+  gap: clamp(14px, 3vh, 34px);
+}
+.menu-heading h1 {
+  font: italic 800 clamp(40px, 6.4vw, 92px) / 0.9 var(--display);
+  text-transform: uppercase;
+  margin-top: 8px;
+}
+.menu-heading h1 span {
+  display: block;
+  color: var(--lime);
+  text-shadow: 0 0 30px rgba(54, 214, 231, 0.35);
+}
+.menu-row {
+  height: clamp(260px, 50vh, 470px);
+  align-items: stretch;
+}
+.continue-tile {
+  width: clamp(380px, 44vw, 640px);
+  padding-right: 38%;
+}
+.continue-tile .manager-portrait {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 42%;
+  height: 92%;
+}
+.continue-body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-top: 12px;
+}
+.continue-text {
+  display: flex;
+  flex-direction: column;
+}
+.continue-tile .tile-label,
+.continue-text em {
+  white-space: nowrap;
+}
+.continue-text strong {
+  font: italic 800 clamp(26px, 2.8vw, 40px) / 1 var(--display);
+  text-transform: uppercase;
+}
+.continue-text span {
+  font-size: 18px;
+  font-weight: 600;
+}
+.continue-text em {
+  font-style: normal;
+  color: var(--lime);
+  font: 700 16px var(--display);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+.new-career-tile {
+  width: clamp(260px, 26vw, 380px);
+}
+.save-slot {
+  position: relative;
+  width: clamp(200px, 18vw, 260px);
+  display: flex;
+}
+.slot-tile {
+  flex: 1;
+  align-items: center;
+  text-align: center;
+  justify-content: center;
+}
+.slot-tile .tile-label {
+  justify-content: center;
+}
+.slot-meta {
+  font-size: 14px;
+  opacity: 0.9;
+}
+.slot-delete {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 4;
+  padding: 7px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.3);
+}
+.slot-delete:hover:not(:disabled) {
+  background: var(--red);
+}

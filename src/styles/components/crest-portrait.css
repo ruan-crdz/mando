@@ -1,0 +1,62 @@
+/* ---------- Escudo / retrato ---------- */
+.club-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  flex-shrink: 0;
+  color: var(--club-color, #fff);
+  width: 48px;
+  height: 56px;
+  clip-path: polygon(0 0, 100% 0, 95% 73%, 50% 100%, 5% 73%);
+  background: linear-gradient(160deg, #fff, #dfe8ff);
+  border-radius: 5px 5px 18px 18px;
+  padding-bottom: 5px;
+}
+.club-badge > span {
+  font: 800 13px var(--display);
+}
+.club-badge small {
+  font-size: 8px;
+  line-height: 1;
+}
+.club-badge.large {
+  width: 84px;
+  height: 98px;
+}
+.club-badge.large > span {
+  font-size: 24px;
+}
+.club-badge.small {
+  width: 26px;
+  height: 31px;
+  padding-bottom: 2px;
+}
+.club-badge.small > span {
+  font-size: 8px;
+}
+.club-badge.small small {
+  display: none;
+}
+.club-badge.has-logo {
+  clip-path: none;
+  background: none;
+  border-radius: 0;
+  padding: 0;
+  filter: drop-shadow(0 6px 10px rgba(0, 0, 0, 0.35));
+}
+.club-badge.has-logo img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.manager-portrait {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  object-position: bottom center;
+}
+.manager-portrait.photo {
+  filter: drop-shadow(0 12px 24px rgba(0, 0, 0, 0.45));
+}

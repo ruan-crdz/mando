@@ -1,0 +1,57 @@
+/* ---------- Teclado virtual ---------- */
+.virtual-keyboard.numeric {
+  width: min(420px, 100%);
+}
+.caps-state {
+  margin-left: 8px;
+  padding: 1px 8px;
+  border-radius: 2px;
+  background: var(--lime);
+  color: #06204d;
+}
+.keyboard-value {
+  position: relative;
+}
+.caret {
+  display: inline-block;
+  width: 2px;
+  height: 1em;
+  margin-left: 2px;
+  vertical-align: -2px;
+  background: var(--lime);
+  animation: caret-blink 1s steps(1) infinite;
+}
+@keyframes caret-blink {
+  50% {
+    opacity: 0;
+  }
+}
+.keypad-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+.keypad-grid > button {
+  padding: 14px 4px;
+  font-size: 22px;
+}
+.keyboard-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+.keyboard-actions > button {
+  flex: 1;
+  white-space: nowrap;
+}
+.keyboard-actions > button.active {
+  background: var(--lime);
+  color: #06204d;
+}
+.keyboard-actions kbd {
+  font: 700 11px var(--display);
+  padding: 1px 5px;
+  border-radius: 3px;
+  background: rgba(0, 0, 0, 0.3);
+}

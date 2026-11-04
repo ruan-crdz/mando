@@ -1,0 +1,106 @@
+/* ---------- Cabeçalho ---------- */
+.app-header {
+  background: linear-gradient(180deg, rgba(17, 26, 44, 0.94), rgba(17, 26, 44, 0.78));
+  border-bottom: 1px solid var(--mando-border);
+  backdrop-filter: blur(10px);
+  padding-top: 8px;
+  padding-bottom: 0;
+  min-height: 58px;
+  align-items: stretch;
+}
+.brand,
+.club-header,
+.header-status {
+  align-self: center;
+}
+.brand-word {
+  font-style: normal;
+  letter-spacing: 4px;
+}
+.main-nav {
+  align-items: stretch;
+  gap: 2px;
+}
+.nav-shoulder {
+  align-items: center;
+}
+.main-nav > button {
+  padding: 10px clamp(12px, 1.8vw, 30px) 12px;
+  color: var(--mando-text-muted);
+  clip-path: polygon(10px 0, calc(100% - 10px) 0, 100% 100%, 0 100%);
+}
+.main-nav > button:hover:not(:disabled) {
+  color: var(--mando-text);
+  background: rgba(207, 225, 247, 0.05);
+}
+.main-nav > button.active {
+  color: var(--mando-text);
+  text-shadow: none;
+  background: linear-gradient(180deg, var(--mando-surface-raised), var(--mando-surface));
+}
+.main-nav > button.active::after {
+  left: 12px;
+  right: 12px;
+  height: 3px;
+  border-radius: 0;
+  background: var(--mando-cyan);
+  box-shadow: none;
+}
+.nav-dot {
+  background: var(--mando-coral);
+  box-shadow: none;
+}
+.club-header {
+  background: var(--mando-surface);
+  border-left-color: var(--mando-cyan);
+  border-radius: var(--mando-radius-panel);
+}
+.club-header-text small {
+  color: var(--mando-gold);
+}
+.controller-status.connected {
+  background: var(--mando-cyan);
+  color: var(--mando-bg);
+  box-shadow: none;
+}
+
+/* ---------- Rodapé de comandos ---------- */
+.app-footer {
+  padding-top: 5px;
+  padding-bottom: 6px;
+  background: rgba(8, 12, 24, 0.86);
+  border-top: 1px solid var(--mando-border);
+}
+.control-hint {
+  font-size: 13px;
+  color: var(--mando-text-secondary);
+}
+.pad-confirm {
+  background: #2f8f6e;
+}
+.pad-back {
+  background: #c94a5c;
+}
+.pad-secondary {
+  background: #3d6fb8;
+}
+.pad-info {
+  background: var(--mando-gold);
+  color: var(--mando-bg);
+}
+.pad-previousTab,
+.pad-nextTab,
+.pad-previousView,
+.pad-nextView,
+.pad-menu {
+  background: var(--mando-text-secondary);
+  color: var(--mando-bg);
+}
+.save-status.saved {
+  color: var(--mando-positive);
+}
+
+/* ---------- Transição horizontal entre páginas ---------- */
+main.stage {
+  animation-duration: 0.26s;
+}

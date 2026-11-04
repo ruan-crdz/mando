@@ -1,0 +1,122 @@
+/* ---------- Controles de console (substituem select/number) ---------- */
+.control-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+  font: 700 13px var(--display);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+.option-cycler > button {
+  width: 100%;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  grid-template-rows: auto auto;
+  align-items: center;
+  gap: 2px 8px;
+  padding: 8px 10px;
+  text-transform: none;
+  letter-spacing: normal;
+  background: rgba(0, 8, 46, 0.55);
+  border: 2px solid var(--line);
+}
+.option-cycler > button:focus-visible,
+.option-cycler > button:focus {
+  border-color: var(--focus);
+}
+.cycler-arrow {
+  grid-row: 1 / 3;
+  color: var(--lime);
+}
+.option-cycler .cycler-arrow:first-child {
+  grid-column: 1;
+}
+.option-cycler .cycler-arrow:last-child {
+  grid-column: 3;
+}
+.option-cycler .cycler-value,
+.option-cycler .cycler-dots {
+  grid-column: 2;
+}
+.cycler-value {
+  font: 700 16px var(--display);
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cycler-dots,
+.switcher-dots {
+  display: flex;
+  justify-content: center;
+  gap: 4px;
+  min-height: 4px;
+}
+.cycler-dots i,
+.switcher-dots i {
+  width: 6px;
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.25);
+}
+.cycler-dots i.on,
+.switcher-dots i.on {
+  width: 14px;
+  background: var(--lime);
+}
+.chip-group {
+  min-width: 0;
+}
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.chips > button {
+  padding: 7px 12px;
+  font-size: 14px;
+  background: rgba(0, 8, 46, 0.55);
+  border: 2px solid var(--line);
+}
+.chips > button.active {
+  background: linear-gradient(180deg, #ffffff, #d8e6ff);
+  color: #082062;
+  border-color: #fff;
+}
+.number-stepper {
+  min-width: 0;
+}
+.stepper-row {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) 34px;
+  align-items: stretch;
+  border: 2px solid var(--line);
+  border-radius: 3px;
+  background: rgba(0, 8, 46, 0.55);
+}
+.stepper-row:focus-within {
+  border-color: var(--focus);
+}
+.stepper-row > button {
+  padding: 0;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 0;
+}
+.stepper-row > input {
+  min-width: 0;
+  width: 100%;
+  border: 0;
+  outline: 0;
+  padding: 8px 6px;
+  text-align: center;
+  font: 700 17px var(--display);
+  background: transparent;
+}
+.stepper-format {
+  display: block;
+  margin-top: 3px;
+  color: var(--lime);
+  font: 700 13px var(--display);
+}

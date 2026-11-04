@@ -1,0 +1,56 @@
+/*
+ * Ponto único de entrada dos estilos do Mando.
+ * A ordem abaixo É a cascata: arquivos posteriores vencem empates de especificidade.
+ * Ela reproduz a ordem do antigo src/styles.css + src/styles/legacy.css; não reordene
+ * sem conferir as regras que se sobrepõem (ex.: .player-card é redefinido em vários blocos).
+ *
+ * Novos estilos: coloque no arquivo da tela/componente; overrides do tema MANDO 27 LEGACY
+ * ficam em legacy/ e carregam por último.
+ */
+
+@import './00-tokens.css';
+@import './01-base.css';
+@import './02-shell.css';
+@import './components/typography.css';
+@import './components/carousel.css';
+@import './components/tiles.css';
+@import './components/crest-portrait.css';
+@import './screens/main-menu.css';
+@import './screens/create-manager.css';
+@import './screens/central.css';
+@import './screens/squad.css';
+@import './screens/transfers.css';
+@import './screens/office.css';
+@import './screens/season.css';
+@import './screens/match.css';
+@import './components/modals.css';
+@import './03-responsive.css';
+@import './components/console-controls.css';
+@import './components/player-cards.css';
+@import './components/player-faces.css';
+@import './screens/squad-pitch.css';
+@import './components/virtual-keyboard.css';
+@import './screens/season-calendar-trophies.css';
+@import './screens/match-subs-tactic.css';
+@import './screens/transfers-market.css';
+@import './components/brand.css';
+@import './screens/transfers-negotiations.css';
+@import './components/tactic-slider.css';
+@import './screens/match-moments.css';
+@import './components/active-states.css';
+@import './components/edit-mode.css';
+@import './screens/squad-shirts-positions.css';
+@import './components/heatmap.css';
+@import './components/voice-achievements.css';
+@import './components/portrait-camera.css';
+@import './screens/squad-mini-cards.css';
+@import './screens/squad-player-list.css';
+@import './screens/squad-player-sheet.css';
+@import './components/fifa-cards.css';
+@import './screens/squad-roster.css';
+@import './components/living-panels.css';
+@import './legacy/00-tokens.css';
+@import './legacy/01-stadium.css';
+@import './legacy/02-shell.css';
+@import './legacy/03-components.css';
+@import './legacy/04-motion.css';

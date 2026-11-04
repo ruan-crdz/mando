@@ -1,0 +1,182 @@
+/* Caixa postal, barra de voz e conquistas */
+.message-list > button.mailbox-button {
+  grid-template-columns: 24px minmax(0, 1fr);
+  gap: 10px;
+  margin-bottom: 4px;
+  background: linear-gradient(100deg, var(--purple), var(--pink));
+  border-left-color: var(--lime);
+}
+.message-list > button.mailbox-button small {
+  color: rgba(255, 255, 255, 0.85);
+}
+.message-list > button.mailbox-button.speaking {
+  background: linear-gradient(100deg, var(--pink), var(--orange));
+  animation: mailbox-glow 1.6s ease-in-out infinite;
+}
+.message-list > button.playing {
+  border-left-color: var(--lime);
+  box-shadow: inset 0 0 0 2px var(--lime);
+}
+@keyframes mailbox-glow {
+  50% {
+    filter: brightness(1.18);
+  }
+}
+.voice-bar {
+  position: fixed;
+  z-index: 68;
+  right: 104px;
+  bottom: 3px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 38px;
+  max-width: min(440px, 60vw);
+  padding: 2px 3px 2px 12px;
+  background: linear-gradient(100deg, rgba(139, 69, 255, 0.96), rgba(255, 46, 136, 0.96));
+  border-left: 4px solid var(--lime);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+}
+.voice-bar > span {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.05;
+  min-width: 0;
+  flex: 1;
+}
+.voice-bar small {
+  font-family: var(--display);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  opacity: 0.85;
+}
+.voice-bar b {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.voice-bar button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 0 12px;
+  background: rgba(0, 0, 0, 0.3);
+}
+.voice-bar .pulse {
+  flex-shrink: 0;
+  animation: mailbox-glow 1s ease-in-out infinite;
+}
+.achievement-toast {
+  position: fixed;
+  z-index: 80;
+  right: 18px;
+  bottom: 120px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: min(380px, 90vw);
+  padding: 14px 18px;
+  pointer-events: none;
+  background: linear-gradient(110deg, #06164f, #0b3fae);
+  border-left: 6px solid var(--tier, var(--yellow));
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.55);
+  animation: achievement-in 4.2s ease both;
+}
+.achievement-toast svg {
+  flex-shrink: 0;
+  color: var(--tier, var(--yellow));
+}
+.achievement-toast span {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.achievement-toast small {
+  font-family: var(--display);
+  font-size: 12px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--tier, var(--yellow));
+}
+.achievement-toast b {
+  font-family: var(--display);
+  font-size: 22px;
+  line-height: 1.1;
+}
+.achievement-toast em {
+  font-style: normal;
+  font-size: 13px;
+  color: var(--ink-2);
+}
+.tier-bronze {
+  --tier: #e0904a;
+}
+.tier-silver {
+  --tier: #d8e3f0;
+}
+.tier-gold {
+  --tier: #ffd400;
+}
+@keyframes achievement-in {
+  0% {
+    opacity: 0;
+    transform: translateX(110%);
+  }
+  8%,
+  88% {
+    opacity: 1;
+    transform: none;
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(40%);
+  }
+}
+.achievement-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 10px;
+  max-height: 62vh;
+  overflow-y: auto;
+  padding: 4px;
+}
+.achievement-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  min-height: 132px;
+  padding: 12px 14px;
+  text-align: left;
+  text-transform: none;
+  letter-spacing: normal;
+  background: rgba(255, 255, 255, 0.05);
+  border-top: 4px solid rgba(255, 255, 255, 0.15);
+  opacity: 0.6;
+}
+.achievement-card.unlocked {
+  opacity: 1;
+  border-top-color: var(--tier);
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.03));
+}
+.achievement-card.unlocked svg {
+  color: var(--tier);
+}
+.achievement-card b {
+  font-family: var(--display);
+  font-size: 18px;
+  line-height: 1.1;
+}
+.achievement-card span {
+  font-size: 13px;
+  color: var(--ink-2);
+}
+.achievement-card small {
+  margin-top: auto;
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}

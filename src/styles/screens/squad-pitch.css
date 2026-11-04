@@ -1,0 +1,124 @@
+/* ---------- Time: campo, escolha e responsabilidades ---------- */
+.squad-controls {
+  overflow: hidden;
+}
+.picker-heading {
+  flex-shrink: 0;
+}
+.pitch-player.selected {
+  outline: 3px solid var(--lime);
+  background: rgba(54, 214, 231, 0.25);
+}
+.pitch-fitness {
+  display: block;
+  width: 100%;
+  height: 3px;
+  margin-top: 2px;
+  border-radius: 2px;
+  background: var(--lime);
+  max-width: 100%;
+}
+.role-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  overflow: auto;
+  min-height: 0;
+}
+.role-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  min-height: 120px;
+  padding: 12px 14px;
+  text-transform: none;
+  letter-spacing: normal;
+  text-align: left;
+  border-radius: 6px;
+  background: linear-gradient(160deg, #8b45ff, #3a1696 75%);
+  overflow: hidden;
+}
+.role-card:nth-child(2) {
+  background: linear-gradient(160deg, #00b4ff, #0750b5 75%);
+}
+.role-card:nth-child(3) {
+  background: linear-gradient(160deg, #ff8a00, #a43d00 75%);
+}
+.role-card:nth-child(4) {
+  background: linear-gradient(160deg, #5ed11c, #187a2e 75%);
+}
+.role-card:nth-child(5) {
+  background: linear-gradient(160deg, #ff4f8b, #9d1250 75%);
+}
+.role-card.empty {
+  filter: saturate(0.4);
+}
+.role-name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font: 800 13px var(--display);
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+}
+.role-number {
+  position: absolute;
+  right: 12px;
+  top: 6px;
+  font: italic 800 48px/1 var(--display);
+  color: rgba(255, 255, 255, 0.3);
+}
+.role-card strong {
+  margin-top: auto;
+  font-size: 22px;
+}
+.role-card small {
+  color: rgba(255, 255, 255, 0.82);
+}
+.player-detail {
+  display: grid;
+  grid-template-columns: minmax(300px, 0.9fr) minmax(0, 1.2fr);
+  gap: 18px;
+  min-height: 0;
+}
+.detail-side {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+.detail-metrics {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  margin: 0;
+}
+.detail-block {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.06);
+}
+.detail-block > .primary {
+  align-self: flex-start;
+}
+.number-editor {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+}
+.number-editor .number-stepper {
+  width: 150px;
+}
+.renewal-terms {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  font-size: 14px;
+  color: var(--ink-2);
+}
+.renewal-terms strong {
+  color: var(--lime);
+}

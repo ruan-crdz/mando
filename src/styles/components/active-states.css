@@ -1,0 +1,30 @@
+/* ---------- Conversa ativa, troca no campo, vibração ---------- */
+.chat-panel.inside {
+  outline: 3px solid var(--yellow);
+  outline-offset: -3px;
+  box-shadow:
+    0 0 0 4px rgba(255, 212, 0, 0.18),
+    0 0 32px rgba(255, 212, 0, 0.25);
+}
+.chat-exit {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+  padding: 6px 10px;
+  font: 700 12px var(--display);
+  letter-spacing: 1px;
+}
+.pitch-player.swap-target {
+  animation: swap-pulse 1.1s ease-in-out infinite;
+}
+@keyframes swap-pulse {
+  50% {
+    filter: drop-shadow(0 0 8px rgba(255, 212, 0, 0.9));
+  }
+}
+.haptic-note {
+  max-width: 340px;
+  margin: 0;
+  text-align: center;
+}

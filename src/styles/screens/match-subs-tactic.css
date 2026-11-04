@@ -1,0 +1,12 @@
+/* ---------- Partida: substituições e tática ---------- */
+.match-tactic {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr);
+  gap: 18px;
+}
+.match-tactic > div {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}

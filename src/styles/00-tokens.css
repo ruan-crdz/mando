@@ -1,0 +1,97 @@
+/* ============ Mando · tema "era FIFA 14": colorido, console, tela fixa ============ */
+:root {
+  --bg0: #040b33;
+  --bg1: #0a2a8f;
+  --bg2: #0b56c9;
+  --ink: #ffffff;
+  --ink-2: rgba(255, 255, 255, 0.78);
+  --ink-3: rgba(255, 255, 255, 0.55);
+  --glass: rgba(6, 22, 86, 0.72);
+  --glass-2: rgba(255, 255, 255, 0.08);
+  --line: rgba(255, 255, 255, 0.14);
+  --blue: #0a8dff;
+  --cyan: #00d2ff;
+  --green: #5ed11c;
+  --lime: #36d6e7;
+  --orange: #ff8a00;
+  --pink: #ff2e88;
+  --purple: #8b45ff;
+  --yellow: #ffd400;
+  --red: #ff3b4e;
+  --focus: #36d6e7;
+  --display: 'Saira Condensed', 'Arial Narrow', 'Segoe UI', sans-serif;
+  --body: 'Saira Semi Condensed', 'Segoe UI', sans-serif;
+  --pad-x: clamp(14px, 2.6vw, 44px);
+  color-scheme: dark;
+  font-family: var(--body);
+  color: var(--ink);
+  background: var(--bg0);
+  -webkit-font-smoothing: antialiased;
+}
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+html,
+body,
+#root {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+body {
+  font-size: 15px;
+  line-height: 1.35;
+  user-select: none;
+}
+input,
+textarea,
+select {
+  user-select: text;
+}
+h1,
+h2,
+h3,
+p {
+  margin: 0;
+}
+h1,
+h2,
+h3,
+strong,
+button,
+.eyebrow,
+th {
+  font-family: var(--display);
+}
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+img {
+  max-width: 100%;
+}
+::selection {
+  background: var(--lime);
+  color: #071447;
+}
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.35) transparent;
+}
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.35);
+  border-radius: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}

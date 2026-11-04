@@ -1,0 +1,185 @@
+/* ---------- Ficha do jogador (estilo Squad Hub do FIFA) ---------- */
+.player-hub {
+  display: grid;
+  grid-template-columns: 230px 220px minmax(0, 1fr);
+  gap: 18px;
+  min-height: 0;
+  align-items: start;
+}
+.hub-card-col {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.hub-card {
+  position: relative;
+  aspect-ratio: 3 / 4;
+  border-radius: 10px;
+  overflow: hidden;
+  background: linear-gradient(160deg, #ffe082, #c99a2e 55%, #7a5512);
+  box-shadow: 0 10px 24px rgba(0, 4, 30, 0.4);
+  color: #2a1a00;
+}
+.hub-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(115deg, rgba(255, 255, 255, 0.35), transparent 45%);
+  pointer-events: none;
+  z-index: 2;
+}
+.hub-card-top {
+  position: absolute;
+  top: 12px;
+  left: 14px;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  line-height: 1;
+  font-family: var(--display);
+}
+.hub-card-top strong {
+  font-size: 44px;
+  font-weight: 800;
+}
+.hub-card-top span {
+  font-size: 20px;
+  font-weight: 700;
+}
+.player-face.hub-card-face {
+  position: absolute;
+  left: 8%;
+  right: 0;
+  top: 6%;
+  width: 92%;
+  height: 74%;
+  border-radius: 0;
+  background: none;
+  overflow: visible;
+}
+.player-face.hub-card-face img {
+  object-fit: contain;
+  object-position: 50% 100%;
+  transform: none;
+  filter: drop-shadow(0 6px 8px rgba(40, 20, 0, 0.35));
+}
+.hub-card-name {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 3;
+  padding: 10px 8px 14px;
+  text-align: center;
+  font: 800 22px var(--display);
+  text-transform: uppercase;
+  background: linear-gradient(180deg, transparent, rgba(255, 236, 170, 0.95) 35%);
+}
+.hub-facts {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+.hub-facts span {
+  display: flex;
+  flex-direction: column;
+  padding: 6px 8px;
+  border-radius: 6px;
+  background: rgba(10, 40, 120, 0.08);
+  font-size: 12px;
+  text-transform: uppercase;
+}
+.hub-facts strong {
+  font-size: 15px;
+  text-transform: none;
+}
+.hub-flag {
+  text-align: center;
+}
+.hub-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.hub-action {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  text-align: left;
+}
+.hub-action.active {
+  background: linear-gradient(90deg, #1f6fff, #0a2a8f);
+  color: #fff;
+}
+.hub-action.danger-text:not(.active) {
+  color: #c62828;
+}
+.hub-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+  max-height: 64vh;
+  overflow-y: auto;
+}
+.hub-summary {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 180px;
+  gap: 14px;
+}
+.hub-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.hub-list button {
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+  text-align: left;
+  text-transform: none;
+}
+.number-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(62px, 1fr));
+  gap: 6px;
+}
+.number-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 52px;
+  padding: 4px;
+  text-transform: none;
+}
+.number-cell strong {
+  font: 800 20px var(--display);
+}
+.number-cell small {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 10px;
+  opacity: 0.8;
+}
+.number-cell.taken {
+  opacity: 0.6;
+}
+.number-cell.mine {
+  background: linear-gradient(160deg, #ffe082, #c99a2e);
+  color: #2a1a00;
+}
+@media (max-width: 900px) {
+  .player-hub {
+    grid-template-columns: 1fr;
+  }
+  .hub-card {
+    max-width: 230px;
+  }
+  .hub-summary {
+    grid-template-columns: 1fr;
+  }
+}

@@ -1,0 +1,38 @@
+/* ---------- Fundo: estádio noturno autoral ---------- */
+.game-shell {
+  background: var(--mando-bg);
+}
+.bg-stage {
+  background:
+    radial-gradient(60% 38% at 18% -6%, rgba(195, 225, 255, 0.16), transparent 70%),
+    radial-gradient(60% 38% at 82% -6%, rgba(195, 225, 255, 0.14), transparent 70%),
+    radial-gradient(140% 60% at 50% 118%, rgba(8, 127, 140, 0.22), transparent 62%),
+    linear-gradient(180deg, #0e1730 0%, var(--mando-bg) 46%, var(--mando-bg-deep) 100%);
+}
+.bg-stage::before {
+  /* arquibancada: faixas escuras em perspectiva */
+  background-image: repeating-linear-gradient(
+    172deg,
+    rgba(207, 225, 247, 0.025) 0 2px,
+    transparent 2px 22px
+  );
+  background-size: auto;
+  mask-image: linear-gradient(180deg, transparent 4%, #000 22%, transparent 58%);
+}
+.bg-stage::after {
+  /* gramado distante */
+  content: '';
+  position: absolute;
+  left: -10%;
+  right: -10%;
+  bottom: -32vh;
+  height: 58vh;
+  border-radius: 50% 50% 0 0;
+  background:
+    repeating-linear-gradient(90deg, rgba(85, 201, 155, 0.05) 0 7vw, transparent 7vw 14vw),
+    radial-gradient(ellipse at 50% 0%, rgba(39, 92, 76, 0.42), rgba(11, 16, 32, 0) 70%);
+  filter: blur(1px);
+}
+.beam {
+  display: none;
+}

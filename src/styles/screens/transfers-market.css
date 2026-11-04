@@ -1,0 +1,306 @@
+/* ---------- Transferências: mercado, observados e sala de negociação ---------- */
+.filter-panel {
+  overflow: hidden;
+}
+.filter-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-right: 4px;
+}
+.filter-pairs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.star-on {
+  color: var(--yellow);
+  fill: var(--yellow);
+  vertical-align: -1px;
+}
+.shortlist-panel {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-top-color: var(--yellow);
+}
+.shortlist-panel .card-grid {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+.negotiation.status-completed {
+  border-top-color: var(--lime);
+}
+.negotiation.status-rejected,
+.negotiation.status-declined {
+  border-top-color: var(--red);
+}
+.deal-line {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 6px 0;
+  font-size: 18px;
+}
+.deal-figures {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  margin: 8px 0;
+}
+.deal-figures > span {
+  display: flex;
+  flex-direction: column;
+  padding: 6px 8px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.08);
+}
+.deal-figures small {
+  font: 700 11px var(--display);
+  letter-spacing: 1px;
+  color: var(--ink-3);
+}
+.deal-figures b {
+  font: 800 17px var(--display);
+}
+.deal-room {
+  display: grid;
+  grid-template-columns: minmax(200px, 0.8fr) minmax(0, 1.6fr) minmax(220px, 0.9fr);
+  gap: 16px;
+  min-height: min(560px, 70vh);
+}
+.deal-target,
+.deal-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+.deal-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 14px 10px 12px;
+  border-radius: 8px;
+  text-align: center;
+  background:
+    linear-gradient(115deg, rgba(255, 255, 255, 0.25), transparent 45%),
+    linear-gradient(160deg, #ffd400, #c46a00 80%);
+  color: #2b1d00;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.4);
+}
+.deal-ovr {
+  position: absolute;
+  left: 12px;
+  top: 8px;
+  font: 800 38px/1 var(--display);
+}
+.deal-pos {
+  position: absolute;
+  left: 14px;
+  top: 46px;
+  font: 800 15px var(--display);
+}
+.deal-card .club-badge {
+  width: 64px;
+  height: 74px;
+  margin: 4px 0;
+}
+.deal-card strong {
+  font: italic 800 20px/1.1 var(--display);
+  text-transform: uppercase;
+}
+.deal-card small {
+  font-weight: 600;
+}
+.deal-facts,
+.deal-summary dl {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.deal-facts > div,
+.deal-summary dl > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 5px 0;
+  border-bottom: 1px solid var(--line);
+  font-size: 14px;
+}
+.deal-facts dt,
+.deal-summary dt {
+  color: var(--ink-3);
+}
+.deal-facts dd,
+.deal-summary dd {
+  margin: 0;
+  font-weight: 700;
+  text-align: right;
+}
+.deal-summary dl > .total {
+  border-bottom: 2px solid var(--lime);
+  font-size: 16px;
+}
+.deal-summary dl > .total dd {
+  color: var(--lime);
+}
+.deal-summary dl > .negative dd {
+  color: var(--red);
+}
+.deal-target > button.active {
+  background: var(--yellow);
+  color: #2b1d00;
+}
+.deal-table {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+  min-height: 0;
+  padding: 12px 14px;
+  border-radius: 6px;
+  background:
+    repeating-linear-gradient(0deg, rgba(0, 210, 255, 0.04) 0 2px, transparent 2px 6px),
+    linear-gradient(180deg, rgba(0, 210, 255, 0.12), rgba(4, 11, 51, 0.5));
+  border: 1px solid rgba(0, 210, 255, 0.35);
+}
+.deal-steps {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--ink-3);
+}
+.deal-steps > button {
+  flex: 1;
+  justify-content: flex-start;
+  background: rgba(255, 255, 255, 0.06);
+  font-size: 14px;
+}
+.deal-steps > button span {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.18);
+}
+.deal-steps > button.active {
+  background: linear-gradient(90deg, var(--cyan), var(--blue));
+  color: #fff;
+}
+.deal-steps > button.active span {
+  background: #fff;
+  color: #0750b5;
+}
+.deal-step {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.deal-step > .primary {
+  align-self: flex-end;
+  margin-top: auto;
+}
+.exchange-picker .card-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+.call-bubble {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 4px 14px 14px 14px;
+  background: rgba(255, 255, 255, 0.1);
+  font-style: italic;
+}
+.call-bubble.agent {
+  background: rgba(139, 69, 255, 0.25);
+}
+.agent-avatar {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  font: 800 13px var(--display);
+  font-style: normal;
+  background: linear-gradient(135deg, var(--purple), var(--pink));
+}
+.quick-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.quick-chips > button {
+  padding: 5px 10px;
+  font-size: 13px;
+}
+.exchange-slot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.exchange-slot .control-label {
+  width: 100%;
+  margin: 0;
+}
+.exchange-slot > button:not(.text-button) {
+  text-transform: none;
+  letter-spacing: normal;
+}
+.likelihood {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.likelihood > span {
+  display: flex;
+  justify-content: space-between;
+  font: 700 13px var(--display);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+.likelihood-bar {
+  display: grid;
+  grid-template-columns: repeat(10, 1fr);
+  gap: 3px;
+}
+.likelihood-bar i {
+  height: 8px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.12);
+}
+.likelihood.good b,
+.likelihood.good .likelihood-bar i.on {
+  color: var(--lime);
+  background-color: var(--lime);
+}
+.likelihood.mid b,
+.likelihood.mid .likelihood-bar i.on {
+  color: var(--yellow);
+  background-color: var(--yellow);
+}
+.likelihood.bad b,
+.likelihood.bad .likelihood-bar i.on {
+  color: var(--red);
+  background-color: var(--red);
+}
+.likelihood b {
+  background: none !important;
+}
+.send-offer {
+  margin-top: auto;
+  padding: 12px;
+  font-size: 17px;
+}

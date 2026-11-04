@@ -1,0 +1,128 @@
+/* ---------- Tiles coloridos ---------- */
+.tile {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: flex-start;
+  gap: 8px;
+  text-align: left;
+  text-transform: none;
+  letter-spacing: normal;
+  font-weight: 500;
+  padding: 18px 20px;
+  border-radius: 4px;
+  color: #fff;
+  overflow: hidden;
+  min-width: 0;
+  min-height: 0;
+  background: linear-gradient(135deg, #2aa4ff, #0a5be0);
+  box-shadow: 0 14px 34px rgba(0, 4, 30, 0.38);
+}
+.tile::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(115deg, rgba(255, 255, 255, 0.22) 0%, transparent 38%),
+    repeating-linear-gradient(135deg, rgba(255, 255, 255, 0.04) 0 2px, transparent 2px 14px);
+  pointer-events: none;
+}
+.tile > * {
+  position: relative;
+}
+button.tile:hover:not(:disabled) {
+  filter: brightness(1.1);
+}
+button.tile:focus,
+button.tile:focus-visible {
+  transform: scale(1.025);
+  outline: 4px solid #fff;
+  outline-offset: 0;
+  box-shadow:
+    0 0 0 8px rgba(54, 214, 231, 0.55),
+    0 22px 50px rgba(0, 0, 0, 0.5);
+  z-index: 3;
+}
+.tile-blue {
+  background: linear-gradient(135deg, #22a6ff 0%, #0b5ce6 60%, #0a3fb8 100%);
+}
+.tile-green {
+  background: linear-gradient(135deg, #8be22a 0%, #34b51f 55%, #138a2c 100%);
+}
+.tile-orange {
+  background: linear-gradient(135deg, #ffb32a 0%, #ff7a00 55%, #e64a00 100%);
+}
+.tile-purple {
+  background: linear-gradient(135deg, #a66bff 0%, #7234ec 55%, #4c17b8 100%);
+}
+.tile-pink {
+  background: linear-gradient(135deg, #ff5fa8 0%, #f0257a 55%, #b80d5c 100%);
+}
+.tile-cyan {
+  background: linear-gradient(135deg, #3fe6ff 0%, #00a8e0 55%, #0074b8 100%);
+}
+.tile-glass {
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.05));
+  border: 1px solid var(--line);
+  backdrop-filter: blur(10px);
+}
+.tile-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  font: 800 14px var(--display);
+  letter-spacing: 1.6px;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.92);
+}
+.tile-label em {
+  margin-left: auto;
+  font-style: normal;
+  opacity: 0.8;
+}
+.tile-title {
+  font-size: clamp(22px, 2.2vw, 32px);
+  font-weight: 800;
+  line-height: 1;
+  text-transform: uppercase;
+  font-style: italic;
+}
+.tile-cta {
+  margin-top: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font: 800 15px var(--display);
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  padding: 6px 12px;
+  border-radius: 2px;
+  background: rgba(0, 0, 0, 0.22);
+}
+.tile-sub {
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 14px;
+}
+.tile-icon {
+  display: grid;
+  place-items: center;
+  width: 110px;
+  height: 110px;
+  margin: auto 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.18);
+}
+.big-stat {
+  display: flex;
+  flex-direction: column;
+  font: italic 800 clamp(48px, 6vh, 76px) / 0.9 var(--display);
+}
+.big-stat small {
+  font-size: 13px;
+  font-style: normal;
+  letter-spacing: 2px;
+  opacity: 0.85;
+  margin-top: 6px;
+}

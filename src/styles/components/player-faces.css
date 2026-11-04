@@ -1,0 +1,80 @@
+/* ---------- Rostos dos atletas ---------- */
+.player-face {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  overflow: hidden;
+  background: radial-gradient(circle at 50% 30%, #3d8bff, #0b2f8f 75%);
+  color: #fff;
+}
+.player-face.md {
+  width: 48px;
+  height: 48px;
+}
+.player-face.lg {
+  width: 120px;
+  height: 120px;
+}
+.player-face img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: 50% 10%;
+  transform: scale(1.12);
+  transform-origin: 50% 0;
+}
+.player-face.generated svg {
+  position: absolute;
+  inset: 12% 0 0;
+  width: 100%;
+  height: 88%;
+  fill: rgba(255, 255, 255, 0.22);
+}
+.player-face.generated b {
+  position: relative;
+  font: 800 0.8em var(--display);
+  letter-spacing: 0.5px;
+}
+.player-face.sm.generated b {
+  font-size: 11px;
+}
+.player-face.md.generated b {
+  font-size: 15px;
+}
+.player-face.lg.generated b,
+.player-card .player-face.generated b {
+  font-size: clamp(14px, 2.4vh, 26px);
+}
+.detail-face,
+.award-face {
+  align-self: flex-start;
+  width: 150px !important;
+  height: 150px !important;
+  border-radius: 16px !important;
+  background: linear-gradient(160deg, #3d8bff 0%, #0b2f8f 70%, #061a52 100%) !important;
+  box-shadow: inset 0 -30px 40px rgba(0, 4, 30, 0.35);
+}
+.detail-face img,
+.award-face img {
+  object-fit: contain;
+  object-position: 50% 100%;
+  transform: none;
+}
+.deal-face {
+  width: 150px !important;
+  height: 150px !important;
+  border-radius: 0 !important;
+  background: none !important;
+  filter: drop-shadow(0 8px 10px rgba(43, 29, 0, 0.45));
+  -webkit-mask-image: linear-gradient(180deg, #000 75%, transparent 100%);
+  mask-image: linear-gradient(180deg, #000 75%, transparent 100%);
+}
+.deal-face img {
+  object-fit: contain;
+  object-position: 50% 100%;
+  transform: none;
+}

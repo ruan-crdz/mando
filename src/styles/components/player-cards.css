@@ -1,0 +1,230 @@
+/* ---------- Cards de atleta ---------- */
+.card-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 4px 6px 8px 2px;
+}
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+}
+.card-grid.compact {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+.grid-divider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 8px 0 8px;
+  font: 800 13px var(--display);
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--lime);
+}
+.grid-divider::after {
+  content: '';
+  flex: 1;
+  height: 2px;
+  background: linear-gradient(90deg, rgba(54, 214, 231, 0.6), transparent);
+}
+.grid-divider:first-child {
+  margin-top: 0;
+}
+.player-card {
+  position: relative;
+  aspect-ratio: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: space-between;
+  gap: 2px;
+  padding: 8px 9px 7px;
+  text-transform: none;
+  letter-spacing: normal;
+  text-align: left;
+  border-radius: 6px;
+  border: 2px solid transparent;
+  background: linear-gradient(160deg, #1f6fff, #0a2a8f 70%);
+  box-shadow: 0 6px 14px rgba(0, 4, 30, 0.35);
+  overflow: hidden;
+}
+.player-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(115deg, rgba(255, 255, 255, 0.22), transparent 42%);
+  pointer-events: none;
+}
+.player-card.gk {
+  background: linear-gradient(160deg, #ffb300, #b85c00 75%);
+}
+.player-card.def {
+  background: linear-gradient(160deg, #00b4ff, #0750b5 75%);
+}
+.player-card.mid {
+  background: linear-gradient(160deg, #5ed11c, #187a2e 75%);
+}
+.player-card.att {
+  background: linear-gradient(160deg, #ff4f8b, #9d1250 75%);
+}
+.player-card.active {
+  border-color: var(--lime);
+  box-shadow:
+    0 0 0 2px rgba(54, 214, 231, 0.35),
+    0 6px 14px rgba(0, 4, 30, 0.35);
+}
+.player-card.out {
+  filter: grayscale(0.7) brightness(0.8);
+}
+.player-card.empty {
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  background: rgba(255, 255, 255, 0.08);
+  border: 2px dashed rgba(255, 255, 255, 0.35);
+}
+.player-card:focus,
+.player-card:focus-visible {
+  transform: scale(1.05);
+  z-index: 2;
+}
+.pc-top {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+.pc-ovr {
+  font: 800 clamp(22px, 3.2vh, 32px) / 1 var(--display);
+}
+.pc-pos {
+  font: 800 13px var(--display);
+  padding: 1px 5px;
+  border-radius: 2px;
+  background: rgba(0, 0, 0, 0.25);
+}
+.pc-number {
+  margin-left: auto;
+  margin-right: 50%;
+  font: italic 800 clamp(16px, 2.2vh, 22px) / 1 var(--display);
+  color: rgba(255, 255, 255, 0.55);
+}
+.pc-badge {
+  position: absolute;
+  right: 7px;
+  bottom: 22px;
+  font: 800 14px var(--display);
+}
+.pc-name {
+  font-size: clamp(14px, 1.8vh, 17px);
+  line-height: 1.05;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.pc-meta {
+  min-height: 14px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.82);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.player-card.out .pc-meta {
+  color: #ffd0d6;
+  font-weight: 700;
+}
+.pc-fitness {
+  display: block;
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(0, 0, 0, 0.3);
+  overflow: hidden;
+}
+.pc-fitness i {
+  display: block;
+  height: 100%;
+  background: var(--lime);
+}
+.pc-top,
+.pc-name,
+.pc-meta,
+.pc-fitness {
+  position: relative;
+  z-index: 1;
+}
+.pc-badge {
+  z-index: 1;
+}
+.player-card .pc-face {
+  position: absolute;
+  left: 22%;
+  right: 0;
+  top: 3%;
+  bottom: 22%;
+  width: auto;
+  height: auto;
+  border-radius: 0;
+  background: none;
+  overflow: visible;
+  filter: drop-shadow(0 6px 8px rgba(0, 4, 30, 0.45));
+  -webkit-mask-image: linear-gradient(180deg, #000 86%, transparent 100%);
+  mask-image: linear-gradient(180deg, #000 86%, transparent 100%);
+}
+.player-card .pc-face img {
+  object-fit: contain;
+  object-position: 50% 100%;
+  transform: none;
+}
+/* Card FIFA: overall e posição empilhados à esquerda, foto grande, nome na faixa de baixo. */
+.player-card .pc-top {
+  flex-direction: column;
+  align-items: center;
+  align-self: flex-start;
+  gap: 3px;
+}
+.player-card .pc-ovr {
+  font-size: clamp(24px, 3.6vh, 36px);
+  text-shadow: 0 2px 4px rgba(0, 4, 30, 0.5);
+}
+.player-card .pc-name {
+  margin: auto -9px -7px;
+  padding: 5px 6px;
+  text-align: center;
+  font: 800 clamp(13px, 1.8vh, 17px) / 1.05 var(--display);
+  text-transform: uppercase;
+  background: linear-gradient(180deg, rgba(0, 4, 30, 0.15), rgba(0, 4, 30, 0.7));
+}
+.player-card .pc-meta {
+  position: absolute;
+  left: 6px;
+  right: 6px;
+  bottom: 30px;
+  min-height: 0;
+  text-align: center;
+  font-size: 11px;
+  background: rgba(158, 0, 28, 0.85);
+  border-radius: 3px;
+}
+.player-card.empty .pc-name {
+  margin: 0;
+  background: none;
+}
+.player-card .pc-face.generated {
+  background: none !important;
+}
+.player-card .pc-face.generated svg {
+  inset: 8% 6% 0;
+  width: 88%;
+  height: 92%;
+  fill: rgba(255, 255, 255, 0.28);
+}
+.player-card .pc-face.generated b {
+  display: none;
+}
+.player-card .pc-name {
+  text-shadow: 0 1px 3px rgba(0, 4, 30, 0.7);
+}

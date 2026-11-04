@@ -1,0 +1,44 @@
+/* ---------- Mapa de calor ---------- */
+.heat-map {
+  margin: 0;
+  display: grid;
+  gap: 4px;
+  justify-items: center;
+}
+.heat-map svg {
+  width: 100%;
+  max-width: 200px;
+  max-height: 32vh;
+  border-radius: 4px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+}
+.heat-map.compact svg {
+  max-width: 130px;
+  max-height: 24vh;
+}
+.hm-grass {
+  fill: #0d6b34;
+}
+.hm-lines * {
+  stroke: rgba(255, 255, 255, 0.55);
+  stroke-width: 0.7;
+}
+.hm-role {
+  fill: #fff;
+  stroke: #082062;
+  stroke-width: 0.8;
+}
+.heat-map figcaption {
+  font: 700 12px var(--display);
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+.heat-map.good figcaption strong {
+  color: var(--lime);
+}
+.heat-map.mid figcaption strong {
+  color: #ffb800;
+}
+.heat-map.bad figcaption strong {
+  color: #ff4d4d;
+}
