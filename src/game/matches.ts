@@ -167,6 +167,7 @@ export function beginMatch(career: Career, world: World, fixture: Fixture): Matc
     minutesPlayed: {},
     energySpent: {},
     injured: [],
+    dismissed: [],
     moments: [],
     events: [
       {
@@ -188,6 +189,7 @@ export function stepMatch(
   if (current.minute >= 90) return current;
   const match = structuredClone(current);
   match.injured ??= [];
+  match.dismissed ??= [];
   match.moments ??= [];
   const fixture = career.fixtures.find((f) => f.id === match.fixtureId)!;
   const minute = ++match.minute;
@@ -216,12 +218,14 @@ export function stepMatch(
     fixture.awayId === career.clubId ? career.tactic : ours ? npc : match.awayTactic || legacy;
   const cond = match.conditions;
   const physio = fitnessEffect(staffLevel(career, 'fitness'));
-  const ownTire = 1 - physio.energy;
+  const activeShout = match.shout && minute <= match.shout.until ? match.shout.kind : undefined;
+  const ownTire = (1 - physio.energy) * (activeShout === 'pressionar' ? 1.08 : 1);
   for (const [ids, tactic, tire] of [
     [match.homeLineup, ht, (cond?.homeTire ?? 1) * (ownHome ? ownTire : 1)],
     [match.awayLineup, at, (cond?.awayTire ?? 1) * (fixture.awayId === career.clubId ? ownTire : 1)],
   ] as const) {
     for (const id of ids) {
+      if (match.dismissed.includes(id)) continue;
       match.minutesPlayed[id] = (match.minutesPlayed[id] || 0) + 1;
       match.energySpent[id] =
         (match.energySpent[id] || 0) +
@@ -229,37 +233,55 @@ export function stepMatch(
     }
   }
   if (ours) aiSubstitutions(career, world, match, fixture, minute);
+  const activeLineup = (ids: string[]) =>
+    ids.map((id) => (match.dismissed.includes(id) ? '' : id));
+  const homeActive = activeLineup(match.homeLineup);
+  const awayActive = activeLineup(match.awayLineup);
   const homeSide = {
     tactic: ht,
-    profile: profile(career, world, match.homeLineup, ht.formation),
+    profile: profile(career, world, homeActive, ht.formation),
   };
   const awaySide = {
     tactic: at,
-    profile: profile(career, world, match.awayLineup, at.formation),
+    profile: profile(career, world, awayActive, at.formation),
   };
-  const scale = (s: Strength, k: number, markCost: boolean): Strength => ({
-    attack: s.attack * k,
-    midfield: s.midfield * k * (markCost ? 0.985 : 1),
-    defense: s.defense * k,
-  });
+  const scale = (
+    s: Strength,
+    k: number,
+    markCost: boolean,
+    own: boolean,
+    dismissed: number,
+  ): Strength => {
+    const numerical = Math.max(0.7, 1 - dismissed * 0.1);
+    const command = own ? activeShout : undefined;
+    return {
+      attack: s.attack * k * numerical * (command === 'pressionar' ? 1.05 : command === 'acalmar' ? 0.98 : command === 'incentivar' ? 1.02 : 1),
+      midfield: s.midfield * k * numerical * (markCost ? 0.985 : 1) * (command === 'acalmar' ? 1.04 : 1),
+      defense: s.defense * k * numerical * (command === 'pressionar' ? 0.97 : command === 'incentivar' ? 1.02 : 1),
+    };
+  };
   const ourSideHome = fixture.homeId === career.clubId;
   const home = scale(
     applyTactic(
-      strength(career, world, match.homeLineup, ht.formation, match.energySpent, match.injured),
+      strength(career, world, homeActive, ht.formation, match.energySpent, match.injured),
       ht,
       tacticalEdge(homeSide, awaySide),
     ),
     cond?.home ?? 1,
     Boolean(match.marked) && ourSideHome,
+    ourSideHome,
+    match.homeLineup.filter((id) => match.dismissed.includes(id)).length,
   );
   const away = scale(
     applyTactic(
-      strength(career, world, match.awayLineup, at.formation, match.energySpent, match.injured),
+      strength(career, world, awayActive, at.formation, match.energySpent, match.injured),
       at,
       tacticalEdge(awaySide, homeSide),
     ),
     cond?.away ?? 1,
     Boolean(match.marked) && !ourSideHome && ours,
+    fixture.awayId === career.clubId,
+    match.awayLineup.filter((id) => match.dismissed.includes(id)).length,
   );
   const share = clamp(
     home.midfield / (home.midfield + away.midfield) + 0.025 + (ht.pressure - at.pressure) * 0.008,
@@ -279,19 +301,24 @@ export function stepMatch(
   const attack = isHome ? home : away;
   const defense = isHome ? away : home;
   const tactic = isHome ? ht : at;
-  const players = ids.map((id) => findPlayer(world, id)).filter((p): p is Player => Boolean(p));
+  const players = ids
+    .filter((id) => !match.dismissed.includes(id))
+    .map((id) => findPlayer(world, id))
+    .filter((p): p is Player => Boolean(p));
   const roles = formations[tactic.formation];
   const pick = (weight: (p: Player, role: string) => number, skip?: string) => {
     const pool = ids.flatMap((id, i) => {
       const p = findPlayer(world, id);
-      return p && id !== skip && roles[i] !== 'GK' ? [{ p, w: weight(p, roles[i]) }] : [];
+      return p && id !== skip && !match.dismissed.includes(id) && roles[i] !== 'GK'
+        ? [{ p, w: weight(p, roles[i]) }]
+        : [];
     });
     let roll = rng() * pool.reduce((n, x) => n + x.w, 0);
     for (const x of pool) if ((roll -= x.w) <= 0) return x.p;
     return pool.at(-1)?.p;
   };
   // Quem finaliza depende da função em campo e da qualidade de finalização naquela função.
-  const scorer = pick(
+  let scorer = pick(
     (p, role) =>
       (shooterWeight[role] || 1) *
       (p.id === match.marked ? 0.45 : 1) *
@@ -309,7 +336,55 @@ export function stepMatch(
       )
   ) {
     const stats = isHome ? match.home : match.away;
-    const xg = clamp(0.06 + rng() * 0.23 + (scorer.attributes.finishing - 65) * 0.001, 0.03, 0.4);
+    const previousXg = stats.xg;
+    const setPiece = random(hash(`${match.seed}:${minute}:bola-parada`))();
+    const origin =
+      setPiece < 0.02
+        ? 'penalty'
+        : setPiece < 0.06
+          ? 'freeKick'
+          : setPiece < 0.18
+            ? 'corner'
+            : 'open';
+    const longFreeKick =
+      origin === 'freeKick' &&
+      random(hash(`${match.seed}:${minute}:falta-longa`))() < 0.5;
+    const cornerRole =
+      random(hash(`${match.seed}:${minute}:lado-escanteio`))() < 0.5
+        ? 'Escanteio esquerdo'
+        : 'Escanteio direito';
+    const taker = (role: string, score: (p: Player) => number) => {
+      const selected = clubId === career.clubId ? career.roles[role] : undefined;
+      return (
+        players.find((p) => p.id === selected) ||
+        [...players].filter((p) => p.position !== 'GK').sort((a, b) => score(b) - score(a))[0]
+      );
+    };
+    if (origin === 'penalty')
+      scorer = taker('Pênaltis', (p) => p.attributes.finishing + p.attributes.composure) || scorer;
+    else if (origin === 'freeKick' && !longFreeKick)
+      scorer =
+        taker(
+          'Faltas curtas',
+          (p) => p.attributes.shortPass + p.attributes.vision + p.attributes.finishing * 0.5,
+        ) || scorer;
+    const pitchFactor =
+      cond?.pitch === 'Pesado'
+        ? 0.9
+        : cond?.pitch === 'Irregular'
+          ? 0.96
+          : cond?.pitch === 'Molhado'
+            ? 0.98
+            : 1;
+    const baseXg =
+      origin === 'penalty'
+        ? 0.72 + (scorer.attributes.finishing - 65) * 0.001
+        : origin === 'freeKick'
+          ? 0.07 + rng() * 0.06
+          : origin === 'corner'
+            ? 0.07 + rng() * 0.11
+            : 0.06 + rng() * 0.23 + (scorer.attributes.finishing - 65) * 0.001;
+    const xg = clamp(baseXg * pitchFactor, 0.03, origin === 'penalty' ? 0.85 : 0.4);
     stats.shots++;
     stats.xg = Math.round((stats.xg + xg) * 100) / 100;
     // O treinador de goleiros do usuário transforma algumas finalizações em defesas.
@@ -317,14 +392,26 @@ export function stepMatch(
       ours && clubId !== career.clubId
         ? 1 - goalkeepingEffect(staffLevel(career, 'goalkeeping')).save
         : 1;
-    const goal = rng() < xg * keeper;
+    const initialGoal = rng() < xg * keeper;
+    const reviewRng = random(hash(`${match.seed}:${minute}:${scorer.id}:var`));
+    const reviewed = initialGoal && Boolean(cond?.referee?.varEnabled) && reviewRng() < 0.08;
+    const annulled = reviewed && origin === 'open' && reviewRng() < 0.35;
+    const goal = initialGoal && !annulled;
+    if (annulled) {
+      stats.shots--;
+      stats.xg = previousXg;
+    }
     if (goal) {
       if (isHome) match.homeGoals++;
       else match.awayGoals++;
     }
-    const type = goal ? 'goal' : rng() < 0.55 ? 'save' : 'miss';
+    const type = annulled ? 'var' : goal ? 'goal' : rng() < 0.55 ? 'save' : 'miss';
     const helper =
-      goal && rng() < 0.85
+      goal && origin === 'corner'
+        ? taker(cornerRole, (p) => p.attributes.longPass + p.attributes.vision)
+        : goal && longFreeKick
+          ? taker('Faltas longas', (p) => p.attributes.longPass + p.attributes.vision)
+        : goal && origin === 'open' && rng() < 0.85
         ? pick(
             (p, role) =>
               (passerWeight[role] || 1) *
@@ -337,30 +424,63 @@ export function stepMatch(
       type,
       clubId,
       playerId: scorer.id,
-      ...(helper ? { assistId: helper.id } : {}),
-      xg: Math.round(xg * 100) / 100,
-      text: goal
-        ? `GOL! ${scorer.name} marca para o ${club.name}!${helper ? ` Passe de ${helper.name}.` : ''}`
+      ...(helper && helper.id !== scorer.id ? { assistId: helper.id } : {}),
+      ...(!annulled ? { xg: Math.round(xg * 100) / 100 } : {}),
+      origin,
+      text: annulled
+        ? `VAR: gol de ${scorer.name} anulado por impedimento.`
+        : goal
+        ? `GOL! ${scorer.name} marca para o ${club.name}${origin === 'penalty' ? ' de pênalti' : longFreeKick ? ' após cobrança de falta' : origin === 'freeKick' ? ' em cobrança de falta' : origin === 'corner' ? ' após escanteio' : ''}!${helper && helper.id !== scorer.id ? ` Passe de ${helper.name}.` : ''}`
         : type === 'save'
-          ? `${scorer.name} finaliza. O goleiro faz a defesa!`
-          : `${scorer.name} encontra espaço, mas finaliza para fora.`,
+          ? `${scorer.name} finaliza${origin === 'penalty' ? ' o pênalti' : longFreeKick ? ' após cobrança de falta' : origin === 'freeKick' ? ' a falta' : origin === 'corner' ? ' após escanteio' : ''}. O goleiro faz a defesa!`
+          : `${scorer.name} finaliza${origin === 'penalty' ? ' o pênalti' : longFreeKick ? ' após cobrança de falta' : origin === 'freeKick' ? ' a falta' : origin === 'corner' ? ' após escanteio' : ''} para fora.`,
     });
+    if (reviewed && !annulled)
+      match.events.push({
+        minute,
+        type: 'var',
+        clubId,
+        playerId: scorer.id,
+        text: `VAR confirma o gol de ${scorer.name}.`,
+      });
   }
   const athlete = players[Math.floor(rng() * players.length)];
-  if (athlete && rng() < 0.025 + tactic.pressure * 0.003) {
-    match.events.push({
-      minute,
-      type: 'yellow',
-      clubId,
-      playerId: athlete.id,
-      text: `Cartão amarelo para ${athlete.name}.`,
-    });
+  const offender = athlete?.position === 'GK' ? players.find((p) => p.position !== 'GK') : athlete;
+  const strictness = cond?.referee?.strictness ?? 3;
+  const cardFactor = (0.7 + strictness * 0.1) * (clubId === career.clubId && activeShout === 'acalmar' ? 0.9 : 1);
+  if (offender && rng() < (0.025 + tactic.pressure * 0.003) * cardFactor) {
+    const second = match.events.some(
+      (event) => event.type === 'yellow' && event.clubId === clubId && event.playerId === offender.id,
+    );
+    const direct = random(hash(`${match.seed}:${minute}:${offender.id}:cartao`))() < 0.025;
+    if (!direct)
+      match.events.push({
+        minute,
+        type: 'yellow',
+        clubId,
+        playerId: offender.id,
+        text: `Cartão amarelo para ${offender.name} por falta na disputa.`,
+      });
+    if (direct || second) {
+      match.dismissed.push(offender.id);
+      match.events.push({
+        minute,
+        type: 'red',
+        clubId,
+        playerId: offender.id,
+        text: direct
+          ? `${offender.name} é expulso por falta grave.`
+          : `${offender.name} recebe o segundo amarelo e é expulso.`,
+      });
+    }
   }
   if (
     athlete &&
+    !match.dismissed.includes(athlete.id) &&
     !match.injured.includes(athlete.id) &&
     rng() <
       (0.0015 + Math.max(0, 65 - stateOf(career, athlete.id)!.fitness) * 0.0002) *
+        (cond?.pitch === 'Pesado' ? 1.18 : cond?.pitch === 'Irregular' ? 1.1 : cond?.pitch === 'Molhado' ? 1.06 : 1) *
         (clubId === career.clubId
           ? (1 - trainingEffect(trainingLevel(career)).injury) * (1 - physio.injury)
           : 1)
@@ -421,7 +541,9 @@ function aiSubstitutions(
   );
   if (!bench.length) return;
   const energy = (id: string) => (stateOf(career, id)?.fitness ?? 80) - (match.energySpent[id] || 0);
-  const slots = lineup.map((id, i) => ({ id, i, role: roles[i] })).filter((s) => s.role !== 'GK');
+  const slots = lineup
+    .map((id, i) => ({ id, i, role: roles[i] }))
+    .filter((s) => s.role !== 'GK' && !match.dismissed.includes(s.id));
   const hurt = slots.find((s) => match.injured.includes(s.id));
   const chasing = losing && minute >= 70 ? slots.filter((s) => ['DM', 'CM', 'CB', 'LB', 'RB'].includes(s.role)) : [];
   const tiredest = [...slots].sort((a, b) => energy(a.id) - energy(b.id))[0];
@@ -481,6 +603,44 @@ export function simulateMatch(career: Career, world: World, fixture: Fixture) {
   return match;
 }
 
+export type ShoutKind = NonNullable<Match['shout']>['kind'];
+export const shoutChoices: { kind: ShoutKind; label: string; effect: string }[] = [
+  {
+    kind: 'incentivar',
+    label: 'Incentivar',
+    effect: '+2% de ataque e defesa por 10 minutos.',
+  },
+  {
+    kind: 'pressionar',
+    label: 'Pressionar',
+    effect: '+5% de ataque, −3% de defesa e +8% de desgaste por 10 minutos.',
+  },
+  {
+    kind: 'acalmar',
+    label: 'Acalmar',
+    effect: '+4% de meio-campo, −2% de ataque e −10% de chance de cartão por 10 minutos.',
+  },
+];
+
+export function shoutFromSideline(career: Career, kind: ShoutKind): Career {
+  const c = structuredClone(career);
+  const match = c.activeMatch;
+  if (!match || match.minute >= 90) throw new Error('Não há partida em andamento.');
+  if (match.lastShout !== undefined && match.minute - match.lastShout < 15)
+    throw new Error(`Aguarde ${15 - (match.minute - match.lastShout)} minutos para outra instrução.`);
+  const choice = shoutChoices.find((item) => item.kind === kind);
+  if (!choice) throw new Error('Instrução desconhecida.');
+  match.shout = { kind, until: Math.min(90, match.minute + 10) };
+  match.lastShout = match.minute;
+  match.events.push({
+    minute: match.minute,
+    type: 'tactic',
+    clubId: c.clubId,
+    text: `Da beira do campo: ${choice.label}. ${choice.effect}`,
+  });
+  return c;
+}
+
 export function substitute(
   career: Career,
   world: World,
@@ -495,6 +655,7 @@ export function substitute(
   const lineup = fixture.homeId === c.clubId ? match.homeLineup : match.awayLineup;
   if (
     !lineup.includes(outgoing) ||
+    match.dismissed.includes(outgoing) ||
     lineup.includes(incoming) ||
     match.replaced.includes(incoming) ||
     !available(c, incoming) ||
@@ -651,12 +812,12 @@ export function swapTarget(career: Career, world: World, playerId: string) {
   const lineup = fixture.homeId === career.clubId ? match.homeLineup : match.awayLineup;
   const player = findPlayer(world, playerId);
   const from = lineup.indexOf(playerId);
-  if (!player || from < 0) return -1;
+  if (!player || from < 0 || match.dismissed.includes(playerId)) return -1;
   const roles = formations[career.tactic.formation];
   let best = -1;
   let bestGain = 0;
   roles.forEach((role, j) => {
-    if (j === from || j === 0 || naturalRole(role) !== player.position) return;
+    if (j === from || j === 0 || match.dismissed.includes(lineup[j]) || naturalRole(role) !== player.position) return;
     const mate = findPlayer(world, lineup[j]);
     if (!mate) return;
     const gain =
@@ -687,7 +848,7 @@ function humanMoments(
     match.moments.some((m) => m.kind === kind && m.playerId === id);
   // Quem pediu para sair e foi mantido em campo corre risco maior de lesão.
   for (const m of match.moments) {
-    if (m.kind !== 'tired' || m.action !== 'insist' || !lineup.includes(m.playerId)) continue;
+    if (m.kind !== 'tired' || m.action !== 'insist' || !lineup.includes(m.playerId) || match.dismissed.includes(m.playerId)) continue;
     if (match.injured.includes(m.playerId) || rng() >= 0.012) continue;
     const p = findPlayer(world, m.playerId)!;
     match.injured.push(p.id);
@@ -709,6 +870,7 @@ function humanMoments(
   if ((last && minute - last.minute < 8) || match.moments.length >= 6) return;
   const roles = formations[career.tactic.formation];
   const starters = lineup.flatMap((id, i) => {
+    if (match.dismissed.includes(id)) return [];
     const p = findPlayer(world, id);
     const s = stateOf(career, id);
     return p && s ? [{ p, s, role: roles[i] || 'CM' }] : [];

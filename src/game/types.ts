@@ -257,6 +257,8 @@ const eventSchema = z.object({
     'save',
     'miss',
     'yellow',
+    'red',
+    'var',
     'injury',
     'sub',
     'tactic',
@@ -270,6 +272,7 @@ const eventSchema = z.object({
   assistId: z.string().optional(),
   /** Qualidade da chance (gols esperados). */
   xg: z.number().optional(),
+  origin: z.enum(['open', 'penalty', 'freeKick', 'corner']).optional(),
   text: z.string(),
 });
 export type MatchEvent = z.infer<typeof eventSchema>;
@@ -311,6 +314,8 @@ export const matchSchema = z.object({
   energySpent: z.record(z.string(), z.number().nonnegative()).default({}),
   /** Atletas que sentiram lesão e seguem em campo (rendimento reduzido). */
   injured: z.array(z.string()).default([]),
+  /** Atletas expulsos, mantidos na escalação para preservar as posições dos demais. */
+  dismissed: z.array(z.string()).default([]),
   /** Momentos humanos do jogo que pedem uma decisão do técnico. */
   moments: z.array(momentSchema).default([]),
   /** Plano de jogo dos clubes da engine nesta partida. */
@@ -329,6 +334,15 @@ export const matchSchema = z.object({
       awayTire: z.number(),
       derby: z.string().optional(),
       notes: z.array(z.string()),
+      weather: z.enum(['Ensolarado', 'Nublado', 'Chuva', 'Calor', 'Frio']).optional(),
+      pitch: z.enum(['Bom', 'Molhado', 'Pesado', 'Irregular']).optional(),
+      referee: z
+        .object({
+          name: z.string(),
+          strictness: z.number().int().min(1).max(5),
+          varEnabled: z.boolean(),
+        })
+        .optional(),
     })
     .optional(),
   /** Atleta adversário com marcação individual. */
@@ -337,6 +351,14 @@ export const matchSchema = z.object({
   studied: z.boolean().optional(),
   /** Trocas feitas pelo técnico da IA. */
   aiSubs: z.number().int().optional(),
+  /** Instrução temporária da beira do campo e minuto do último comando. */
+  shout: z
+    .object({
+      kind: z.enum(['incentivar', 'pressionar', 'acalmar']),
+      until: z.number().int().min(0).max(90),
+    })
+    .optional(),
+  lastShout: z.number().int().min(0).max(90).optional(),
 });
 export type Match = z.infer<typeof matchSchema>;
 export const cupIds = ['EST', 'CDB', 'SUP', 'LIB', 'SUL'] as const;

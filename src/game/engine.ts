@@ -357,6 +357,7 @@ function applyMatch(c: Career, world: World, result: Match) {
       s.yellow++;
       if (s.yellow % 3 === 0) s.suspension++;
     }
+    if (e.type === 'red') s.suspension++;
     if (e.type === 'injury') {
       s.injuryDays = 3 + (hash(`${result.seed}:${e.playerId}:${e.minute}`) % 25);
       if (s.clubId === c.clubId)

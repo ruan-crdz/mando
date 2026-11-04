@@ -7,6 +7,7 @@
 
 .match-screen .match-strip {
   align-items: center;
+  flex-wrap: wrap;
   gap: 12px;
   color: var(--mando-text-secondary);
   font-size: 12px;
@@ -130,6 +131,18 @@
   color: var(--mando-bg);
 }
 
+.match-screen .timeline-track .timeline-marker.type-red {
+  border-radius: 2px;
+  background: var(--mando-danger);
+}
+
+.match-screen .timeline-track .timeline-marker.type-var {
+  width: 25px;
+  border-radius: 3px;
+  background: var(--mando-petrol);
+  font-size: 8px;
+}
+
 .match-screen .timeline-track .timeline-marker.type-injury {
   background: var(--mando-danger);
 }
@@ -140,6 +153,24 @@
 
 .match-screen .match-controls {
   gap: 5px;
+}
+
+.sideline-choices {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.sideline-choices button {
+  display: grid;
+  justify-content: stretch;
+  gap: 5px;
+  text-align: left;
+  text-transform: none;
+}
+
+.sideline-choices small {
+  color: var(--mando-text-secondary);
 }
 
 .match-screen .match-controls button,

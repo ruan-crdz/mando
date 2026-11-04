@@ -4,6 +4,7 @@ import {
   Activity,
   ArrowLeftRight,
   Check,
+  Megaphone,
   MessageCircle,
   Pause,
   Play,
@@ -14,6 +15,8 @@ import {
 } from 'lucide-react';
 import {
   available,
+  shoutChoices,
+  shoutFromSideline,
   sideFormation,
   stepMatch,
   swapTarget,
@@ -68,6 +71,7 @@ export function MatchScreen({
   const [speed, setSpeed] = useState(2);
   const [sub, setSub] = useState(false);
   const [tactic, setTactic] = useState(false);
+  const [shout, setShout] = useState(false);
   const [outgoing, setOut] = useState('');
   const [incoming, setIn] = useState('');
   const { rumble } = useGamepad();
@@ -109,18 +113,22 @@ export function MatchScreen({
       ids,
       numbers,
       names: Object.fromEntries(ids.map((id) => [id, findPlayer(world, id)?.name || ''])),
+      dismissed: match.dismissed,
     };
   };
   const ratings = useMemo(() => matchRatings(c, world, match), [c, world, match]);
   const mvp =
     match.mvp ||
     (match.minute === 90 ? manOfTheMatch(ratings, match, fixture.homeId)?.id : undefined);
-  const goals = match.events.filter((e) => e.type === 'goal');
-  const lastGoalEvent = goals.at(-1);
-  const lastGoal = lastGoalEvent
+  const lastShotEvent = [...match.events]
+    .reverse()
+    .find((event) => event.type === 'goal' || event.type === 'save' || event.type === 'miss');
+  const lastShot = lastShotEvent
     ? {
-        side: (lastGoalEvent.clubId === fixture.homeId ? 0 : 1) as 0 | 1,
-        key: `${goals.length}-${lastGoalEvent.minute}`,
+        side: (lastShotEvent.clubId === fixture.homeId ? 0 : 1) as 0 | 1,
+        key: `${match.events.indexOf(lastShotEvent)}-${lastShotEvent.minute}`,
+        type: lastShotEvent.type as 'goal' | 'save' | 'miss',
+        playerId: lastShotEvent.playerId,
       }
     : null;
   const phase =
@@ -128,12 +136,12 @@ export function MatchScreen({
       ? 'FIM DE JOGO'
       : match.minute === 45
         ? 'INTERVALO'
-        : playing && !sub && !tactic && !paused && !momentKey
+        : playing && !sub && !tactic && !shout && !paused && !momentKey
           ? 'AO VIVO'
           : 'PAUSADO';
-  const isLive = playing && !sub && !tactic && !paused && !momentKey && match.minute < 90;
+  const isLive = playing && !sub && !tactic && !shout && !paused && !momentKey && match.minute < 90;
   const timelineEvents = match.events.filter((event) =>
-    ['goal', 'yellow', 'injury', 'sub', 'moment'].includes(event.type),
+    ['goal', 'yellow', 'red', 'var', 'injury', 'sub', 'tactic', 'moment'].includes(event.type),
   );
   useEffect(() => {
     if (match.minute !== 90) return;
@@ -161,7 +169,7 @@ export function MatchScreen({
     scoreRef.current = { home: match.homeGoals, away: match.awayGoals, minute: match.minute };
   }, [match.homeGoals, match.awayGoals, match.minute, match.events, fixture.homeId, c.clubId, rumble]);
   useEffect(() => {
-    if (!playing || sub || tactic || paused || momentKey) return;
+    if (!playing || sub || tactic || shout || paused || momentKey) return;
     const timer = setInterval(() => {
       try {
         const current = latest.current;
@@ -178,14 +186,21 @@ export function MatchScreen({
       }
     }, 1400 / speed);
     return () => clearInterval(timer);
-  }, [playing, speed, sub, tactic, paused, momentKey, world, onChange, onError]);
+  }, [playing, speed, sub, tactic, shout, paused, momentKey, world, onChange, onError]);
   return (
     <div className="screen match-screen">
       <div className="match-strip">
         <span>
           {label.name.toUpperCase()} · {label.stage.toUpperCase()}
         </span>
-        <span>{home.stadium}</span>
+        <span>
+          {home.stadium}
+          {match.conditions?.weather ? ` · ${match.conditions.weather}` : ''}
+          {match.conditions?.pitch ? ` · gramado ${match.conditions.pitch.toLowerCase()}` : ''}
+          {match.conditions?.referee
+            ? ` · ${match.conditions.referee.name} (árbitro simulado, rigor ${match.conditions.referee.strictness}/5)${match.conditions.referee.varEnabled ? ' · VAR' : ''}`
+            : ''}
+        </span>
       </div>
       <section
         className="scoreboard"
@@ -221,7 +236,7 @@ export function MatchScreen({
             playing={isLive}
             speed={speed}
             homePossession={match.home.possession || 50}
-            goal={lastGoal}
+            shot={lastShot}
           />
           <div className="match-timeline">
             <div className="timeline-track">
@@ -236,8 +251,10 @@ export function MatchScreen({
                 >
                   {e.type === 'goal'
                     ? '⚽'
-                    : e.type === 'yellow'
+                    : e.type === 'yellow' || e.type === 'red'
                       ? '▰'
+                      : e.type === 'var'
+                        ? 'VAR'
                       : e.type === 'injury'
                         ? '+'
                         : e.type === 'sub'
@@ -286,6 +303,15 @@ export function MatchScreen({
               }}
             >
               <SlidersHorizontal size={16} /> Tática
+            </button>
+            <button
+              disabled={match.minute === 90}
+              onClick={() => {
+                setPlaying(false);
+                setShout(true);
+              }}
+            >
+              <Megaphone size={16} /> Instruções
             </button>
           </div>
           {match.minute === 90 && (
@@ -408,6 +434,10 @@ export function MatchScreen({
                         ? '⚽ '
                         : e.type === 'yellow'
                           ? '🟨 '
+                          : e.type === 'red'
+                            ? '🟥 '
+                            : e.type === 'var'
+                              ? '📺 '
                           : e.type === 'injury'
                             ? '🚑 '
                             : e.type === 'moment'
@@ -454,8 +484,9 @@ export function MatchScreen({
                       career={c}
                       role={formations[c.tactic.formation][i]}
                       number={ownNumbers[id]}
-                      note={`Cansaço ${Math.round(match.energySpent[id] || 0)}`}
-                      accessibilityNote={`Cansaço ${Math.round(match.energySpent[id] || 0)}`}
+                      note={match.dismissed.includes(id) ? 'Expulso' : `Cansaço ${Math.round(match.energySpent[id] || 0)}`}
+                      accessibilityNote={match.dismissed.includes(id) ? 'Expulso' : `Cansaço ${Math.round(match.energySpent[id] || 0)}`}
+                      disabled={match.dismissed.includes(id)}
                       autoFocus={i === 0}
                       onClick={() => {
                         if (!incoming) return setOut(id);
@@ -506,7 +537,38 @@ export function MatchScreen({
           )}
         </Modal>
       )}
-      {moment && !sub && !tactic && (
+      {shout && (
+        <Modal title="Instruções da beira do campo" onClose={() => setShout(false)}>
+          <p className="muted">
+            Cada instrução dura até 10 minutos. É preciso esperar 15 minutos entre comandos.
+          </p>
+          {match.lastShout !== undefined && match.minute - match.lastShout < 15 && (
+            <p className="muted">
+              Próxima instrução em {15 - (match.minute - match.lastShout)} minutos.
+            </p>
+          )}
+          <div className="sideline-choices">
+            {shoutChoices.map((choice) => (
+              <button
+                key={choice.kind}
+                disabled={match.lastShout !== undefined && match.minute - match.lastShout < 15}
+                onClick={() => {
+                  try {
+                    onChange(shoutFromSideline(c, choice.kind));
+                    setShout(false);
+                  } catch (error) {
+                    onError(error instanceof Error ? error.message : String(error));
+                  }
+                }}
+              >
+                <strong>{choice.label}</strong>
+                <small>{choice.effect}</small>
+              </button>
+            ))}
+          </div>
+        </Modal>
+      )}
+      {moment && !sub && !tactic && !shout && (
         <MomentDialog
           key={moment.id}
           career={c}

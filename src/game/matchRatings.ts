@@ -59,8 +59,13 @@ export function matchRatings(career: Career, world: World, match: Match): Player
       const role = index >= 0 ? roles[index] || p.position : p.position;
       const finalXi = index >= 0;
       // Janela em campo: quem saiu jogou do início; quem entrou jogou até o fim.
-      const from = finalXi && minutes < match.minute ? match.minute - minutes : 0;
-      const to = finalXi ? match.minute : minutes;
+      const dismissal = match.events.find((event) => event.type === 'red' && event.playerId === id);
+      const to = dismissal?.minute ?? (finalXi ? match.minute : minutes);
+      const from = dismissal
+        ? Math.max(0, to - minutes)
+        : finalXi && minutes < match.minute
+          ? match.minute - minutes
+          : 0;
       const onPitch = (m: number) => m > from && m <= to;
       const conceded = match.events.filter(
         (e) => e.type === 'goal' && e.clubId === other.clubId && onPitch(e.minute),
@@ -74,6 +79,7 @@ export function matchRatings(career: Career, world: World, match: Match): Player
       const onTarget = mine.filter((e) => e.type === 'save').length;
       const misses = mine.filter((e) => e.type === 'miss').length;
       const yellows = mine.filter((e) => e.type === 'yellow').length;
+      const sentOff = mine.some((e) => e.type === 'red');
       const fam = familiarity(p, role, s);
       const noise = ((hash(`${match.seed}:${id}:form`) % 2001) - 1000) / 1000;
       let r = 6.4;
@@ -82,7 +88,7 @@ export function matchRatings(career: Career, world: World, match: Match): Player
       r += noise * 0.35;
       if (fam < 85) r -= ((85 - fam) / 75) * 1.3;
       r += goals * (defenders.has(role) ? 1.2 : 1) + assists * 0.65;
-      r += onTarget * 0.15 - misses * 0.08 - yellows * 0.3;
+      r += onTarget * 0.15 - misses * 0.08 - yellows * 0.3 - (sentOff ? 0.8 : 0);
       if (role === 'GK')
         r += saves * 0.3 - conceded * 0.35 + (conceded === 0 && minutes >= 60 ? 0.6 : 0);
       else if (defenders.has(role) || role === 'DM')

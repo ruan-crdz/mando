@@ -1,4 +1,4 @@
-import { clamp } from './random';
+import { clamp, hash, random } from './random';
 import { clubById, type NpcClub } from './npc';
 import { crowdFor } from './economy';
 import { type Career, type Fixture, type World } from './types';
@@ -109,7 +109,21 @@ export type Conditions = {
   awayTire: number;
   derby?: string;
   notes: string[];
+  weather?: 'Ensolarado' | 'Nublado' | 'Chuva' | 'Calor' | 'Frio';
+  pitch?: 'Bom' | 'Molhado' | 'Pesado' | 'Irregular';
+  referee?: { name: string; strictness: number; varEnabled: boolean };
 };
+
+const referees = [
+  'André Amaral',
+  'Bruno Valença',
+  'Carla Meireles',
+  'Daniel Fontes',
+  'Fernanda Barros',
+  'Luiz Nogueira',
+  'Mariana Assis',
+  'Rafael Farias',
+];
 
 /** Fatores fora das quatro linhas: viagem, clima, altitude, clássico, torcida, química e treino. */
 export function matchConditions(
@@ -122,6 +136,45 @@ export function matchConditions(
   const r: Conditions = { home: 1, away: 1, homeTire: 1, awayTire: 1, notes: [] };
   const home = place(world, fixture.homeId);
   const away = place(world, fixture.awayId);
+  const rng = random(hash(`${career.seed}:${fixture.id}:ambiente`));
+  const roll = rng();
+  const month = Number(fixture.date.slice(5, 7));
+  r.weather =
+    roll < 0.24
+      ? 'Chuva'
+      : roll < 0.42 && hotStates.has(home)
+        ? 'Calor'
+        : roll < 0.42 && coldStates.has(home) && month >= 5 && month <= 8
+          ? 'Frio'
+          : roll < 0.72
+            ? 'Nublado'
+            : 'Ensolarado';
+  r.pitch =
+    r.weather === 'Chuva'
+      ? rng() < 0.35
+        ? 'Pesado'
+        : 'Molhado'
+      : rng() < 0.08
+        ? 'Irregular'
+        : 'Bom';
+  r.referee = {
+    name: referees[Math.floor(rng() * referees.length)],
+    strictness: 1 + Math.floor(rng() * 5),
+    varEnabled: true,
+  };
+  if (r.pitch === 'Pesado') {
+    r.homeTire += 0.08;
+    r.awayTire += 0.08;
+    r.notes.push('Gramado pesado: mais desgaste e menor qualidade nas finalizações');
+  } else if (r.pitch === 'Irregular')
+    r.notes.push('Gramado irregular reduz a qualidade das finalizações');
+  else if (r.pitch === 'Molhado')
+    r.notes.push('Gramado molhado deixa as finalizações um pouco mais difíceis');
+  if (r.weather === 'Calor') {
+    r.homeTire += 0.04;
+    r.awayTire += 0.04;
+    r.notes.push('Calor aumenta o desgaste dos dois times');
+  }
   const km = distanceKm(world, fixture.homeId, fixture.awayId);
   if (km > 900) {
     r.awayTire += Math.min(0.12, km / 30000);

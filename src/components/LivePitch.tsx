@@ -10,6 +10,14 @@ export type PitchTeam = {
   ids: string[];
   numbers: Record<string, number>;
   names: Record<string, string>;
+  dismissed?: string[];
+};
+
+export type PitchShot = {
+  side: Side;
+  key: string;
+  type: 'goal' | 'save' | 'miss';
+  playerId?: string;
 };
 
 type Ball = {
@@ -45,15 +53,15 @@ export function LivePitch({
   playing,
   speed,
   homePossession,
-  goal,
+  shot,
 }: {
   home: PitchTeam;
   away: PitchTeam;
   playing: boolean;
   speed: number;
   homePossession: number;
-  /** Lado que acabou de marcar, para levar a bola até a rede. */
-  goal: { side: Side; key: string } | null;
+  /** Finalização oficial da engine, animada com o desfecho correspondente. */
+  shot: PitchShot | null;
 }) {
   const bases = useMemo(
     () => [
@@ -63,10 +71,13 @@ export function LivePitch({
     [home.formation, away.formation],
   );
   const counts = [home.ids.length, away.ids.length];
+  const active = [home, away].map((team) =>
+    team.ids.flatMap((id, index) => (team.dismissed?.includes(id) ? [] : [index])),
+  );
   const dots = useRef<(HTMLSpanElement | null)[][]>([[], []]);
   const ballEl = useRef<HTMLSpanElement>(null);
-  const live = useRef({ playing, speed, possession: homePossession, counts, bases });
-  live.current = { playing, speed, possession: homePossession, counts, bases };
+  const live = useRef({ playing, speed, possession: homePossession, counts, bases, active });
+  live.current = { playing, speed, possession: homePossession, counts, bases, active };
   const sim = useRef<{ pos: Pt[][]; ball: Ball; time: number; holder: string } | null>(null);
   if (!sim.current)
     sim.current = {
@@ -86,7 +97,7 @@ export function LivePitch({
       time: 0,
       holder: '',
     };
-  const lastGoal = useRef<string | null>(goal?.key ?? null);
+  const lastShot = useRef<string | null>(shot?.key ?? null);
 
   useEffect(() => {
     const s = sim.current!;
@@ -94,19 +105,29 @@ export function LivePitch({
   }, [bases]);
 
   useEffect(() => {
-    if (!goal || goal.key === lastGoal.current) return;
-    lastGoal.current = goal.key;
-    const b = sim.current!.ball;
-    const net = { x: goal.side === 0 ? 100.5 : -0.5, y: 47 + Math.random() * 6 };
+    if (!shot || shot.key === lastShot.current) return;
+    lastShot.current = shot.key;
+    const simulation = sim.current!;
+    const b = simulation.ball;
+    const team = shot.side === 0 ? home : away;
+    const index = team.ids.indexOf(shot.playerId ?? '');
+    const from = simulation.pos[shot.side][index] ?? b.pos;
+    const other: Side = shot.side === 0 ? 1 : 0;
+    const destination = {
+      x: shot.side === 0 ? (shot.type === 'goal' ? 100.5 : 98) : shot.type === 'goal' ? -0.5 : 2,
+      y: shot.type === 'miss' ? 33 : 47 + Math.random() * 6,
+    };
     Object.assign(b, {
       phase: 'shot',
-      from: { ...b.pos },
-      to: net,
+      side: shot.side,
+      index: Math.max(0, index),
+      from: { ...from },
+      to: destination,
       t: 0,
       dur: 0.45,
-      then: undefined,
+      then: shot.type === 'goal' ? undefined : { side: other, index: 0 },
     });
-  }, [goal]);
+  }, [shot, home, away]);
 
   useEffect(() => {
     let frame = 0;
@@ -137,26 +158,12 @@ export function LivePitch({
 
     const decide = (s: NonNullable<typeof sim.current>) => {
       const b = s.ball;
-      const { possession, counts } = live.current;
+      const { possession, active } = live.current;
       const side = b.side;
       const other: Side = side === 0 ? 1 : 0;
       const holder = s.pos[side][b.index];
       const share = side === 0 ? possession : 100 - possession;
-      const deep = forward(side, holder) > 76;
-      if (deep && Math.random() < 0.45) {
-        // Finalização: a bola vai ao gol e fica com o goleiro.
-        const mouth = { x: side === 0 ? 98.5 : 1.5, y: 44 + Math.random() * 12 };
-        Object.assign(b, {
-          phase: 'shot',
-          from: { ...b.pos },
-          to: mouth,
-          t: 0,
-          dur: dist(b.pos, mouth) / 95 + 0.12,
-          then: { side: other, index: 0 },
-        });
-        return;
-      }
-      const mates = Array.from({ length: counts[side] }, (_, i) => i)
+      const mates = active[side]
         .filter((i) => i !== b.index && i > 0)
         .map((i) => ({ i, p: s.pos[side][i] }))
         .filter(({ p }) => dist(p, holder) < 42 && dist(p, holder) > 6)
@@ -173,7 +180,7 @@ export function LivePitch({
       if (lose) {
         // Interceptação: o adversário mais próximo da linha do passe fica com a bola.
         const mid = { x: (holder.x + lead.x) / 2, y: (holder.y + lead.y) / 2 };
-        const thief = Array.from({ length: counts[other] }, (_, i) => i)
+        const thief = active[other]
           .filter((i) => i > 0)
           .sort((i, j) => dist(s.pos[other][i], mid) - dist(s.pos[other][j], mid))[0];
         if (thief !== undefined) {
@@ -195,17 +202,20 @@ export function LivePitch({
     const step = (s: NonNullable<typeof sim.current>, dt: number) => {
       s.time += dt;
       const b = s.ball;
-      const { counts } = live.current;
+      const { counts, active } = live.current;
+      if (b.phase === 'held' && !active[b.side].includes(b.index))
+        b.index = active[b.side].find((index) => index > 0) ?? active[b.side][0] ?? 0;
       // Movimento com inércia e velocidade máxima.
       for (const side of [0, 1] as Side[]) {
         for (let i = 0; i < counts[side]; i++) {
+          if (!active[side].includes(i)) continue;
           const p = s.pos[side][i];
           if (!p) continue;
           let goal = target(side, i, s);
           const defending = b.side !== side && b.phase !== 'reset';
           if (defending && i > 0) {
             // O marcador mais próximo pressiona o portador.
-            const nearest = Array.from({ length: counts[side] }, (_, j) => j)
+            const nearest = active[side]
               .filter((j) => j > 0)
               .sort((j, k) => dist(s.pos[side][j], b.pos) - dist(s.pos[side][k], b.pos))[0];
             if (nearest === i)
@@ -257,7 +267,7 @@ export function LivePitch({
               to: { ...b.pos },
             });
           } else {
-            const kicker = Math.min(10, counts[b.side] - 1);
+            const kicker = active[b.side].at(-1) ?? 0;
             Object.assign(b, {
               phase: 'held',
               index: kicker,
@@ -297,7 +307,8 @@ export function LivePitch({
       const s = sim.current!;
       const dt = Math.min(0.05, (now - last) / 1000);
       last = now;
-      if (live.current.playing) step(s, dt * Math.max(0.5, Math.min(3, live.current.speed)));
+      if (live.current.playing || s.ball.phase === 'shot')
+        step(s, dt * Math.max(0.5, Math.min(3, live.current.speed)));
       render(s);
       frame = requestAnimationFrame(loop);
     };
@@ -322,6 +333,7 @@ export function LivePitch({
       <div className="field-goal right" />
       {teams.flatMap((team, side) =>
         team.ids.map((id, i) => {
+          if (team.dismissed?.includes(id)) return null;
           const p = sim.current!.pos[side]?.[i] || bases[side][i] || { x: 50, y: 50 };
           return (
             <span

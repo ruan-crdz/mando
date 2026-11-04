@@ -2,9 +2,9 @@
 
 ## Resumo
 
-Tela de jogo ao vivo do modo carreira (`MatchScreen` em `src\screens\Match.tsx`). Substitui todo o conteúdo do `<main>` enquanto `career.activeMatch` existir. Mostra placar estilo transmissão de TV, um **campinho 2D animado** (`LivePitch`) ilustrativo, linha do tempo de 0' a 90', controles de reprodução (Jogar/Pausar, velocidade 1×/2×/4×, Substituir, Tática), painel de números (posse, finalizações, xG, passes), notas ao vivo dos atletas e a narração em texto. Ao fim, troca a narração pelas **notas da partida** com o **Craque do jogo**, mostra a **análise pós-jogo** (`MatchAnalysis`: gráfico de xG acumulado e "por que vencemos/perdemos/empatamos") e o botão **Confirmar resultado e voltar à central**.
+Tela de jogo ao vivo do modo carreira (`MatchScreen` em `src\screens\Match.tsx`). Substitui todo o conteúdo do `<main>` enquanto `career.activeMatch` existir. Mostra placar estilo transmissão de TV, um **campinho 2D animado** (`LivePitch`), linha do tempo de 0' a 90', controles de reprodução (Jogar/Pausar, velocidade 1×/2×/4×, Substituir, Tática, Instruções), painel de números (posse, finalizações, xG, passes), notas ao vivo dos atletas e a narração em texto. Ao fim, troca a narração pelas **notas da partida** com o **Craque do jogo**, mostra a **análise pós-jogo** (`MatchAnalysis`: gráfico de xG acumulado e "por que vencemos/perdemos/empatamos") e o botão **Confirmar resultado e voltar à central**.
 
-A engine (`stepMatch`) avança **1 minuto por tick**; o campinho é só ilustração. Durante o jogo surgem **momentos de decisão** (modal com fala do jogador e opções). Há **som de estádio sintetizado** (torcida, "uuuh", gol com narrador TTS, apito) e **vibração** do controle em gol, gol sofrido, apito e momento.
+A engine (`stepMatch`) avança **1 minuto por tick**; passes e deslocamentos do campinho são ilustrativos, mas as finalizações animadas correspondem a eventos oficiais da engine. Durante o jogo surgem **momentos de decisão** (modal com fala do jogador e opções). Há **som de estádio sintetizado** (torcida, "uuuh", gol com narrador TTS, apito) e **vibração** do controle em gol, gol sofrido, apito e momento.
 
 ## Como se chega / como se sai
 
@@ -83,7 +83,7 @@ Fim de jogo (minuto 90): a 3ª coluna vira **Notas da partida**, a 2ª ganha **M
 
 ### 1. Faixa da competição (`.match-strip`)
 - Esquerda: `{NOME DA COMPETIÇÃO} · {FASE}` em caixa alta (de `fixtureLabel`): ex. `BRASILEIRÃO SÉRIE A · RODADA 12`, `COPA DO BRASIL · OITAVAS DE FINAL · 1º JOGO`, `COPA LIBERTADORES · GRUPO B`, `BRASILEIRÃO SÉRIE B · PLAYOFF DE ACESSO`.
-- Direita: `home.stadium` (estádio do **mandante**, mesmo em final de campo neutro).
+- Direita: `home.stadium`, clima, gramado e árbitro simulado (nome, rigor e VAR).
 - Fonte display 700 14px, espaçamento 1.5px, cor `--ink-2`.
 
 ### 2. Placar (`section.scoreboard`)
@@ -100,7 +100,7 @@ Fim de jogo (minuto 90): a 3ª coluna vira **Notas da partida**, a 2ª ganha **M
 - **Jogadores** (`span.field-dot`, 26px círculo): cor de fundo = `club.color` de cada clube (variável `--dot`), texto branco = número da camisa (`shirtNumbers`; fallback índice+1), borda branca (mandante) ou azul-marinho `#0b1a4a` (visitante), goleiro com borda dupla. `title` = nome do atleta. Posições base vêm de `horizontalCoordinates(formação)`; formação de cada lado = `sideFormation` (o usuário usa `c.tactic.formation`). No 3-5-2, os laterais ocupam as alas do meio-campo, à frente dos três zagueiros.
 - **Portador da bola** ganha `.with-ball` (escala 1.22 + anel lima).
 - **Bola** (`span.ball-dot`, 11px, branca com brilho).
-- **Simulação visual** (não afeta o resultado): atletas correm com inércia (velocidade máx. 16%/s), o mais próximo pressiona o portador; portador conduz 0,45–1,35 s e passa para o companheiro mais avançado a < 42 unidades; chance de interceptação `12% + (50−posse)/380`; no terço final (>76%) chuta com 45% de chance e a bola vai para o goleiro adversário. A posse visual segue `match.home.possession`.
+- **Simulação visual** (não afeta o resultado): atletas correm com inércia (velocidade máx. 16%/s), o mais próximo pressiona o portador; portador conduz e troca passes ilustrativos. Gol, defesa e chute para fora são animados a partir dos eventos oficiais, sem chutes visuais aleatórios. Atletas expulsos deixam o campo visual.
 - **Gol**: quando chega um novo evento `goal`, a bola voa para a rede do lado que marcou em 0,45 s, espera 1,1 s e reinicia no meio com quem sofreu.
 - Animação só avança quando `playing && !sub && !tactic && !paused && !momentKey && minuto < 90`; caso contrário o quadro congela (continua renderizando). Velocidade do campinho acompanha `speed` (limitada a 0,5–3×).
 
@@ -437,3 +437,11 @@ Quando a engine abre um `MatchMoment` com `status: 'open'` (apenas para o clube 
 - A linha do tempo identifica gols, cartões amarelos, lesões, substituições e momentos. xG é apresentado com formatação pt-BR.
 - Os cards de titulares e reservas mostram cansaço/fôlego no fluxo de substituição, e o texto de retorno B descreve que a janela fecha.
 - O campinho 2D permanece explicitamente ilustrativo. Engine, resultados, velocidade de tick, limites de substituição, áudio e vibrações existentes não foram alterados.
+
+## Fase 4: contexto e decisões na partida
+
+- **Ambiente:** clima, gramado e árbitro fictício são gerados de forma determinística por partida. Gramado molhado, irregular ou pesado reduz o xG das finalizações em 2%, 4% ou 10%; o risco de lesão sobe 6%, 10% ou 18%, respectivamente. Gramado pesado aumenta o desgaste em 8%, e calor acrescenta 4%.
+- **Arbitragem e VAR simulados:** o rigor do árbitro altera a chance de cartão; segundo amarelo ou falta grave expulsam o atleta e geram suspensão. Expulsos não participam dos minutos seguintes nem podem ser substituídos; cada expulsão reduz em 10% a força do lado, até o limite de 30%. O VAR pode revisar gols e anular por impedimento apenas os de jogada aberta; um gol anulado não entra no placar, nas finalizações ou no xG.
+- **Bola parada:** parte das finalizações vem de pênaltis, faltas curtas ou longas e escanteios dos dois lados. Os cobradores escolhidos em Time → Funções são usados quando estão em campo; caso contrário, a engine escolhe um atleta disponível.
+- **Instruções:** Incentivar, Pressionar e Acalmar têm efeitos mostrados antes da escolha, duram até dez minutos e exigem intervalo de quinze minutos entre comandos. A partida fica pausada enquanto o modal está aberto.
+- O campo 2D anima gols, defesas e erros da engine, mas passes, corridas e interceptações continuam ilustrativos. Não é uma reprodução integral do lance real.
