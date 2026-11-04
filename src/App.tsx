@@ -112,6 +112,7 @@ const stopNotes: Record<string, string> = {
   decision: 'Uma decisão espera por você no escritório.',
   message: 'Nova mensagem no escritório.',
   season: 'Temporada encerrada.',
+  sacked: 'Você foi demitido. Escolha um novo clube na Diretoria.',
 };
 
 function Game() {
@@ -353,6 +354,7 @@ function Game() {
   const advance = useCallback(() => {
     if (!career || !live) return;
     const mode = career.prefs?.advance || 'day';
+    if (career.sacked) return setTab(3);
     if (mode === 'day') return act(() => setCareer(advanceDay(career, live)));
     setPlayed(0);
     setRunning(true);
@@ -375,7 +377,12 @@ function Game() {
           setNotice(stopNotes[result.stop]);
           rumble('whistle');
           if (result.stop === 'match') setPopup('prematch');
-          else if (result.stop === 'decision' || result.stop === 'message') setTab(3);
+          else if (
+            result.stop === 'decision' ||
+            result.stop === 'message' ||
+            result.stop === 'sacked'
+          )
+            setTab(3);
         }
       } catch (e) {
         setRunning(false);
@@ -602,9 +609,7 @@ function Game() {
                       setNotice('Conversa registrada na memória do jogador.');
                     })
                   }
-                  onDevelopment={(id, plan) =>
-                    setCareer(setDevelopmentPlan(career, id, plan))
-                  }
+                  onDevelopment={(id, plan) => setCareer(setDevelopmentPlan(career, id, plan))}
                   onRole={(id, role) => setCareer(setPlayerRole(career, id, role))}
                   onSetClause={(id, amount) =>
                     act(() => {
@@ -1192,20 +1197,30 @@ function PressConference({
   const q = session.questions[step];
   useEffect(() => {
     playVoice([
-      { id: `press-${session.fixtureId}-${q.id}`, title: q.reporter, text: q.text, voice: 'reporter' },
+      {
+        id: `press-${session.fixtureId}-${q.id}`,
+        title: q.reporter,
+        text: q.text,
+        voice: 'reporter',
+      },
     ]);
   }, [session.fixtureId, q]);
   return (
     <Modal title="Sala de imprensa" onClose={onSkip} wide>
       <div className="press-room">
         <p className="eyebrow">{session.headline}</p>
-        <div className="press-progress" aria-label={`Pergunta ${step + 1} de ${session.questions.length}`}>
+        <div
+          className="press-progress"
+          aria-label={`Pergunta ${step + 1} de ${session.questions.length}`}
+        >
           {session.questions.map((item, i) => (
             <i key={item.id} className={i < step ? 'done' : i === step ? 'active' : ''} />
           ))}
         </div>
         <div className="press-question">
-          <span className="press-mic" aria-hidden="true">🎙</span>
+          <span className="press-mic" aria-hidden="true">
+            🎙
+          </span>
           <div>
             <strong>{q.reporter}</strong>
             <small>{q.outlet}</small>
@@ -1225,7 +1240,9 @@ function PressConference({
             </button>
           ))}
         </div>
-        <p className="muted small">Suas respostas mexem com a confiança da diretoria e o moral do elenco.</p>
+        <p className="muted small">
+          Suas respostas mexem com a confiança da diretoria e o moral do elenco.
+        </p>
       </div>
     </Modal>
   );

@@ -197,9 +197,19 @@ export const playerStateSchema = z.object({
     .default('Profissional'),
   sharpness: percent.default(50),
   potentialDelta: z.number().min(-8).max(8).default(0),
-  development: z.enum(['Equilibrado', 'Ataque', 'Criação', 'Defesa', 'Físico']).default('Equilibrado'),
+  development: z
+    .enum(['Equilibrado', 'Ataque', 'Criação', 'Defesa', 'Físico'])
+    .default('Equilibrado'),
   role: z
-    .enum(['Padrão', 'Finalizador', 'Armador', 'Pivô', 'Volante', 'Zagueiro construtor', 'Lateral ofensivo'])
+    .enum([
+      'Padrão',
+      'Finalizador',
+      'Armador',
+      'Pivô',
+      'Volante',
+      'Zagueiro construtor',
+      'Lateral ofensivo',
+    ])
     .default('Padrão'),
   clause: z.number().nonnegative().optional(),
   /** Preço pedido quando o treinador colocou o atleta à venda. */
@@ -392,9 +402,26 @@ export const offerSchema = z.object({
   messages: z.array(negotiationMessageSchema).optional(),
 });
 export type Offer = z.infer<typeof offerSchema>;
-export const coachStyles = ['Ofensivo', 'Retranqueiro', 'Pressão', 'Posse', 'Contra-ataque'] as const;
-export const clubPhilosophies = ['Revela e vende', 'Veteranos', 'Sul-americanos', 'Equilibrado'] as const;
-export const trainingFocus = ['Equilibrado', 'Físico', 'Tático', 'Finalização', 'Recuperação'] as const;
+export const coachStyles = [
+  'Ofensivo',
+  'Retranqueiro',
+  'Pressão',
+  'Posse',
+  'Contra-ataque',
+] as const;
+export const clubPhilosophies = [
+  'Revela e vende',
+  'Veteranos',
+  'Sul-americanos',
+  'Equilibrado',
+] as const;
+export const trainingFocus = [
+  'Equilibrado',
+  'Físico',
+  'Tático',
+  'Finalização',
+  'Recuperação',
+] as const;
 const axis = percent.default(60);
 export const livingSchema = z.object({
   /** Técnicos dos clubes da IA. */
@@ -454,7 +481,16 @@ export const livingSchema = z.object({
     .array(
       z.object({
         date: isoDate,
-        kind: z.enum(['titulo', 'venda', 'contratacao', 'derrota', 'vitoria', 'marco', 'base', 'cargo']),
+        kind: z.enum([
+          'titulo',
+          'venda',
+          'contratacao',
+          'derrota',
+          'vitoria',
+          'marco',
+          'base',
+          'cargo',
+        ]),
         text: z.string(),
       }),
     )
@@ -483,6 +519,20 @@ export const livingSchema = z.object({
   transferBan: isoDate.optional(),
   wagesLate: z.boolean().default(false),
   nationalInvite: z.boolean().default(false),
+  /** Início do trabalho no clube atual (período de carência contra demissão). */
+  hiredAt: isoDate.optional(),
+  /** Ultimato da diretoria: somar `target` pontos em `games` jogos ou ser demitido. */
+  ultimatum: z
+    .object({
+      issued: isoDate,
+      games: z.number().int().positive(),
+      target: z.number().int().nonnegative(),
+      played: z.number().int().nonnegative().default(0),
+      points: z.number().int().nonnegative().default(0),
+    })
+    .optional(),
+  /** Última vez que a diretoria deu ultimato (evita ultimatos em sequência). */
+  lastUltimatum: isoDate.optional(),
 });
 export type Living = z.infer<typeof livingSchema>;
 export const careerSchema = z.object({
@@ -556,7 +606,14 @@ export const careerSchema = z.object({
       z.object({
         season: z.number().int(),
         month: z.number().int().min(0).max(12),
-        category: z.enum(['Jogador do mês', 'Time do mês', 'Melhor jogador', 'Artilheiro', 'Revelação', 'Goleiro']),
+        category: z.enum([
+          'Jogador do mês',
+          'Time do mês',
+          'Melhor jogador',
+          'Artilheiro',
+          'Revelação',
+          'Goleiro',
+        ]),
         playerId: z.string().optional(),
         clubId: z.string().optional(),
       }),

@@ -60,6 +60,93 @@ function message(
   });
 }
 
+/** Dias sem risco de ultimato depois de assumir um clube. */
+const GRACE_DAYS = 45;
+const daysBetween = (from: string, to: string) => (Date.parse(to) - Date.parse(from)) / 864e5;
+
+/** Termômetro da diretoria depois de cada jogo do usuário: carência → ultimato → demissão. */
+function boardVerdict(c: Career, world: World, points: number) {
+  const L = c.living;
+  const club = clubById(world, c.clubId);
+  const u = L.ultimatum;
+  if (u) {
+    u.played += 1;
+    u.points += points;
+    const left = u.games - u.played;
+    if (u.points >= u.target) {
+      delete L.ultimatum;
+      c.confidence = Math.max(c.confidence, 40);
+      remember(c, 'marco', `Ultimato superado no ${club.name} (${u.points} pontos)`);
+      message(c, {
+        kind: 'board',
+        from: 'Presidência',
+        title: 'Ultimato cumprido',
+        body: `Você somou ${u.points} pontos e cumpriu a meta. O cargo está mantido, mas a diretoria segue atenta.`,
+      });
+    } else if (left <= 0 || u.points + left * 3 < u.target)
+      sackManager(
+        c,
+        world,
+        `não cumpriu o ultimato (${u.points} de ${u.target} pontos em ${u.played} jogos)`,
+      );
+    return;
+  }
+  if (c.confidence >= 30) return;
+  if (L.hiredAt && daysBetween(L.hiredAt, c.date) < GRACE_DAYS) {
+    // Período de lua de mel: a diretoria reclama, mas não demite quem acabou de chegar.
+    c.confidence = Math.max(c.confidence, 22);
+    return;
+  }
+  if (L.lastUltimatum && daysBetween(L.lastUltimatum, c.date) < 75) {
+    if (c.confidence < 18)
+      sackManager(c, world, 'nova queda logo depois de escapar de um ultimato');
+    return;
+  }
+  const target = c.challenge === 'Pressão máxima' ? 9 : c.difficulty === 'Iniciante' ? 5 : 7;
+  L.ultimatum = { issued: c.date, games: 5, target, played: 0, points: 0 };
+  L.lastUltimatum = c.date;
+  remember(c, 'marco', `Diretoria do ${club.name} deu ultimato: ${target} pontos em 5 jogos`);
+  message(c, {
+    kind: 'board',
+    from: 'Presidência',
+    title: 'Ultimato da diretoria',
+    body: `A paciência acabou. Você precisa somar ${target} pontos nos próximos 5 jogos ou será demitido. O progresso aparece em Escritório → Diretoria.`,
+    important: true,
+  });
+}
+
+/** Encerra o vínculo e gera propostas coerentes com o momento do técnico. */
+function sackManager(c: Career, world: World, reason: string) {
+  const live = careerWorld(world, c);
+  const current = live.clubs.find((club) => club.id === c.clubId)!;
+  c.sacked = true;
+  delete c.living.ultimatum;
+  remember(c, 'cargo', `Demitido do ${current.name}: ${reason}`);
+  // Quem cai costuma recomeçar um degrau abaixo: clubes um pouco menores, inclusive na Série B.
+  const target = current.reputation - 6;
+  c.jobOffers = live.clubs
+    .filter((club) => club.id !== c.clubId && club.reputation < current.reputation + 2)
+    .map((club) => ({
+      club,
+      score: Math.abs(club.reputation - target) + (hash(`${c.id}:${c.date}:${club.id}`) % 7),
+    }))
+    .sort((a, b) => a.score - b.score)
+    .slice(0, 3)
+    .sort((a, b) => b.club.reputation - a.club.reputation)
+    .map(({ club }) => ({
+      id: `job-${hash(`${c.id}:${c.date}:${club.id}`)}`,
+      clubId: club.id,
+      expires: addDays(c.date, 30),
+      salary: Math.round(club.reputation * 10000),
+    }));
+  message(c, {
+    kind: 'board',
+    from: 'Presidência',
+    title: `Você foi demitido do ${current.name}`,
+    body: `A diretoria encerrou seu vínculo: ${reason}. ${c.jobOffers.length} clubes já procuraram seu agente; escolha o novo desafio em Escritório → Diretoria.`,
+  });
+}
+
 export function createCareer(
   world: World,
   manager: Manager,
@@ -103,14 +190,9 @@ export function createCareer(
           rated: 0,
           monthlyRatingTotal: 0,
           monthlyRated: 0,
-          personality: ([
-            'Profissional',
-            'Ambicioso',
-            'Temperamental',
-            'Leal',
-            'Disciplinado',
-            'Líder',
-          ] as const)[hash(`${seed}:${p.id}:personality`) % 6],
+          personality: (
+            ['Profissional', 'Ambicioso', 'Temperamental', 'Leal', 'Disciplinado', 'Líder'] as const
+          )[hash(`${seed}:${p.id}:personality`) % 6],
           sharpness: 50,
           potentialDelta: 0,
           development: 'Equilibrado',
@@ -164,7 +246,7 @@ export function createCareer(
     sacked: false,
     prefs: { advance: 'day' },
     history: [],
-    living: livingSchema.parse({}),
+    living: livingSchema.parse({ hiredAt: world.date }),
   };
   createCups(c, world, 2026, initialQualification(world));
   if (challenge === 'Do zero') c.finances[clubId].transferBudget = 0;
@@ -297,41 +379,7 @@ function applyMatch(c: Career, world: World, result: Match) {
             : 'Equilíbrio em campo. A comissão já analisa os próximos ajustes.'
       }`,
     });
-    if (c.confidence < 15 && !c.sacked) {
-      c.sacked = true;
-      remember(c, 'cargo', `Demitido do ${clubById(world, c.clubId).name}`);
-      const fallbackJobs = world.clubs
-        .filter((candidate) => candidate.id !== c.clubId)
-        .sort((a, b) => b.reputation - a.reputation)
-        .slice(0, 3);
-      const lowerJobs = fallbackJobs.filter(
-        (candidate) => candidate.reputation < clubById(world, c.clubId).reputation,
-      );
-      c.jobOffers = (lowerJobs.length ? lowerJobs : fallbackJobs)
-        .map((candidate, i) => ({
-          id: `job-${hash(`${c.id}:${c.date}:${candidate.id}`)}`,
-          clubId: candidate.id,
-          expires: addDays(c.date, 14),
-          salary: Math.round(candidate.reputation * 12000 * (1 + i * 0.08)),
-        }));
-      message(c, {
-        kind: 'board',
-        from: 'Presidência',
-        title: 'Você foi demitido',
-        body: c.jobOffers.length
-          ? 'A diretoria encerrou seu vínculo. Outros clubes demonstraram interesse; avalie as propostas no painel da diretoria.'
-          : 'A diretoria encerrou seu vínculo. Não há propostas disponíveis no momento.',
-        important: true,
-      });
-    } else if (c.confidence < 30 && c.confidence >= 15) {
-      message(c, {
-        kind: 'board',
-        from: 'Presidência',
-        title: 'Alerta: confiança em queda',
-        body: 'A sequência de resultados colocou seu cargo em risco. Uma reação imediata é necessária.',
-        important: true,
-      });
-    }
+    boardVerdict(c, world, goals > 0 ? 3 : goals === 0 ? 1 : 0);
   } else {
     // Partidas simuladas em segundo plano guardam apenas o essencial para manter o save leve.
     result.events = result.events.filter((e) => e.type === 'goal');
@@ -365,8 +413,7 @@ function monthlyReviews(c: Career, world: World) {
       playerId: star.id,
       clubId: c.players[star.id].clubId || undefined,
     });
-    const average =
-      c.players[star.id].monthlyRatingTotal / c.players[star.id].monthlyRated;
+    const average = c.players[star.id].monthlyRatingTotal / c.players[star.id].monthlyRated;
     message(c, {
       kind: 'news',
       from: 'Mando Esportes',
@@ -403,11 +450,17 @@ function monthlyReviews(c: Career, world: World) {
     else if (s.minutes < 90) s.potentialDelta = clamp(s.potentialDelta - 0.1, -8, 8);
   }
   if (c.confidence >= 88 && !c.sacked && c.jobOffers.length === 0) {
-    const ownRank = standings(c, world, world.clubs.find((club) => club.id === c.clubId)!.league)
-      .findIndex((row) => row.clubId === c.clubId) + 1;
+    const ownRank =
+      standings(c, world, world.clubs.find((club) => club.id === c.clubId)!.league).findIndex(
+        (row) => row.clubId === c.clubId,
+      ) + 1;
     if (ownRank > 0 && ownRank <= 3) {
       const offers = world.clubs
-        .filter((club) => club.id !== c.clubId && club.reputation > world.clubs.find((x) => x.id === c.clubId)!.reputation)
+        .filter(
+          (club) =>
+            club.id !== c.clubId &&
+            club.reputation > world.clubs.find((x) => x.id === c.clubId)!.reputation,
+        )
         .sort((a, b) => a.reputation - b.reputation)
         .slice(0, 2);
       c.jobOffers = offers.map((club) => ({
@@ -575,7 +628,8 @@ function trainPosition(c: Career, player: Player, s: PlayerState) {
 
 export function hireScout(career: Career, world: World, region: string): Career {
   const c = structuredClone(career);
-  if (c.scouts.length >= 3) throw new Error('A rede de olheiros já tem o limite de três profissionais.');
+  if (c.scouts.length >= 3)
+    throw new Error('A rede de olheiros já tem o limite de três profissionais.');
   const cost = 500000 + c.scouts.length * 250000;
   const finance = c.finances[c.clubId];
   if (finance.cash < cost) throw new Error('Caixa insuficiente para contratar um olheiro.');
@@ -620,7 +674,8 @@ export function playerConversation(
 ): Career {
   const c = structuredClone(career);
   const player = c.players[playerId];
-  if (!player || player.clubId !== c.clubId) throw new Error('O jogador não pertence ao seu elenco.');
+  if (!player || player.clubId !== c.clubId)
+    throw new Error('O jogador não pertence ao seu elenco.');
   const effect =
     choice === 'praise'
       ? player.personality === 'Temperamental'
@@ -654,19 +709,17 @@ export function setDevelopmentPlan(
 ): Career {
   const c = structuredClone(career);
   const player = c.players[playerId];
-  if (!player || player.clubId !== c.clubId) throw new Error('O jogador não pertence ao seu elenco.');
+  if (!player || player.clubId !== c.clubId)
+    throw new Error('O jogador não pertence ao seu elenco.');
   player.development = plan;
   return c;
 }
 
-export function setPlayerRole(
-  career: Career,
-  playerId: string,
-  role: PlayerState['role'],
-): Career {
+export function setPlayerRole(career: Career, playerId: string, role: PlayerState['role']): Career {
   const c = structuredClone(career);
   const player = c.players[playerId];
-  if (!player || player.clubId !== c.clubId) throw new Error('O jogador não pertence ao seu elenco.');
+  if (!player || player.clubId !== c.clubId)
+    throw new Error('O jogador não pertence ao seu elenco.');
   player.role = role;
   return c;
 }
@@ -674,7 +727,8 @@ export function setPlayerRole(
 export function setReleaseClause(career: Career, playerId: string, amount: number): Career {
   const c = structuredClone(career);
   const player = c.players[playerId];
-  if (!player || player.clubId !== c.clubId) throw new Error('O jogador não pertence ao seu elenco.');
+  if (!player || player.clubId !== c.clubId)
+    throw new Error('O jogador não pertence ao seu elenco.');
   if (!Number.isFinite(amount) || amount < 0) throw new Error('Informe uma multa válida.');
   player.clause = Math.round(amount);
   return c;
@@ -699,9 +753,14 @@ export function acceptJobOffer(career: Career, world: World, offerId: string): C
     relations: [],
     wagesLate: false,
     owner: 'Associação',
+    hiredAt: c.date,
   });
   delete c.living.election;
   delete c.living.transferBan;
+  delete c.living.ultimatum;
+  delete c.living.lastUltimatum;
+  for (const m of c.messages)
+    if (m.kind === 'board' && m.important && !m.resolved) m.resolved = m.read = true;
   remember(
     c,
     'cargo',
@@ -727,7 +786,9 @@ export function advanceDay(career: Career, world: World): Career {
     );
   if (c.activeMatch) throw new Error('Conclua a partida em andamento.');
   if (c.sacked)
-    throw new Error('Você foi demitido. Aceite uma proposta na Diretoria para continuar a carreira.');
+    throw new Error(
+      'Você foi demitido. Aceite uma proposta na Diretoria para continuar a carreira.',
+    );
   if (c.messages.some((m) => m.important && !m.resolved))
     throw new Error('Há uma decisão importante pendente no escritório.');
   const fixture = nextFixture(c);
@@ -780,11 +841,7 @@ export function advanceDay(career: Career, world: World): Career {
         s.growth = Math.min(
           20,
           s.growth +
-            0.025 *
-              (0.5 + s.minutes / 1800) *
-              (s.morale / 100) *
-              personalityBoost *
-              planBoost,
+            0.025 * (0.5 + s.minutes / 1800) * (s.morale / 100) * personalityBoost * planBoost,
         );
     }
     if (s.promiseUntil && s.promiseUntil < c.date) {
@@ -864,9 +921,10 @@ export function advanceDay(career: Career, world: World): Career {
           kind: 'news',
           from: 'Clube',
           title: `Dia especial para ${player.name}`,
-          body: change > 0
-            ? 'Uma ação comunitária aproximou o atleta da torcida e elevou seu ânimo.'
-            : 'Uma polêmica fora de campo virou assunto no elenco; uma conversa pode ajudar.',
+          body:
+            change > 0
+              ? 'Uma ação comunitária aproximou o atleta da torcida e elevou seu ânimo.'
+              : 'Uma polêmica fora de campo virou assunto no elenco; uma conversa pode ajudar.',
           playerId: player.id,
         });
       } else if (s.morale > 75) {
@@ -893,7 +951,12 @@ export function advanceDay(career: Career, world: World): Career {
     scout.progress = Math.min(7, scout.progress + 1);
     if (scout.progress < 7) continue;
     scout.progress = 0;
-    const prospect = youthPlayer(c, c.clubId, clubById(live, c.clubId).reputation, c.prospects.length + c.scouts.length);
+    const prospect = youthPlayer(
+      c,
+      c.clubId,
+      clubById(live, c.clubId).reputation,
+      c.prospects.length + c.scouts.length,
+    );
     prospect.id = `prospect-${hash(`${c.seed}:${scout.id}:${c.date}`)}`;
     prospect.name = `${prospect.name} (${scout.region})`;
     prospect.potential = Math.min(99, prospect.potential + scout.skill);
@@ -964,7 +1027,7 @@ export function simulateOwnMatch(career: Career, world: World): Career {
   return finishMatch(c, world);
 }
 
-export type AdvanceStop = 'match' | 'decision' | 'message' | 'season' | null;
+export type AdvanceStop = 'match' | 'decision' | 'message' | 'season' | 'sacked' | null;
 
 /**
  * Um passo do avanço contínuo. "event" para em qualquer novidade; "auto" simula
@@ -976,6 +1039,7 @@ export function advanceStep(
   mode: 'event' | 'auto',
 ): { career: Career; stop: AdvanceStop; played?: string } {
   if (career.seasonEnded) return { career, stop: 'season' };
+  if (career.sacked) return { career, stop: 'sacked' };
   let c = career;
   if (mode === 'auto')
     for (const m of c.messages.filter((m) => m.important && !m.resolved))
@@ -986,7 +1050,11 @@ export function advanceStep(
   if (fixture && fixture.date <= c.date) {
     if (mode === 'event') return { career: c, stop: 'match' };
     c = simulateOwnMatch(c, world);
-    return { career: c, stop: c.seasonEnded ? 'season' : null, played: fixture.id };
+    return {
+      career: c,
+      stop: c.sacked ? 'sacked' : c.seasonEnded ? 'season' : null,
+      played: fixture.id,
+    };
   }
   const known = new Set(c.messages.map((m) => m.id));
   c = advanceDay(c, world);
@@ -1094,7 +1162,12 @@ function youthPlayer(
             : region === 'Centro-Oeste'
               ? { tackling: 4, interception: 4 }
               : {};
-  const names = region === 'Nordeste' ? [...youthFirst, 'Wesley', 'Kaio', 'Ítalo', 'Wendel', 'Jhonata'] : region === 'Sul' ? [...youthFirst, 'Matheus', 'Eduardo', 'Guilherme', 'Bruno'] : youthFirst;
+  const names =
+    region === 'Nordeste'
+      ? [...youthFirst, 'Wesley', 'Kaio', 'Ítalo', 'Wendel', 'Jhonata']
+      : region === 'Sul'
+        ? [...youthFirst, 'Matheus', 'Eduardo', 'Guilherme', 'Bruno']
+        : youthFirst;
   const attributes = Object.fromEntries(
     attributeKeys.map((key) => {
       const gk = ['handling', 'diving', 'reflexes'].includes(key);
@@ -1250,16 +1323,25 @@ export function startNextSeason(career: Career, world: World): Career {
   if (revealed.length) {
     const like = (p: Player) =>
       live.players
-        .filter((x) => x.position === p.position && ageAt(x.birthDate, next) >= 24 && c.players[x.id]?.clubId)
-        .sort((a, b) => Math.abs(a.potential - p.potential) - Math.abs(b.potential - p.potential))[0];
+        .filter(
+          (x) =>
+            x.position === p.position && ageAt(x.birthDate, next) >= 24 && c.players[x.id]?.clubId,
+        )
+        .sort(
+          (a, b) => Math.abs(a.potential - p.potential) - Math.abs(b.potential - p.potential),
+        )[0];
     const region = regionOf(live.clubs.find((x) => x.id === c.clubId)!.state);
     message(c, {
       kind: 'staff',
       from: 'Categorias de base',
       title: 'A base revelou novos talentos',
-      body: revealed
-        .map((p) => `${p.name} (${p.position}, potencial ~${p.potential}${like(p) ? `, lembra ${like(p)!.name}` : ''})`)
-        .join('; ') + `. Perfil típico da garotada do ${region}.`,
+      body:
+        revealed
+          .map(
+            (p) =>
+              `${p.name} (${p.position}, potencial ~${p.potential}${like(p) ? `, lembra ${like(p)!.name}` : ''})`,
+          )
+          .join('; ') + `. Perfil típico da garotada do ${region}.`,
     });
     remember(c, 'base', `Base revelou ${revealed.map((p) => p.name).join(', ')}`);
   }
@@ -1343,14 +1425,9 @@ function freshState(p: Player) {
     rated: 0,
     monthlyRatingTotal: 0,
     monthlyRated: 0,
-    personality: ([
-      'Profissional',
-      'Ambicioso',
-      'Temperamental',
-      'Leal',
-      'Disciplinado',
-      'Líder',
-    ] as const)[hash(`${p.id}:personality`) % 6],
+    personality: (
+      ['Profissional', 'Ambicioso', 'Temperamental', 'Leal', 'Disciplinado', 'Líder'] as const
+    )[hash(`${p.id}:personality`) % 6],
     sharpness: 50,
     potentialDelta: 0,
     development: 'Equilibrado' as const,
@@ -1399,8 +1476,7 @@ export function validateCareerForWorld(career: Career, world: World) {
     Object.keys(c.players).length !== playerIds.size ||
     Object.entries(c.players).some(
       ([id, s]) =>
-        !playerIds.has(id) ||
-        (s.clubId !== null && !clubIds.has(s.clubId) && !isForeign(s.clubId)),
+        !playerIds.has(id) || (s.clubId !== null && !clubIds.has(s.clubId) && !isForeign(s.clubId)),
     ) ||
     c.lineup.some((id) => !playerIds.has(id)) ||
     Object.keys(c.finances).length !== 40 ||
