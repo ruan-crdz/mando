@@ -34,6 +34,7 @@ import { Badge, Modal } from '../components/ui';
 import { ChipGroup, TacticSlider } from '../components/controls';
 import { LivePitch, type PitchTeam } from '../components/LivePitch';
 import { byPosition, PlayerCard, PlayerPicker, roleFits } from '../components/PlayerCard';
+import { PlayerFace } from '../components/PlayerFace';
 import { useGamepad } from '../controller/GamepadProvider';
 import { crowdChance, crowdGoal, crowdWhistle } from '../audio/crowd';
 
@@ -315,6 +316,9 @@ export function MatchScreen({
             {mvp && (
               <div className="mvp-banner">
                 <span>CRAQUE DO JOGO</span>
+                {findPlayer(world, mvp) && (
+                  <PlayerFace player={findPlayer(world, mvp)!} size="md" />
+                )}
                 <strong>{findPlayer(world, mvp)?.name}</strong>
                 <b
                   className={`rating-badge ${ratingTone(ratings.find((r) => r.id === mvp)?.rating || 0)}`}
@@ -334,6 +338,7 @@ export function MatchScreen({
                     .map((r) => (
                       <div key={r.id} className={`rating-row ${r.id === mvp ? 'mvp' : ''}`}>
                         <small>{r.role}</small>
+                        <PlayerFace player={findPlayer(world, r.id)!} size="sm" />
                         <span>
                           {findPlayer(world, r.id)!.name}
                           {r.goals > 0 && <em> {'⚽'.repeat(r.goals)}</em>}

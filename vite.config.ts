@@ -27,6 +27,18 @@ export default defineConfig(({ mode }) => {
         },
         workbox: {
           globPatterns: ['**/*.{js,css,html,svg,png,woff2}', 'data/*.json'],
+          // Rostos dos atletas ficam fora do pré-cache e entram no cache conforme aparecem.
+          globIgnores: ['**/assets/jogadores/**'],
+          runtimeCaching: [
+            {
+              urlPattern: /\/assets\/jogadores\/.+\.webp$/,
+              handler: 'CacheFirst',
+              options: {
+                cacheName: 'player-faces',
+                expiration: { maxEntries: 2000, maxAgeSeconds: 60 * 60 * 24 * 365 },
+              },
+            },
+          ],
           maximumFileSizeToCacheInBytes: 3 * 1024 * 1024,
           navigateFallback: 'index.html',
           navigateFallbackDenylist: [/^\/auth/, /\/functions\//],

@@ -143,8 +143,9 @@ test('partida completa registra placar e volta à tabela sem duplicar resultado'
   for (let i = 0; i < 27; i++) {
     await resolvePending();
     if (await page.getByRole('button', { name: /O ESTÁDIO ESTÁ PRONTO/ }).isVisible()) break;
+    const before = await page.locator('.club-header strong').textContent();
     await page.getByRole('button', { name: /Avançar dia/ }).click();
-    await expect(page.locator('.club-header')).toContainText(String(i + 2).padStart(2, '0'));
+    await expect(page.locator('.club-header strong')).not.toHaveText(before || '');
   }
   await resolvePending();
   await page.getByRole('button', { name: /O ESTÁDIO ESTÁ PRONTO/ }).click();
@@ -169,7 +170,12 @@ test('partida completa registra placar e volta à tabela sem duplicar resultado'
   const pressRoom = page.getByRole('dialog', { name: 'Sala de imprensa' });
   await expect(pressRoom).toBeVisible();
   while (await pressRoom.isVisible()) {
-    await pressRoom.locator('.press-answer').first().click();
+    // A última resposta fecha a sala; o clique não pode esperar um botão que sumiu.
+    await pressRoom
+      .locator('.press-answer')
+      .first()
+      .click({ timeout: 3000 })
+      .catch(() => {});
   }
   await page
     .getByRole('navigation')

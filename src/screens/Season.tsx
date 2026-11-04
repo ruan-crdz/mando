@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { TrophyArt } from '../components/TrophyArt';
+import { PlayerFace } from '../components/PlayerFace';
 import { Award, CalendarDays, ChevronLeft, ChevronRight, Medal, Trophy } from 'lucide-react';
 import { Badge, dateLabel, SectionTitle } from '../components/ui';
 import { standings } from '../game/engine';
@@ -448,6 +449,7 @@ export function Season({ career: c, world }: { career: Career; world: World }) {
                 .map((p, i) => (
                   <div className="stat-leader" key={p.id}>
                     <span>{i + 1}</span>
+                    <PlayerFace player={p} size="sm" />
                     <div>
                       <strong>{p.name}</strong>
                       <small>
@@ -539,6 +541,7 @@ export function Season({ career: c, world }: { career: Career; world: World }) {
                   <h2>
                     <Award size={20} /> {award.category}
                   </h2>
+                  {athlete && <PlayerFace player={athlete} size="lg" className="award-face" />}
                   <strong>{athlete?.name || team?.name || 'Sem vencedor definido'}</strong>
                   {team && athlete && <p className="muted">{team.name}</p>}
                 </section>

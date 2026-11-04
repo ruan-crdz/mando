@@ -2,6 +2,7 @@ import { type ReactNode } from 'react';
 import { stateOf } from '../game/matches';
 import { overall } from '../game/ratings';
 import { type Career, type Player, type Position } from '../game/types';
+import { PlayerFace } from './PlayerFace';
 
 const group = (pos: string) =>
   pos === 'GK'
@@ -73,8 +74,9 @@ export function PlayerCard({
       <span className="pc-top">
         <strong className="pc-ovr">{ovr}</strong>
         <span className="pc-pos">{player.position}</span>
+        {number !== undefined && <span className="pc-number">{number}</span>}
       </span>
-      {number !== undefined && <span className="pc-number">{number}</span>}
+      <PlayerFace player={player} className="pc-face" />
       {badge && <span className="pc-badge">{badge}</span>}
       <strong className="pc-name">{shortName(player.name)}</strong>
       <span className="pc-meta">{status || note}</span>

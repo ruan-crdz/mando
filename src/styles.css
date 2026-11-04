@@ -2546,7 +2546,7 @@ button.tile:focus-visible {
 }
 .stat-leader {
   display: grid;
-  grid-template-columns: 26px 1fr auto;
+  grid-template-columns: 26px 30px 1fr auto;
   gap: 10px;
   align-items: center;
   padding: 6px 0;
@@ -2905,7 +2905,7 @@ button.tile:focus-visible {
 }
 .rating-row {
   display: grid;
-  grid-template-columns: 30px 1fr auto;
+  grid-template-columns: 30px 30px 1fr auto;
   align-items: center;
   gap: 6px;
   padding: 3px 4px;
@@ -3581,11 +3581,10 @@ button.tile:focus-visible {
   background: rgba(0, 0, 0, 0.25);
 }
 .pc-number {
-  position: absolute;
-  top: 6px;
-  right: 8px;
-  font: italic 800 clamp(20px, 3vh, 30px) / 1 var(--display);
-  color: rgba(255, 255, 255, 0.4);
+  margin-left: auto;
+  margin-right: 50%;
+  font: italic 800 clamp(16px, 2.2vh, 22px) / 1 var(--display);
+  color: rgba(255, 255, 255, 0.55);
 }
 .pc-badge {
   position: absolute;
@@ -3623,6 +3622,129 @@ button.tile:focus-visible {
   display: block;
   height: 100%;
   background: var(--lime);
+}
+.pc-top,
+.pc-name,
+.pc-meta,
+.pc-fitness {
+  position: relative;
+  z-index: 1;
+}
+.pc-badge {
+  z-index: 1;
+}
+.player-card .pc-face {
+  position: absolute;
+  right: -2%;
+  bottom: 16%;
+  width: 72%;
+  height: auto;
+  aspect-ratio: 1;
+  border-radius: 0;
+  background: none;
+  filter: drop-shadow(0 6px 8px rgba(0, 4, 30, 0.45));
+  -webkit-mask-image: linear-gradient(180deg, #000 72%, transparent 100%);
+  mask-image: linear-gradient(180deg, #000 72%, transparent 100%);
+}
+.player-card .pc-face img {
+  object-fit: contain;
+  object-position: 50% 100%;
+}
+.player-card .pc-face.generated {
+  background: none !important;
+}
+.player-card .pc-face.generated svg {
+  inset: 8% 6% 0;
+  width: 88%;
+  height: 92%;
+  fill: rgba(255, 255, 255, 0.28);
+}
+.player-card .pc-face.generated b {
+  display: none;
+}
+.player-card .pc-name {
+  text-shadow: 0 1px 3px rgba(0, 4, 30, 0.7);
+}
+
+/* ---------- Rostos dos atletas ---------- */
+.player-face {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  overflow: hidden;
+  background: radial-gradient(circle at 50% 30%, #3d8bff, #0b2f8f 75%);
+  color: #fff;
+}
+.player-face.md {
+  width: 48px;
+  height: 48px;
+}
+.player-face.lg {
+  width: 120px;
+  height: 120px;
+}
+.player-face img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: 50% 10%;
+  transform: scale(1.12);
+  transform-origin: 50% 0;
+}
+.player-face.generated svg {
+  position: absolute;
+  inset: 12% 0 0;
+  width: 100%;
+  height: 88%;
+  fill: rgba(255, 255, 255, 0.22);
+}
+.player-face.generated b {
+  position: relative;
+  font: 800 0.8em var(--display);
+  letter-spacing: 0.5px;
+}
+.player-face.sm.generated b {
+  font-size: 11px;
+}
+.player-face.md.generated b {
+  font-size: 15px;
+}
+.player-face.lg.generated b,
+.player-card .player-face.generated b {
+  font-size: clamp(14px, 2.4vh, 26px);
+}
+.detail-face,
+.award-face {
+  align-self: flex-start;
+  width: 150px !important;
+  height: 150px !important;
+  border-radius: 16px !important;
+  background: linear-gradient(160deg, #3d8bff 0%, #0b2f8f 70%, #061a52 100%) !important;
+  box-shadow: inset 0 -30px 40px rgba(0, 4, 30, 0.35);
+}
+.detail-face img,
+.award-face img {
+  object-fit: contain;
+  object-position: 50% 100%;
+  transform: none;
+}
+.deal-face {
+  width: 150px !important;
+  height: 150px !important;
+  border-radius: 0 !important;
+  background: none !important;
+  filter: drop-shadow(0 8px 10px rgba(43, 29, 0, 0.45));
+  -webkit-mask-image: linear-gradient(180deg, #000 75%, transparent 100%);
+  mask-image: linear-gradient(180deg, #000 75%, transparent 100%);
+}
+.deal-face img {
+  object-fit: contain;
+  object-position: 50% 100%;
+  transform: none;
 }
 
 /* ---------- Time: campo, escolha e responsabilidades ---------- */
@@ -4441,7 +4563,7 @@ button.tile:focus-visible {
 }
 .thread-item {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-columns: auto auto minmax(0, 1fr) auto;
   align-items: center;
   gap: 10px;
   padding: 8px 10px;

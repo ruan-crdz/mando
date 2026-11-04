@@ -15,3 +15,5 @@ data/clubs.json
 data/players.json
 data/player-attributes.json
 data/coverage.json
+
+.cache/

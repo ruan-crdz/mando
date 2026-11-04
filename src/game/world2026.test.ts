@@ -13,6 +13,7 @@ import { careerWorld } from './live';
 import { overall } from './ratings';
 import { worldSchema, type Career } from './types';
 import logos from './data/club-logos.json';
+import faces from './data/player-faces.json';
 
 const world = worldSchema.parse(
   JSON.parse(readFileSync(new URL('../../public/data/world-2026.json', import.meta.url), 'utf8')),
@@ -44,6 +45,17 @@ describe('mundo Brasileirão 2026', () => {
       expect(files[club.id], club.name).toBeDefined();
       expect(
         existsSync(new URL(`../../public/assets/escudos/${files[club.id].file}`, import.meta.url)),
+      ).toBe(true);
+    }
+  });
+  it('tem rosto local para a maioria dos atletas e todos apontam para atletas reais', () => {
+    const ids = new Set(world.players.map((p) => p.id));
+    expect(faces.length / world.players.length).toBeGreaterThan(0.55);
+    for (const id of faces) {
+      expect(ids.has(id), id).toBe(true);
+      expect(
+        existsSync(new URL(`../../public/assets/jogadores/${id}.webp`, import.meta.url)),
+        id,
       ).toBe(true);
     }
   });

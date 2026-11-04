@@ -37,6 +37,7 @@ import { clubById } from '../game/npc';
 import { Badge, dateLabel, Modal, money, SectionTitle } from '../components/ui';
 import { ChipGroup, NumberStepper, OptionCycler } from '../components/controls';
 import { byPosition, PlayerCard } from '../components/PlayerCard';
+import { PlayerFace } from '../components/PlayerFace';
 
 type Filters = {
   name: string;
@@ -205,6 +206,7 @@ function ChatPanel({
     >
       <header className="chat-head">
         <Badge club={other} />
+        <PlayerFace player={p} size="sm" />
         <span>
           <strong>{p.name}</strong>
           <small>
@@ -514,6 +516,7 @@ export function Transfers({
                 </span>
                 <span className="deal-pos">{deal.player.position}</span>
                 <Badge club={clubById(world, c.players[deal.player.id].clubId!)} />
+                <PlayerFace player={deal.player} size="lg" className="deal-face" />
                 <strong>{deal.player.name}</strong>
                 <small>
                   {ageAt(deal.player.birthDate, c.date)} anos · {deal.player.nationality}
@@ -989,6 +992,7 @@ export function Transfers({
                 <button className="market-row" key={p.id} onClick={() => startDeal(p)}>
                   <span>
                     <span className="position-tag">{p.position}</span>
+                    <PlayerFace player={p} size="sm" />
                     <span>
                       <strong>
                         {c.shortlist.includes(p.id) && <Star size={13} className="star-on" />}{' '}
@@ -1081,6 +1085,7 @@ export function Transfers({
                       }}
                     >
                       <Badge club={other} size="small" />
+                      <PlayerFace player={p} size="sm" />
                       <span className="thread-text">
                         <strong>{p.name}</strong>
                         <small>

@@ -29,6 +29,7 @@ import {
   setTraining,
 } from '../game/positions';
 import { HeatMap } from '../components/HeatMap';
+import { PlayerFace } from '../components/PlayerFace';
 import {
   formations,
   positions,
@@ -726,6 +727,7 @@ export function Squad({
         <Modal title={d.name} onClose={() => setDetail(null)} wide>
           <div className="player-detail">
             <div className="detail-side">
+              <PlayerFace player={d} size="lg" className="detail-face" />
               <div className="detail-metrics">
                 <Metric label="CAMISA" value={numbers[d.id] ?? '—'} />
                 <Metric label="POSIÇÃO" value={positionsLine(d) || d.position} />

@@ -16,7 +16,8 @@
     "bundle:demo": "node scripts/bundle-demo.mjs",
     "build:world": "node scripts/build-world.mjs",
     "bundle:world": "node scripts/bundle-world.mjs",
-    "sync:club-logos": "node scripts/sync-club-logos.mjs"
+    "sync:club-logos": "node scripts/sync-club-logos.mjs",
+    "sync:player-faces": "node scripts/sync-player-faces.mjs"
   },
   "dependencies": {
     "@fontsource/saira-condensed": "^5.3.0",
@@ -31,6 +32,7 @@
   "devDependencies": {
     "@electric-sql/pglite": "^0.5.15",
     "@eslint/js": "^10.0.0",
+    "@imgly/background-removal-node": "^1.4.5",
     "@playwright/test": "^1.55.1",
     "@types/node": "^22.18.6",
     "@types/papaparse": "^5.3.16",
@@ -42,10 +44,14 @@
     "eslint-plugin-react-hooks": "^7.1.1",
     "globals": "^16.4.0",
     "prettier": "^3.6.2",
+    "sharp": "^0.35.5",
     "typescript": "~5.9.2",
     "typescript-eslint": "^8.44.0",
     "vite": "^8.3.5",
     "vite-plugin-pwa": "^2.0.0",
     "vitest": "^5.1.0"
+  },
+  "overrides": {
+    "sharp": "$sharp"
   }
 }
