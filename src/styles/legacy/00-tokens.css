@@ -27,6 +27,7 @@
   --mando-tile-gap: 6px;
   --mando-radius-panel: 5px;
   --mando-radius-dialog: 7px;
+  --mando-title-font: var(--display);
 
   /* variáveis legadas remapeadas para a paleta nova */
   --bg0: var(--mando-bg);

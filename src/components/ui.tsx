@@ -100,11 +100,13 @@ export function Modal({
   children,
   onClose,
   wide = false,
+  className = '',
 }: {
   title: string;
   children: ReactNode;
   onClose: () => void;
   wide?: boolean;
+  className?: string;
 }) {
   const ref = useRef<HTMLElement>(null);
   useEffect(() => {
@@ -125,7 +127,7 @@ export function Modal({
     <div className="modal-backdrop">
       <section
         ref={ref}
-        className={`dialog ${wide ? 'wide' : ''}`}
+        className={`dialog ${wide ? 'wide' : ''} ${className}`}
         data-focus-scope="modal"
         role="dialog"
         aria-modal="true"

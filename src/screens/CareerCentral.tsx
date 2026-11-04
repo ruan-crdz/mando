@@ -1,5 +1,15 @@
-import { ArrowRight, CircleArrowRight, MessageSquare, Radio, Trophy, Users } from 'lucide-react';
+import {
+  ArrowRight,
+  CalendarClock,
+  CircleArrowRight,
+  MessageSquare,
+  Radio,
+  Trophy,
+  Users,
+} from 'lucide-react';
 import { Badge, dateLabel, ManagerPortrait, money } from '../components/ui';
+import { CareerCalendar } from '../components/CareerCalendar';
+import { ControllerButtonHint } from '../controller/ControllerButtonHint';
 import { fixtureLabel, nextFixture } from '../game/calendar';
 import { clubById } from '../game/npc';
 import { addDays } from '../game/random';
@@ -16,6 +26,7 @@ export function CareerCentral({
   onMatch,
   onTab,
   onNewSeason,
+  onPreferences,
   busy,
 }: {
   career: Career;
@@ -24,6 +35,7 @@ export function CareerCentral({
   onMatch: () => void;
   onTab: (tab: number) => void;
   onNewSeason: () => void;
+  onPreferences: () => void;
   busy: boolean;
 }) {
   const club = world.clubs.find((club) => club.id === c.clubId)!;
@@ -39,18 +51,6 @@ export function CareerCentral({
   const unread = c.messages.filter((m) => !m.read);
   const pending = c.messages.filter((m) => m.important && !m.resolved);
   const isMatchDay = Boolean(fixture && fixture.date <= c.date);
-  const agenda = Array.from({ length: 5 }, (_, offset) => {
-    const date = addDays(c.date, offset);
-    const match = c.fixtures.find(
-      (item) =>
-        item.date === date &&
-        !item.result &&
-        (item.homeId === c.clubId || item.awayId === c.clubId),
-    );
-    const opponent =
-      match && clubById(world, match.homeId === c.clubId ? match.awayId : match.homeId);
-    return { date, offset, opponent };
-  });
   const mode = c.prefs?.advance || 'day';
   const auto = mode === 'auto' && !c.seasonEnded && !c.sacked;
   const advanceAction = c.sacked
@@ -67,38 +67,34 @@ export function CareerCentral({
   return (
     <div className="screen central">
       <div className="central-strip">
-        <h1 className="screen-title">Bom trabalho, {c.manager.firstName}</h1>
-        <span className="strip-meta">
-          <span className="live-dot" /> TEMPORADA {c.season} ·{' '}
-          {c.seasonEnded
-            ? 'ENCERRADA'
-            : c.date < `${c.season}-01-11`
-              ? 'PRÉ-TEMPORADA'
-              : 'EM ANDAMENTO'}{' '}
-          · {dateLabel(c.date, true).toUpperCase()}
-        </span>
+        <div>
+          <p className="eyebrow">{club.name} · CENTRAL DO CLUBE</p>
+          <h1 className="screen-title">Bom trabalho, {c.manager.firstName}</h1>
+        </div>
+        <div className="central-context">
+          <span className="strip-meta">
+            <span className="live-dot" /> TEMPORADA {c.season} ·{' '}
+            {c.seasonEnded
+              ? 'ENCERRADA'
+              : c.date < `${c.season}-01-11`
+                ? 'PRÉ-TEMPORADA'
+                : 'EM ANDAMENTO'}{' '}
+            · {dateLabel(c.date, true).toUpperCase()}
+          </span>
+          <button className="central-advance-mode" onClick={onPreferences}>
+            <CalendarClock size={15} />{' '}
+            {mode === 'auto'
+              ? 'Nunca parar'
+              : mode === 'event'
+                ? 'Parar em eventos'
+                : 'Um dia por vez'}
+          </button>
+        </div>
       </div>
-      <ol className="central-agenda" aria-label="Agenda dos próximos cinco dias">
-        {agenda.map(({ date, offset, opponent }) => (
-          <li
-              className={`${offset === 0 ? 'today ' : ''}${opponent ? 'match-day' : ''}`}
-              key={date}
-              aria-current={offset === 0 ? 'date' : undefined}
-          >
-              <small>
-                {new Date(`${date}T12:00:00Z`)
-                  .toLocaleDateString('pt-BR', { weekday: 'short', timeZone: 'UTC' })
-                  .replace('.', '')
-                  .toUpperCase()}
-              </small>
-              <strong>{date.slice(8)}</strong>
-              <em>{offset === 0 ? 'HOJE' : opponent ? opponent.short : '—'}</em>
-          </li>
-        ))}
-      </ol>
+      <CareerCalendar career={c} world={world} />
       <div className="central-grid">
         <button
-          className="tile tile-blue fixture-tile"
+          className="tile tile-primary fixture-tile"
           data-autofocus
           onClick={fixture ? onMatch : () => onTab(4)}
         >
@@ -131,7 +127,7 @@ export function CareerCentral({
           )}
         </button>
         <button
-          className={`tile ${c.sacked ? 'tile-pink' : auto ? 'tile-green' : isMatchDay ? 'tile-orange' : pending.length ? 'tile-pink' : 'tile-green'} advance-tile`}
+          className={`tile ${c.sacked || (!auto && (pending.length || isMatchDay)) ? 'tile-event' : 'tile-primary'} advance-tile`}
           disabled={busy}
           onClick={advanceAction}
         >
@@ -191,10 +187,12 @@ export function CareerCentral({
                   ? `${pending.length} ação necessária`
                   : c.seasonEnded
                     ? 'Nova temporada'
-                    : 'Continuar · START muda o modo'}
+                    : 'Continuar'}
           </span>
+          <ControllerButtonHint action="menu" label="Mudar modo de avanço" />
         </button>
-        <button className="tile tile-purple manager-tile" onClick={() => onTab(3)}>
+        <MarketFeed career={c} world={world} onOpen={() => onTab(3)} />
+        <button className="tile tile-raised manager-tile" onClick={() => onTab(3)}>
           <span className="tile-label">MANAGER · {club.short}</span>
           <ManagerPortrait manager={c.manager} />
           <span className="manager-title">
@@ -204,7 +202,7 @@ export function CareerCentral({
               {c.manager.lastName}
             </strong>
             <em>CONFIANÇA {Math.round(c.confidence)}%</em>
-            <meter min={0} max={100} value={c.confidence} />
+            <meter aria-label="Confiança da diretoria" min={0} max={100} value={c.confidence} />
           </span>
         </button>
         <section className="tile tile-glass inbox-preview">
@@ -213,7 +211,11 @@ export function CareerCentral({
           </span>
           <div className="inbox-rows">
             {c.messages.slice(0, 4).map((m) => (
-              <button className="inbox-row" key={m.id} onClick={() => onTab(3)}>
+              <button
+                className={`inbox-row ${m.read ? 'read' : 'unread'}`}
+                key={m.id}
+                onClick={() => onTab(3)}
+              >
                 <span
                   className={`message-indicator ${m.important && !m.resolved ? 'important' : ''}`}
                 />
@@ -222,12 +224,16 @@ export function CareerCentral({
                     {m.from} · {dateLabel(m.date)}
                   </small>
                   <strong>{m.title}</strong>
+                  {m.important && !m.resolved && (
+                    <em className="inbox-decision">DECISÃO PENDENTE</em>
+                  )}
                 </span>
               </button>
             ))}
+            {!c.messages.length && <p className="inbox-empty">Sua caixa de entrada está em dia.</p>}
           </div>
         </section>
-        <button className="tile tile-orange squad-preview" onClick={() => onTab(1)}>
+        <button className="tile tile-surface squad-preview" onClick={() => onTab(1)}>
           <span className="tile-label">
             <Users size={14} /> SEU TIME <em>{c.tactic.formation}</em>
           </span>
@@ -243,7 +249,7 @@ export function CareerCentral({
             GERENCIAR <ArrowRight size={16} />
           </span>
         </button>
-        <button className="tile tile-cyan table-preview" onClick={() => onTab(4)}>
+        <button className="tile tile-data table-preview" onClick={() => onTab(4)}>
           <span className="tile-label">
             <Trophy size={14} /> SÉRIE {club.league}
           </span>
@@ -256,7 +262,6 @@ export function CareerCentral({
           </span>
         </button>
       </div>
-      <MarketFeed career={c} world={world} />
       <div className="news-ticker">
         <span>MANDO NEWS</span>
         <p>

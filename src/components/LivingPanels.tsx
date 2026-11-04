@@ -1,3 +1,7 @@
+import { useState } from 'react';
+import { ArrowUpRight, ChevronLeft, ChevronRight, Radar } from 'lucide-react';
+import { useStickX } from '../controller/GamepadProvider';
+import { ControllerButtonHint } from '../controller/ControllerButtonHint';
 import { clubById, findPlayer } from '../game/npc';
 import { analystCost } from '../game/living';
 import { winProbability } from '../game/tactics';
@@ -29,29 +33,112 @@ const Bar = ({ label, value }: { label: string; value: number }) => (
   </div>
 );
 
-export function MarketFeed({ career, world }: { career: Career; world: World }) {
+export function MarketFeed({
+  career,
+  world,
+  onOpen,
+}: {
+  career: Career;
+  world: World;
+  onOpen: () => void;
+}) {
+  const [view, setView] = useState(0);
+  const [focused, setFocused] = useState(false);
+  const cycle = (direction: number) => setView((current) => (current + direction + 2) % 2);
+  useStickX(cycle, focused);
   const l = career.living;
   const moves = l.transfers.slice(-6).reverse();
+  const titles = ['Mercado da Bola', 'Rede de olheiros'];
   return (
-    <section className="panel living-feed">
-      <h2>Mercado da Bola</h2>
-      {l.headline && l.headline.until >= career.date && (
-        <p className="living-headline">{l.headline.text}</p>
-      )}
-      <Bar label="Torcida" value={l.fans} />
-      {moves.length ? (
-        <ul>
-          {moves.map((m, i) => (
-            <li key={`${m.playerId}-${i}`}>
-              <strong>{playerName(career, world, m.playerId)}</strong> {clubName(world, m.from)} →{' '}
-              {clubName(world, m.to)}
-              {m.fee > 0 ? ` · ${money(m.fee)}` : ' · livre'}
-            </li>
+    <section
+      className="tile tile-market market-tile"
+      aria-label="Mercado e rede de olheiros"
+      onFocusCapture={() => setFocused(true)}
+      onBlurCapture={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget)) setFocused(false);
+      }}
+    >
+      <span className="tile-label">
+        <Radar size={14} /> MUNDO VIVO
+      </span>
+      <div className="market-heading">
+        <h2>{titles[view]}</h2>
+        <div className="market-switch">
+          <button aria-label="Conteúdo anterior" onClick={() => cycle(-1)}>
+            <ChevronLeft size={16} />
+          </button>
+          <button aria-label="Próximo conteúdo" onClick={() => cycle(1)}>
+            <ChevronRight size={16} />
+          </button>
+        </div>
+      </div>
+      <div className="market-body" aria-live="polite">
+        {view === 0 ? (
+          <>
+            {l.headline && l.headline.until >= career.date && (
+              <p className="living-headline">{l.headline.text}</p>
+            )}
+            <Bar label="Torcida" value={l.fans} />
+            {moves.length ? (
+              <ul>
+                {moves.map((m, i) => (
+                  <li key={`${m.playerId}-${i}`}>
+                    <strong>{playerName(career, world, m.playerId)}</strong>
+                    <span>
+                      {clubName(world, m.from)} → {clubName(world, m.to)}
+                    </span>
+                    <small>{m.fee > 0 ? money(m.fee) : 'Livre'}</small>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="muted">Nenhuma movimentação recente no mercado.</p>
+            )}
+          </>
+        ) : (
+          <>
+            <p className="market-network-count">
+              <strong>{career.scouts.length}/3</strong> olheiros
+              <span>{career.prospects.length} jovens nos relatórios</span>
+            </p>
+            {career.scouts.length ? (
+              career.scouts.map((scout) => (
+                <div className="market-scout" key={scout.id}>
+                  <strong>{scout.name}</strong>
+                  <small>
+                    {scout.region} · nível {scout.skill}
+                  </small>
+                  <meter
+                    aria-label={`Observação de ${scout.name}`}
+                    min={0}
+                    max={7}
+                    value={scout.progress}
+                  />
+                  <small>{scout.progress}/7 dias</small>
+                </div>
+              ))
+            ) : (
+              <p className="muted">Contrate olheiros no Escritório para ampliar sua rede.</p>
+            )}
+          </>
+        )}
+      </div>
+      <div className="market-pagination">
+        <div className="market-dots" aria-label="Conteúdo do painel">
+          {titles.map((title, index) => (
+            <button
+              key={title}
+              aria-label={title}
+              aria-pressed={view === index}
+              onClick={() => setView(index)}
+            />
           ))}
-        </ul>
-      ) : (
-        <p className="muted">Nenhuma movimentação recente no mercado.</p>
-      )}
+        </div>
+        <ControllerButtonHint action="stick" label="Alternar" />
+      </div>
+      <button className="market-open" onClick={onOpen}>
+        Escritório <ArrowUpRight size={15} />
+      </button>
     </section>
   );
 }

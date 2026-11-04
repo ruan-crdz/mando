@@ -120,27 +120,6 @@
   background: linear-gradient(160deg, #11a85a, #0b6b3a);
   box-shadow: 0 0 0 3px #b8ff3c inset;
 }
-.advance-overlay {
-  position: fixed;
-  left: 50%;
-  bottom: 70px;
-  transform: translateX(-50%);
-  z-index: 60;
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  padding: 14px 22px;
-  border-radius: 16px;
-  color: #fff;
-  background: linear-gradient(90deg, #0d1f52f2, #1b3b8ff2);
-  box-shadow: 0 12px 40px #0008;
-}
-.advance-overlay strong {
-  font-size: 22px;
-}
-.advance-overlay span {
-  opacity: 0.85;
-}
 .press-room {
   display: grid;
   gap: 14px;

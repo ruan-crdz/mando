@@ -85,6 +85,7 @@ import { startCrowd, stopCrowd } from './audio/crowd';
 import { applyPress, buildPress, buildPreMatchPress, type PressSession } from './game/press';
 import { upgradeAnalyst } from './game/living';
 import { MatchOdds } from './components/LivingPanels';
+import { AdvanceOverlay } from './components/CareerCalendar';
 import { playVoice, skipVoice, stopVoice, useVoice } from './components/voice';
 import { achievements, unlockAchievements, type Achievement } from './game/achievements';
 
@@ -132,6 +133,8 @@ function Game() {
   const [popup, setPopup] = useState<Popup>(null);
   const [running, setRunning] = useState(false);
   const [played, setPlayed] = useState(0);
+  const [advanceStartedAt, setAdvanceStartedAt] = useState<string | null>(null);
+  const prefsFromPause = useRef(false);
   const [hapticNote, setHapticNote] = useState('');
   const [press, setPress] = useState<PressSession | null>(null);
   const [pressStep, setPressStep] = useState(0);
@@ -347,19 +350,20 @@ function Game() {
   }, [career, user, sync]);
   const switchTab = useCallback(
     (delta: number) => {
-      if (screen !== 'career' || career?.activeMatch || popup || detail || busy) return;
+      if (screen !== 'career' || career?.activeMatch || popup || detail || busy || running) return;
       setTab((t) => (t + delta + 5) % 5);
     },
-    [screen, career?.activeMatch, popup, detail, busy],
+    [screen, career?.activeMatch, popup, detail, busy, running],
   );
   const advance = useCallback(() => {
-    if (!career || !live) return;
+    if (!career || !live || running || busy || career.activeMatch) return;
     const mode = career.prefs?.advance || 'day';
     if (career.sacked) return setTab(3);
     if (mode === 'day') return act(() => setCareer(advanceDay(career, live)));
     setPlayed(0);
+    setAdvanceStartedAt(career.date);
     setRunning(true);
-  }, [career, live, act]);
+  }, [career, live, act, running, busy]);
   const stopRunning = useCallback(() => setRunning(false), []);
   const step = useRef({ career, world });
   step.current = { career, world };
@@ -411,14 +415,23 @@ function Game() {
               advance();
           },
           info: () => {
-            if (screen === 'career' && !career?.activeMatch && !popup) setTab(3);
+            if (screen === 'career' && !career?.activeMatch && !popup && !running) setTab(3);
           },
           menu: () => {
             if (screen !== 'career') return;
             if (running) return setRunning(false);
             // Na Central, START abre as preferências de avanço; nas demais telas, a pausa.
-            if (tab === 0 && !career?.activeMatch && !popup) setPopup('prefs');
-            else setPopup((p) => (p === 'pause' || p === 'prefs' ? null : 'pause'));
+            if (tab === 0 && !career?.activeMatch && !popup) {
+              prefsFromPause.current = false;
+              setPopup('prefs');
+            } else
+              setPopup((p) =>
+                p === 'prefs' && prefsFromPause.current
+                  ? 'pause'
+                  : p === 'pause' || p === 'prefs'
+                    ? null
+                    : 'pause',
+              );
           },
         },
   );
@@ -446,18 +459,14 @@ function Game() {
         <span>O Mando foi pensado para jogar com a tela na horizontal.</span>
       </div>
       <div className="bg-stage" aria-hidden="true" />
-      <header className="app-header">
+      <header className="app-header" inert={running ? true : undefined}>
         <div className="brand" aria-label="Mando">
           <picture>
             <source
               media="(max-width: 1000px)"
               srcSet={`${import.meta.env.BASE_URL}logo-mando-160.png`}
             />
-            <img
-              className="brand-logo"
-              src={`${import.meta.env.BASE_URL}logo-mando.png`}
-              alt=""
-            />
+            <img className="brand-logo" src={`${import.meta.env.BASE_URL}logo-mando.png`} alt="" />
           </picture>
         </div>
         {screen === 'career' && !inMatch && (
@@ -509,7 +518,7 @@ function Game() {
       <main
         key={`${screen}-${screen === 'career' ? (inMatch ? 'match' : tab) : ''}`}
         className="stage"
-        inert={popup || press || deleting || busy ? true : undefined}
+        inert={popup || press || deleting || busy || running ? true : undefined}
       >
         {screen === 'menu' && (
           <MainMenu
@@ -586,6 +595,10 @@ function Game() {
                     else setTab(4);
                   }}
                   onTab={setTab}
+                  onPreferences={() => {
+                    prefsFromPause.current = false;
+                    setPopup('prefs');
+                  }}
                   onNewSeason={() =>
                     act(() => {
                       setCareer(startNextSeason(career, live!));
@@ -909,9 +922,23 @@ function Game() {
         </Modal>
       )}
       {popup === 'pause' && career && world && (
-        <Modal title={career.activeMatch ? 'Jogo pausado' : 'Pausa'} onClose={() => setPopup(null)}>
+        <Modal
+          title={career.activeMatch ? 'Jogo pausado' : 'Pausa'}
+          onClose={() => setPopup(null)}
+          className="hub-modal pause-modal"
+        >
+          <div className="hub-dialog-summary">
+            {club && <Badge club={club} size="small" />}
+            <span>
+              <strong>{club?.name}</strong>
+              <small>
+                {dateLabel(career.date, true)} · {career.manager.firstName}{' '}
+                {career.manager.lastName}
+              </small>
+            </span>
+          </div>
           <div className="pause-options">
-            <button className="primary" onClick={() => setPopup(null)}>
+            <button className="primary" data-autofocus onClick={() => setPopup(null)}>
               <ArrowLeft size={18} /> Continuar
             </button>
             <button onClick={controller.toggleVibration}>
@@ -978,7 +1005,12 @@ function Game() {
               </button>
             )}
             {!career.activeMatch && (
-              <button onClick={() => setPopup('prefs')}>
+              <button
+                onClick={() => {
+                  prefsFromPause.current = true;
+                  setPopup('prefs');
+                }}
+              >
                 <CalendarClock size={18} /> Avanço do calendário:{' '}
                 {advanceModes.find((m) => m.id === (career.prefs?.advance || 'day'))?.title}
               </button>
@@ -1029,8 +1061,16 @@ function Game() {
         />
       )}
       {popup === 'prefs' && career && (
-        <Modal title="Preferências de avanço" onClose={() => setPopup(null)}>
-          <p className="muted">O que acontece quando você aperta Avançar (□ / X).</p>
+        <Modal
+          title="Preferências de avanço"
+          onClose={() => setPopup(prefsFromPause.current ? 'pause' : null)}
+          className="hub-modal prefs-modal"
+          wide
+        >
+          <p className="prefs-intro">
+            Escolha como o calendário progride ao usar{' '}
+            <ControllerButtonHint action="secondary" label="Avançar" />.
+          </p>
           <div className="prefs-options">
             {advanceModes.map((m, i) => (
               <button
@@ -1047,30 +1087,45 @@ function Game() {
                 <b>{i + 1}</b>
                 <strong>{m.title}</strong>
                 <span>{m.text}</span>
+                <em className="pref-state">
+                  {career.prefs.advance === m.id ? 'MODO ATIVO' : 'SELECIONAR MODO'}
+                </em>
               </button>
             ))}
           </div>
         </Modal>
       )}
-      {running && career && (
-        <div className="advance-overlay" role="status">
-          <CalendarClock size={42} />
-          <strong>{dateLabel(career.date, true)}</strong>
-          <span>
-            {career.prefs?.advance === 'auto'
-              ? 'Simulando a temporada'
-              : 'Avançando até o próximo evento'}
-            {played
-              ? ` · ${played} jogo${played > 1 ? 's' : ''} simulado${played > 1 ? 's' : ''}`
-              : ''}
-          </span>
-          <button className="primary" data-autofocus data-stop-run onClick={stopRunning}>
-            <Square size={16} /> Parar
-          </button>
-        </div>
+      {running && career && live && advanceStartedAt && (
+        <AdvanceOverlay
+          career={career}
+          world={live}
+          startedAt={advanceStartedAt}
+          played={played}
+          onStop={stopRunning}
+        />
       )}
       {popup === 'achievements' && career && (
-        <Modal title="Conquistas" onClose={() => setPopup('pause')} wide>
+        <Modal
+          title="Conquistas"
+          onClose={() => setPopup('pause')}
+          className="hub-modal achievements-modal"
+          wide
+        >
+          <div className="achievement-summary">
+            <Award size={32} />
+            <div>
+              <p className="eyebrow">SEU LEGADO NO FUTEBOL</p>
+              <strong>
+                {Object.keys(career.achievements).length} / {achievements.length} conquistas
+              </strong>
+            </div>
+            <meter
+              aria-label="Conquistas desbloqueadas"
+              min={0}
+              max={achievements.length}
+              value={Object.keys(career.achievements).length}
+            />
+          </div>
           <div className="achievement-grid">
             {achievements.map((a) => {
               const date = career.achievements?.[a.id];
@@ -1081,6 +1136,9 @@ function Game() {
                   aria-label={`${a.title}: ${a.description}. ${date ? `Desbloqueada em ${dateLabel(date)}` : 'Bloqueada'}`}
                 >
                   {date ? <Award size={30} /> : <Lock size={26} />}
+                  <span className="achievement-tier">
+                    {{ bronze: 'BRONZE', silver: 'PRATA', gold: 'OURO' }[a.tier]}
+                  </span>
                   <b>{a.title}</b>
                   <span>{a.description}</span>
                   <small>{date ? dateLabel(date) : 'Bloqueada'}</small>

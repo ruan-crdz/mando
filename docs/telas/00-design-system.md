@@ -71,7 +71,7 @@ Padrões recorrentes: títulos `italic 800`, `text-transform: uppercase`, `lette
 
 ### Espaçamento e forma
 - `--pad-x: clamp(14px, 2.6vw, 44px)` — padding lateral do header, stage e footer.
-- Raio de borda baixo e "quadradão" (2–6px) na maior parte: botões 3px, painéis/tiles 4px, cards 6px. Exceções arredondadas: `.pref-card` 14px, `.advance-overlay` 16px, `.pill` 20px, `kbd` circular.
+- Raio de borda baixo e "quadradão" (2–6px) na maior parte: botões e cards de preferências 3px, painéis/tiles 4px, cards 6px. Exceções arredondadas: `.pill` 20px e `kbd` circular.
 - Sombra padrão de bloco: `0 14px 34px rgba(0,4,30,.38)`; modal `0 30px 80px rgba(0,0,0,.6)`.
 - Sem scroll global: `html, body, #root { height:100%; overflow:hidden }`; scrollbars finas (6px) brancas translúcidas.
 - `body { user-select: none }` (exceto inputs).
