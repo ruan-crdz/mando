@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from 'react';
 import { ChevronLeft, ChevronRight, Minus, Plus } from 'lucide-react';
+import { ControllerButtonHint } from '../controller/ControllerButtonHint';
 import { useCancelEdit, useStepper, useToggleEdit } from '../controller/GamepadProvider';
 
 export type Option<T extends string> = { value: T; label: string };
@@ -70,7 +71,8 @@ export function OptionCycler<T extends string>({
 
 /**
  * Slider de 1 a N para o controle: navegar passa por ele sem alterar nada.
- * A (✕) entra no modo edição, ←/→ ajustam o valor e A (✕) de novo salva.
+ * A (✕) entra no modo edição, ←/→ ajustam o valor e A (✕) de novo encerra.
+ * As alterações são aplicadas imediatamente.
  */
 export function TacticSlider({
   label,
@@ -99,7 +101,7 @@ export function TacticSlider({
       data-stepper={editing ? '' : undefined}
       data-toggle-edit=""
       aria-pressed={editing}
-      aria-label={`${label}: ${value} de ${max}. ${editing ? 'Esquerda e direita ajustam, confirme para salvar' : 'Confirme para editar'}`}
+      aria-label={`${label}: ${value} de ${max}. ${editing ? 'Esquerda e direita ajustam, confirme para sair da edição' : 'Confirme para editar'}`}
       onClick={() => setEditing((e) => !e)}
       onBlur={() => setEditing(false)}
     >
@@ -118,13 +120,21 @@ export function TacticSlider({
             className={s <= value ? 'on' : ''}
             onClick={(e) => {
               e.stopPropagation();
-              onChange(s);
+              if (editing) onChange(s);
+              else setEditing(true);
             }}
           />
         ))}
       </span>
       <span className="ts-hint">
-        {editing ? '← → ajustar · X/✕ salvar · B sair' : 'X/✕ editar'}
+        {editing ? (
+          <>
+            ← → ajustar · <ControllerButtonHint action="confirm" label="Concluir" /> ·{' '}
+            <ControllerButtonHint action="back" label="Sair" />
+          </>
+        ) : (
+          <ControllerButtonHint action="confirm" label="Editar" />
+        )}
       </span>
     </button>
   );

@@ -2,6 +2,7 @@ import { useId } from 'react';
 import { familiarity, familiarityLabel, pitchSpot, roleOf } from '../game/positions';
 import { hash } from '../game/random';
 import { type Player, type PlayerState } from '../game/types';
+import { thresholdPercent } from './ui';
 
 /**
  * Mapa de calor estimado do atleta numa função. Na posição natural a mancha
@@ -87,7 +88,7 @@ export function HeatMap({
         <circle cx={target.x} cy={(100 - target.y) * 1.4} r="2.6" className="hm-role" />
       </svg>
       <figcaption>
-        <strong>{role}</strong> · {familiarityLabel(fam)} · {Math.round(fam)}%
+        <strong>{role}</strong> · {familiarityLabel(fam)} · {thresholdPercent(fam)}%
       </figcaption>
     </figure>
   );

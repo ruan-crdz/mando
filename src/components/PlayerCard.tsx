@@ -41,6 +41,7 @@ export function PlayerCard({
   disabled = false,
   autoFocus = false,
   badge,
+  accessibilityNote,
 }: {
   player: Player;
   career: Career;
@@ -52,6 +53,7 @@ export function PlayerCard({
   disabled?: boolean;
   autoFocus?: boolean;
   badge?: ReactNode;
+  accessibilityNote?: string;
 }) {
   const s = stateOf(career, player.id)!;
   const ovr = overall(player, role || player.position, s);
@@ -68,7 +70,7 @@ export function PlayerCard({
       disabled={disabled}
       data-player={player.id}
       data-autofocus={autoFocus ? '' : undefined}
-      aria-label={`${player.name}, ${player.position}, overall ${ovr}${status ? `, ${status}` : ''}`}
+      aria-label={`${player.name}, ${player.position}${role && role !== player.position ? `, na função ${role}` : ''}, overall ${ovr}${status ? `, ${status}` : ''}${accessibilityNote ? `, ${accessibilityNote}` : ''}`}
     >
       <span className="pc-top">
         <strong className="pc-ovr">{ovr}</strong>

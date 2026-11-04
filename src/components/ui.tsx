@@ -10,6 +10,9 @@ export const money = (value: number, compact = true) =>
     notation: compact ? 'compact' : 'standard',
     maximumFractionDigits: compact ? 1 : 0,
   }).format(value);
+/** Não arredonda para cima valores abaixo dos limites de aptidão e disponibilidade. */
+export const thresholdPercent = (value: number) =>
+  (Math.floor(value * 10) / 10).toLocaleString('pt-BR', { maximumFractionDigits: 1 });
 export const dateLabel = (date: string, long = false) =>
   new Intl.DateTimeFormat('pt-BR', {
     day: '2-digit',

@@ -97,7 +97,7 @@ Fim de jogo (minuto 90): a 3ª coluna vira **Notas da partida**, a 2ª ganha **M
 
 ### 3. Campinho ao vivo (`LivePitch` em `section.panel.live-field-panel`)
 - Div `.live-field` (`role="img"`, `aria-label="Simulação 2D ilustrativa da partida; os lances oficiais aparecem na narração"`), gramado com listras verticais `#2c9b3a/#34ad43`, linhas brancas 55%: meio-campo, círculo central, grandes áreas, pequenas áreas, gols (rede tracejada). Campo **horizontal**: mandante ataca para a direita (lado 0), visitante para a esquerda.
-- **Jogadores** (`span.field-dot`, 26px círculo): cor de fundo = `club.color` de cada clube (variável `--dot`), texto branco = número da camisa (`shirtNumbers`; fallback índice+1), borda branca (mandante) ou azul-marinho `#0b1a4a` (visitante), goleiro com borda dupla. `title` = nome do atleta. Posições base vêm de `horizontalCoordinates(formação)`; formação de cada lado = `sideFormation` (o usuário usa `c.tactic.formation`).
+- **Jogadores** (`span.field-dot`, 26px círculo): cor de fundo = `club.color` de cada clube (variável `--dot`), texto branco = número da camisa (`shirtNumbers`; fallback índice+1), borda branca (mandante) ou azul-marinho `#0b1a4a` (visitante), goleiro com borda dupla. `title` = nome do atleta. Posições base vêm de `horizontalCoordinates(formação)`; formação de cada lado = `sideFormation` (o usuário usa `c.tactic.formation`). No 3-5-2, os laterais ocupam as alas do meio-campo, à frente dos três zagueiros.
 - **Portador da bola** ganha `.with-ball` (escala 1.22 + anel lima).
 - **Bola** (`span.ball-dot`, 11px, branca com brilho).
 - **Simulação visual** (não afeta o resultado): atletas correm com inércia (velocidade máx. 16%/s), o mais próximo pressiona o portador; portador conduz 0,45–1,35 s e passa para o companheiro mais avançado a < 42 unidades; chance de interceptação `12% + (50−posse)/380`; no terço final (>76%) chuta com 45% de chance e a bola vai para o goleiro adversário. A posse visual segue `match.home.possession`.
@@ -316,7 +316,7 @@ Passo 2:
 - `.match-tactic` (grid `1fr | 1.3fr`):
   - **Formação** (`ChipGroup`, `role=radiogroup`): um chip por chave de `formations` (ex. `4-3-3`, `4-4-2`, `4-2-3-1`, `3-5-2` … todas as definidas em `types.ts`), ativo com `.active`/`aria-checked`.
   - **Mentalidade** (`ChipGroup`): `Defensiva`, `Equilibrada`, `Ofensiva`.
-  - `.form-grid` com 4 `TacticSlider` (1 a 5): `Pressão`, `Ritmo`, `Linha defensiva`, `Largura`. Cada slider: rótulo, valor `n / 5` (com `‹ ›` quando editando), trilho de 5 segmentos (`.ts-track i.on`), dica `X/✕ editar` ou `← → ajustar · X/✕ salvar · B sair`.
+  - `.form-grid` com 4 `TacticSlider` (1 a 5): `Pressão`, `Ritmo`, `Linha defensiva`, `Largura`. Cada slider mostra rótulo, valor `n / 5`, trilho de 5 segmentos e dicas de editar, ajustar e sair com glifos do controle conectado.
   - **Capitão em campo**: rótulo `.control-label` com `Shield` 15 + `Capitão em campo`; `.card-grid.compact` com os 11 titulares (`PlayerCard`), o capitão atual com `.active` e selo `C`.
 - Mudanças aplicam **na hora** em `career.tactic`/`career.roles` (`onChange`), sem confirmar/cancelar.
 
@@ -325,7 +325,7 @@ Passo 2:
 
 ### Interações
 - Chips: clique/A seleciona.
-- Slider: A (✕) ou X (□) entra em edição (`data-toggle-edit`), ◄ ► ajusta (via `data-stepper`), A/X salva, B sai da edição (B não fecha o modal enquanto edita). Mouse: clicar num segmento define o valor.
+- Slider: A (✕) ou X (□) entra em edição (`data-toggle-edit`), ◄ ► ajusta imediatamente (via `data-stepper`), A/X ou B saem da edição (B não fecha o modal enquanto edita). Mouse: o primeiro clique entra em edição; outro clique num segmento altera o valor.
 - Card de capitão: clique/A define `roles['Capitão']`.
 - B / `‹ Voltar` fecha. Jogo continua pausado.
 

@@ -14,7 +14,7 @@ Ela é composta por:
    | 2 | **Tática** | `SlidersHorizontal` (16 px) | `'tactics'` |
    | 3 | **Responsabilidades** | `ClipboardList` (16 px) | `'roles'` |
    | 4 | **Jogadores** | `Hash` (16 px) | `'kit'` |
-3. **Layout de duas colunas** (`.squad-layout`, grid `minmax(300px, 0.9fr) | minmax(0, 1.3fr)`, gap 16 px):
+3. **Layout de duas colunas** (`.squad-layout`, grid `minmax(300px, 0.9fr) | minmax(0, 1.3fr)`, gap 8 px):
    - **Coluna esquerda**: nas abas Escalação/Tática/Responsabilidades é sempre o **campinho** (`section.panel.pitch-panel`, `data-focus-region="pitch"`); na aba Jogadores é substituída pelo **painel de stats do jogador focado** (`section.panel.player-stats`).
    - **Coluna direita** (`section.panel.squad-controls`, `data-focus-region="panel"`): conteúdo muda conforme a aba e conforme o "modo de escolha" (`picking`) ativo.
 
@@ -42,17 +42,17 @@ O estado `view` é **local** do componente (volta a `'lineup'` sempre que a tela
 
 | Arquivo | Papel |
 |---|---|
-| `src\screens\Squad.tsx` (≈1212 linhas) | Tela inteira: estado, 4 sub-abas, campinho, seletor de jogadores, lista "Jogadores", linha expansível, painel de ações, editor "Posições e treino", painel de stats. |
+| `src\screens\Squad.tsx` | Tela inteira: estado, 4 sub-abas, campinho, seletor de jogadores, lista "Jogadores", linha expansível, painel de ações, editor "Posições e treino", painel de stats. |
 | `src\App.tsx` (linhas ~592–645) | Renderiza `<Squad>` com todas as props/handlers; estado `detail`; navegação L1/R1, B fecha `detail`; rodapé de dicas. |
 | `src\components\PlayerCard.tsx` | `PlayerCard` (card quadrado FIFA), `PlayerPicker` (grade "Recomendados" + "Elenco por posição"), `byPosition`, `roleFits`, `shortName`, `positionOrder`. |
 | `src\components\PlayerFace.tsx` | Foto real (`/assets/jogadores/{id}.webp`, lista em `src\game\data\player-faces.json`) ou bonequinho SVG neutro. |
 | `src\components\cardTier.ts` | Nível do card por overall (bronze/prata/ouro/ouro brilhante). |
 | `src\components\HeatMap.tsx` | Mapa de calor SVG do jogador numa função. |
 | `src\components\controls.tsx` | `ChipGroup`, `TacticSlider`, `OptionCycler`, `NumberStepper`, `ShirtNumberDial` (controles "de console"). |
-| `src\components\ui.tsx` | `SectionTitle`, `money()`, `dateLabel()`. |
+| `src\components\ui.tsx` | `SectionTitle`, `money()`, `dateLabel()` e `thresholdPercent()` para exibir percentuais sem arredondar acima dos limites. |
 | `src\controller\GamepadProvider.tsx`, `FocusManager.ts`, `dualsenseMapping.ts`, `xboxMapping.ts` | Navegação espacial, L2/R2 nas sub-abas, analógico direito (`useStickX`), passos ←/→ (`useStepper`), modo edição. |
 | `src\game\*` | `squad`, `available`, `bestLineup` (matches.ts); `overall` (ratings.ts); `ageAt` (random.ts); `pitchCoordinates` (pitch.ts); `shirtNumbers`, `setShirtNumber` (numbers.ts); `marketValue`, `releaseCost`, `renewalOptions`, `renewalTerms` (transfers.ts); `familiarity`, `familiarityLabel`, `knownPositions`, `positionNames`, `setMainPosition`, `setTraining`, `LEARNED=85`, `TRAIN_CAP=92` (positions.ts); `formations`, `positions`, `roleNames` (types.ts). |
-| `src\styles.css` | Blocos "Time" (~1568–1730), "Cards" (~3476–3760), "Time: campo, escolha e responsabilidades" (~3786–3912), tática (~4886–4945), camisas/posições (~5126–5300), mapa de calor (~5302–5345), mini-cards do campinho (~5752–5803), lista de jogadores (~5804–5840), ficha/hub (~5842–6034), tiers FIFA (~6035–6209), aba Jogadores (~6210–6290). |
+| `src\styles\index.css`, `src\styles\legacy\08-squad.css` | Ordem de importação e acabamento grafite/ardósia do Plantel; os estilos básicos ficam em `src\styles\screens\squad*.css` e os tiers em `src\styles\components\fifa-cards.css`. |
 
 > `LivePitch.tsx` **não** é usado nesta tela.
 
@@ -62,11 +62,11 @@ O estado `view` é **local** do componente (volta a `'lineup'` sempre que a tela
 
 ### Cabeçalho (`SectionTitle`)
 - `p.eyebrow`: **`TIME / GESTÃO DO ELENCO`**.
-- `h1` (itálico, caixa alta, `clamp(24px, 2.6vw, 38px)`, peso 800): **`Onze nomes. Uma ideia.`** — como termina em ponto, o `title-dot` verde-limão não é acrescentado.
-- Botão à direita: ícone `Sparkles` (17 px) + **`Autoescalar`**. Fundo gradiente limão (`#d8ff3a → #8fdc00`), texto `#06204d`. Ação: `bestLineup(c, world)`; se não retornar 11 atletas → erro `"Não há onze atletas disponíveis."`; senão `onChange({...c, lineup})`. Não mexe em formação nem tática. Disponível em todas as sub-abas.
+- `h1` em caixa alta: **`Onze nomes. Uma ideia.`** — como termina em ponto, o `title-dot` não é acrescentado.
+- Botão à direita: ícone `Sparkles` (17 px) + **`Autoescalar`**. Ação: `bestLineup(c, world)`; se não retornar 11 atletas → erro `"Não há onze atletas disponíveis."`; senão `onChange({...c, lineup})`. Não mexe em formação nem tática. Disponível em todas as sub-abas.
 
 ### Barra de sub-abas (`.segmented`)
-- 4 botões (ver tabela acima). Ativo: classe `active` (fundo branco→`#d8e6ff`, texto `#082062`, sombra). Inativos: transparentes, texto `--ink-2`.
+- 4 botões (ver tabela acima). Ativo: classe `active`, fundo petróleo e filete ciano. Inativos: transparentes, texto `--ink-2`.
 - Clicar em qualquer sub-aba: `setView(...)` + `setPicking(null)` (cancela qualquer escolha de posição/função em andamento). Em **Jogadores** também `setKitId(null)` (fecha o editor "Posições e treino").
 - **Não** limpa `detail` (linha expandida da aba Jogadores continua aberta ao voltar para ela).
 - Controle: **L2/R2 (PS) · LT/RT (Xbox)** ciclam as sub-abas (função `cycleView` do GamepadProvider: procura `.segmented:not(.compact)` dentro de `main`, clica e foca o próximo/anterior, circular). Teclado: **`q`** (anterior) e **`e`** (próxima). O rodapé mostra "R2/RT Sub-menu".
@@ -93,28 +93,28 @@ Descrito em detalhe na aba **Escalação**. Nas abas Tática e Responsabilidades
 - Tamanhos base: `sm` 30 px, `md` 48 px, `lg` 120 px (redimensionados por contexto).
 
 ### Componente `PlayerCard` (card quadrado FIFA)
-Usado no "Elenco principal" (aba Escalação), nos seletores de posição e de responsáveis.
+Usado nos seletores de posição e de responsáveis; o campinho usa camisas vetoriais, não cards fotográficos.
 - `<button class="player-card {gk|def|mid|att} {tier} [active] [out]" data-player=id>`; `aspect-ratio: 1`; `border-radius: 6px`.
 - Conteúdo (de cima para baixo):
   - `.pc-top` (absoluto, topo-esquerda, empilhado em coluna): `.pc-ovr` = overall (na função `role` se informada, senão na posição natural), fonte display 800 `clamp(24px, 3.6vh, 36px)`; `.pc-pos` = posição (mostra a função `role` se for diferente da posição natural, senão a posição natural), 13 px.
   - `.pc-face` = foto **grande, ocupando o card inteiro** (`inset: 6% 0 0 0`, `object-fit: contain`, `object-position: 50% 100%` → **base colada embaixo**, centralizada).
   - `.pc-badge` (opcional, topo-direita) — não usado nesta tela.
   - `.pc-name` = `shortName` em CAIXA ALTA, faixa inferior absoluta com gradiente `transparent → var(--card-name)`, 800 `clamp(13px,1.8vh,17px)`.
-  - `.pc-meta` (só se indisponível): `Lesão {n}d` ou `Suspenso {n}`, etiqueta vermelha (`rgba(158,0,28,.85)`) acima do nome; o card ganha `out` (`grayscale(.7) brightness(.8)`).
+  - `.pc-meta` existe no componente compartilhado; nos seletores do Plantel é ocultada para não cobrir a foto. A disponibilidade é mostrada abaixo do card; o card ganha `out` quando há lesão ou suspensão.
 - **Não mostra número da camisa** nem a `note` — as props `number` e `note` são aceitas mas **ignoradas** pelo componente (há CSS `.pc-number`/`.pc-fitness` órfão). Isso está de acordo com a preferência "só nome, posição e overall".
 - Fundo: `var(--card-bg)` do tier (as cores por setor `gk/def/mid/att` são sobrescritas pelo tier). Texto **branco** com `text-shadow 0 1px 3px rgba(0,0,0,.8)`.
 - `active`: borda limão + halo. Foco: `scale(1.05)`, `z-index: 2`. `disabled` quando indisponível no seletor de posição.
-- `aria-label`: `"{nome}, {posição}, overall {ovr}[, Lesão Nd]"`.
+- `aria-label` inclui nome, posição, eventual função diferente, overall e estado; no Plantel também informa titular/reserva, condição, disponibilidade e familiaridade ou índice da responsabilidade.
 
 ### `PlayerPicker`
-- Dentro de `.card-scroll` (rolagem vertical). Divisor `.grid-divider` (texto limão 13 px caixa alta + linha gradiente) **{recommendedLabel}**, depois `.card-grid` (5 colunas, gap 8 px) com `extra` + recomendados; outro divisor **{othersLabel}** e `.card-grid` com os demais. Se não houver recomendados, o primeiro bloco some e `extra` vai para a segunda grade.
+- Dentro de `.card-scroll` (rolagem vertical). Divisor `.grid-divider` **{recommendedLabel}**, depois `.card-grid` com `extra` + recomendados; outro divisor **{othersLabel}** e `.card-grid` com os demais. No Plantel são quatro colunas no desktop e três no celular deitado. Se não houver recomendados, o primeiro bloco some e `extra` vai para a segunda grade.
 
 ---
 
 # Aba 1 — Escalação (`view = 'lineup'`)
 
 ## Resumo
-Campinho com os 11 titulares à esquerda (mini-cards FIFA por posição da formação) e, à direita, o **Elenco principal** em grade de cards. Selecionar uma posição no campinho troca o painel direito por um **seletor** com recomendados para aquela função. Permite trocar titulares de posição entre si, colocar reservas, arrastar e soltar (mouse) e abrir o jogador (que leva à aba Jogadores com a linha expandida).
+Campinho com os 11 titulares em minicamisas à esquerda e, à direita, um **resumo contextual do onze inicial**. Selecionar uma posição no campinho troca o painel direito por um **seletor** com recomendados para aquela função. É possível trocar titulares entre si, colocar reservas, arrastar e soltar (mouse) e abrir a ficha de um titular ou o elenco completo na aba Jogadores.
 
 ## Wireframe atual (ASCII)
 
@@ -124,57 +124,46 @@ Campinho com os 11 titulares à esquerda (mini-cards FIFA por posição da forma
 │ ONZE NOMES. UMA IDEIA.                                       [✨ AUTOESCALAR] │
 │ [🛡 Escalação] [⎚ Tática] [📋 Responsabilidades] [# Jogadores]               │
 ├───────────────────────────────┬──────────────────────────────────────────────┤
-│ 4-2-3-1           (Equilibrada)│ ELENCO PRINCIPAL   28 atletas · A abre a ficha│
-│ ┌───────────────────────────┐ │ ┌────┐┌────┐┌────┐┌────┐┌────┐               │
-│ │          ┌──┐              │ │ │84GK││77CB││74CB││70LB││68RB│  ← cards     │
-│ │          │ST│              │ │ │foto││foto││foto││foto││foto│    quadrados │
-│ │   ┌──┐   ┌──┐   ┌──┐       │ │ │NOME││NOME││NOME││NOME││NOME│    5/linha   │
-│ │   │LW│   │AM│   │RW│       │ │ └────┘└────┘└────┘└────┘└────┘               │
-│ │       ┌──┐   ┌──┐          │ │ ┌────┐┌────┐ ...                (rolagem)   │
-│ │       │DM│   │DM│          │ │ │    ││    │                                │
-│ │ ┌──┐ ┌──┐   ┌──┐ ┌──┐      │ │                                             │
-│ │ │LB│ │CB│   │CB│ │RB│      │ │                                             │
-│ │          ┌──┐              │ │                                             │
-│ │          │GK│              │ │                                             │
+│ 4-2-3-1           (Equilibrada)│ ONZE INICIAL           [Ver elenco completo]│
+│ ┌───────────────────────────┐ │ Formação · condição média · indisponíveis   │
+│ │          camisa ST        │ │ reservas                                    │
+│ │   LW      AM      RW      │ │ TITULARES             OVR NA FUNÇÃO · COND. │
+│ │       DM      DM          │ │ [GK] Nome do goleiro             77 · 100%  │
+│ │   LB   CB   CB   RB       │ │ [LB] Nome do lateral             80 ·  90%  │
+│ │          camisa GK        │ │ ... 11 titulares, com rolagem ...           │
 │ └───────────────────────────┘ │                                             │
-│ Selecione uma posição: o painel│                                             │
-│ ao lado mostra as opções...    │                                             │
+│ Selecione uma posição: ...    │                                             │
 └───────────────────────────────┴──────────────────────────────────────────────┘
- mini-card do campinho (70 px):     Com posição selecionada (painel direito):
- ┌────────────┐                     [‹ Cancelar]  TROCAR ST · NOME   (OVR na função)
- │78         │ ← OVR + função        RECOMENDADOS PARA ST ─────────────
- │ST  (foto) │                       [card][card][card][card][card]
- │           │                       ELENCO POR POSIÇÃO ───────────────
- │⚠ SOBRENOME│ ← nome (⚠ improvisado)[card][card][card][card][card] ...
- │▬▬▬▬▬▬▬     │ ← barra de condição
- └────────────┘
+ Minicamisa: número, OVR na função, nome, condição e alertas.
+ Seleção: [‹ Cancelar] TROCAR ST · NOME · OVR na função
+          RECOMENDADOS PARA ST [cards fotográficos] + condição/familiaridade abaixo
+          ELENCO POR POSIÇÃO   [demais cards fotográficos]
 ```
 
 ## Elementos
 
 ### Painel do campinho (`section.panel.pitch-panel`)
 - `.panel-heading`: `h2` = **formação** (`c.tactic.formation`, ex. `4-2-3-1`); `span.pill` = **mentalidade** (`Defensiva` | `Equilibrada` | `Ofensiva`).
-- `.football-pitch`: retângulo verde com listras (`repeating-linear-gradient` `#2c9b3a`/`#34ad43`, faixas de 8%), borda branca 55%, sombra interna. Linhas: `.pitch-center` (círculo central 22% + linha do meio-campo via `::before`), `.penalty.top` e `.penalty.bottom` (áreas 50% × 15%). Orientação vertical: ataque em cima, goleiro embaixo.
-- **11 mini-cards** (`button.pitch-player`), um por slot `i` de `c.lineup` (array de 11 ids, ordem = `formations[...]`):
-  - Posição absoluta `left: x%`, `top: y%` (`pitchCoordinates`), centralizado com `translate(-50%, -50%)`.
+- `.football-pitch`: gramado verde escuro listrado, com círculo central, meio-campo e áreas; ataque em cima e goleiro embaixo.
+- **11 minicamisas** (`button.pitch-player`), uma por slot `i` de `c.lineup` (array de 11 ids, ordem = `formations[...]`):
+  - Posição absoluta `left: x%`, `top: y%` (`pitchCoordinates`), centralizado com `translate(-50%, -50%)`. No 3-5-2, os laterais ficam nas pontas do meio-campo, à frente dos três zagueiros.
   - `data-slot={i}`; `draggable`.
-  - Classes: `{tier}` (pelo overall **na função do slot**), `unavailable` (lesão/suspensão/fitness < 30), `selected` (este slot está sendo trocado), `swap-target` (há outro slot selecionado → este pulsa como alvo), `out-of-position` (familiaridade < 85).
+  - Classes: `unavailable` (lesão/suspensão/fitness < 30), `selected`, `swap-target` e `out-of-position` (familiaridade < 85).
   - Conteúdo:
-    1. `PlayerFace size="md" class="pitch-face"` — foto 70 × 58 px, `contain`, base embaixo; sem foto → bonequinho branco 55%.
-    2. `span.pitch-ovr` (absoluto topo-esquerda, coluna): `<b>` overall na função (16 px) + texto da **função do slot** (9 px), ex. `78` / `ST`.
-    3. `strong` = `shortName` em CAIXA ALTA 11 px, com borda superior fina; se fora de posição, ícone lucide **`TriangleAlert`** (11 px, `.oop-icon`, `#ffb800`) antes do nome.
-    4. `i.pitch-fitness` — barra limão 3 px cuja **largura = `fitness`%**.
-  - **Não mostra número da camisa** (o número aparece só no `aria-label`).
-  - `aria-label`: `"{função} {nome}, camisa {n}, overall {ovr}[, improvisado ({rótulo})]. Trocar atleta"`.
+    1. Camisa SVG autoral na cor do clube, com número contrastante; o goleiro usa cor distinta.
+    2. `span.pitch-ovr`: overall e função do slot.
+    3. `strong` = `shortName`; alerta para improvisação e alerta separado para indisponibilidade.
+    4. Barra de condição proporcional ao `fitness`; indisponíveis usam cor de alerta.
+  - `aria-label` informa função, nome, número, overall, condição, disponibilidade e familiaridade.
 - Texto de ajuda (`p.muted.small`) abaixo do campo:
   - Sem seleção: **`Selecione uma posição: o painel ao lado mostra as opções recomendadas.`**
   - Com slot selecionado: **`Escolha outro titular para trocar de posição com {shortName}, ou vá → para as recomendações.`**
 
-### Painel direito — estado padrão: "Elenco principal"
-- `.panel-heading`: `h2` **`Elenco principal`**; `span` **`{players.length} atletas · A abre a ficha`** (o texto "A" é fixo, não muda para ✕ no PlayStation).
-- `.card-scroll > .card-grid` (5 colunas) com `PlayerCard` de **todo o elenco** (titulares + reservas, inclusive lesionados), ordenado por `byPosition`: `GK, CB, LB, RB, DM, CM, AM, LW, RW, ST`, e dentro da posição por overall desc.
-- Cada card: `active` (borda limão) se for titular. A `note` passada (`Titular · {idade}a` / `{idade} anos`) e o `number` **não são renderizados**.
-- Clique → `openDetail(p)` (vai para a aba **Jogadores** com a linha desse jogador expandida — ver aba 4).
+### Painel direito — estado padrão: "Onze inicial"
+- Cabeçalho **`Onze inicial`** com botão **`Ver elenco completo`**, que abre a aba Jogadores.
+- Métricas: formação, condição média, quantidade de titulares indisponíveis e reservas.
+- Lista rolável com os 11 titulares na ordem da formação, função, nome, disponibilidade, aviso de improvisação, overall na função e condição física.
+- Clique em um titular → `openDetail(p)` (abre sua linha na aba **Jogadores**).
 
 ### Painel direito — estado "escolhendo posição" (`picking = {kind:'slot', index}`)
 - `.panel-heading.picker-heading`:
@@ -184,47 +173,48 @@ Campinho com os 11 titulares à esquerda (mini-cards FIFA por posição da forma
 - `PlayerPicker`:
   - **`Recomendados para {função}`** — até 5 atletas: primeiro os disponíveis cuja posição natural é a 1ª de `roleFits[função]` ou com familiaridade ≥ 85 na função, ordenados pelo overall na função; se faltarem, completa com disponíveis cuja posição natural está em `roleFits[função]`. Exclui o atual do slot; no slot 0 só goleiros.
   - **`Elenco por posição`** — todo o resto do pool, ordenado por `byPosition`.
-  - Cada card: `PlayerCard` com `role={função}` (OVR e etiqueta de posição na função), `disabled` se indisponível; `note` (`Titular · {função}` / `Reserva`) é ignorada visualmente.
+  - Cada card: `PlayerCard` com `role={função}` (OVR e posição na função). Abaixo ficam titular/reserva, disponibilidade, condição e familiaridade; substituições inválidas são desabilitadas.
+  - Se não houver candidato selecionável, uma mensagem explica que não há atleta disponível para a troca.
   - Clique → `changeSlot(index, id)`.
 - `roleFits` (quem serve para cada função): `GK[GK]`, `CB[CB,DM]`, `LB[LB,LW,CB]`, `RB[RB,RW,CB]`, `DM[DM,CM,CB]`, `CM[CM,DM,AM]`, `AM[AM,CM,LW,RW]`, `LM[LW,CM,LB,AM]`, `RM[RW,CM,RB,AM]`, `LW[LW,RW,AM,ST]`, `RW[RW,LW,AM,ST]`, `ST[ST,AM,LW,RW]`.
 
 ## Estados e variações
 - Formações disponíveis: `4-2-3-1` (`GK LB CB CB RB DM DM LW AM RW ST`), `4-3-3` (`GK LB CB CB RB DM CM CM LW RW ST`), `4-4-2` (`GK LB CB CB RB LM CM CM RM ST ST`), `3-5-2` (`GK CB CB CB LB DM CM AM RB ST ST`).
-- Mini-card: tier bronze/prata/ouro/ouro brilhante (com faixa de brilho animada `card-shine` 3,2 s); `selected` (contorno limão 3 px + fundo limão 25%); `swap-target` (pulso `swap-pulse` 1,1 s, sombra dourada); `out-of-position` (anel vermelho `#ff4d4d` + glow + ⚠); foco (`scale(1.1)`); `unavailable` **sem estilo visível** (o CSS só afeta `.shirt-number`, que não é renderizado).
-- Barra de condição varia 0–100% de largura (sempre limão, sem cor por faixa).
-- Jogador sem foto → bonequinho; foto quebrada → bonequinho.
-- Painel direito alterna entre "Elenco principal" e "Seletor de posição".
-- Erros (toast via `onError`): `Atleta indisponível.`; `A posição exige um goleiro.`.
+- Camisa selecionada recebe contorno ciano; improvisação e indisponibilidade têm alertas próprios.
+- A barra de condição varia de 0–100%; o percentual exato também aparece na lista e no seletor.
+- Nos cards fotográficos, jogador sem foto ou com foto quebrada recebe silhueta neutra.
+- Painel direito alterna entre "Onze inicial" e "Seletor de posição".
+- Erros (toast via `onError`): atleta indisponível, exigência de goleiro ou tentativa de deslocar um titular indisponível em vez de substituí-lo por reserva disponível.
 
 ## Interações
 
 **Mouse / teclado**
-- Clique num mini-card sem seleção → seleciona o slot (`picking = slot i`); painel direito vira o seletor.
-- Clique no mesmo mini-card selecionado → desseleciona.
-- Clique em **outro** mini-card com um slot selecionado → `swapSlots(origem, destino)`: troca os dois titulares de posição (falha se o slot 0 deixar de ter `GK`). Foco vai para o slot de destino.
-- Clique num card do seletor → `changeSlot(i, id)`: se o escolhido já é titular em outro slot, os dois trocam; senão o reserva entra e o atual sai. Bloqueia indisponíveis e não-goleiro no slot 0. Foco volta ao slot.
-- **Arrastar e soltar** (só mouse, só entre mini-cards do campinho): soltar um titular sobre outro → `changeSlot(destino, arrastado)` (equivale à troca). Cards do painel direito **não** são arrastáveis.
-- Clique em card do "Elenco principal" → abre o jogador na aba Jogadores.
+- Clique numa camisa sem seleção → seleciona o slot (`picking = slot i`); painel direito vira o seletor.
+- Clique na mesma camisa selecionada → desseleciona.
+- Clique em **outra** camisa com um slot selecionado → `swapSlots(origem, destino)`: troca titulares disponíveis (falha se o slot 0 deixar de ter `GK`). Foco vai para o slot de destino.
+- Clique num card do seletor → `changeSlot(i, id)`: se o escolhido já é titular em outro slot, os dois trocam; senão o reserva entra e o atual sai. Bloqueia indisponíveis e qualquer troca que deixe um não-goleiro no slot 0; o goleiro titular aparece desabilitado quando não pode deixar o gol. Foco volta ao slot.
+- **Arrastar e soltar** (só mouse, só entre camisas do campinho): soltar um titular sobre outro → `changeSlot(destino, arrastado)` (equivale à troca). Cards do painel direito **não** são arrastáveis.
+- Clique em titular do "Onze inicial" → abre o jogador na aba Jogadores.
 - Setas do teclado = navegação espacial (mesmo comportamento do D-pad); `Enter`/`Espaço` = clique; **`Esc` = Voltar** (mesma ação do ○/B: clica em `Cancelar` quando há posição selecionada); `[`/`]` = aba principal; `q`/`e` = sub-aba.
 
 **Controle (PS5 / Xbox)**
-- **D-pad / analógico esquerdo**: foco espacial entre mini-cards (algoritmo `FocusManager.move`: prioriza mesma região `data-focus-region` e alinhamento). → a partir do campinho alcança o painel direito (região `panel`).
-- **✕ / A** sobre um mini-card: seleciona a posição. **O foco permanece no campinho** (só no modo responsabilidades o foco salta para o painel).
-  - Com posição selecionada: **✕/A noutro mini-card** = trocar os dois de posição; **✕/A no mesmo** = cancelar; **→** = ir aos recomendados; **✕/A num card** = escalar; **○ / B** = clica no botão `[data-back-action]` **Cancelar** (foco volta ao slot).
-- **✕/A** num card do Elenco principal = abre a ficha (aba Jogadores).
+- **D-pad / analógico esquerdo**: foco espacial entre camisas (algoritmo `FocusManager.move`: prioriza mesma região `data-focus-region` e alinhamento). → a partir do campinho alcança o painel direito (região `panel`).
+- **✕ / A** sobre uma camisa: seleciona a posição. **O foco permanece no campinho** (só no modo responsabilidades o foco salta para o painel).
+  - Com posição selecionada: **✕/A noutra camisa** = trocar os dois de posição; **✕/A na mesma** = cancelar; **→** = ir aos recomendados; **✕/A num card** = escalar; **○ / B** = clica no botão `[data-back-action]` **Cancelar** (foco volta ao slot).
+- **✕/A** num titular da lista = abre a ficha (aba Jogadores).
 - **L2/R2 · LT/RT**: muda de sub-aba. **L1/R1 · LB/RB**: muda de aba principal. **Analógico direito vertical**: rola a área rolável mais próxima (grade de cards). **R-stick horizontal**: sem uso nesta aba (rola carrossel horizontal se existir).
 - **□ / X**: avança o dia (global). **△ / Y**: Escritório. **Options/☰**: pausa.
 - Feedback: vibração (`rumble`) e bipe a cada movimento/confirmação.
 
 ## Classes CSS e visual atual
-- `.squad-layout` grid 2 colunas; `≤760px` vira 1 coluna e `.football-pitch` fica com `height: 460px`.
-- `.pitch-panel` (borda superior **limão** em vez de ciano), flex coluna; `.football-pitch` preenche o espaço.
-- `.pitch-player`: 70 px de largura, `border-radius: 6px 6px 4px 4px`, `overflow: hidden`, padding inferior 3 px, sombra; fundo padrão dourado sobrescrito por `var(--card-bg)` do tier; **cor do texto `#1d1500` (escura)**; `.pitch-ovr b` 16 px; `strong` 11 px caixa alta com `border-top: 1px solid rgba(29,21,0,.25)`; `.pitch-fitness` 3 px limão, margem 2 px 6 px.
+- `.squad-layout` usa duas colunas também no celular deitado, com rolagem vertical do conteúdo; em retrato o aviso global pede para girar o aparelho.
+- Em landscape até 700 px, as colunas têm a mesma largura, as camisas acompanham o campo e o editor empilha o painel de posições abaixo da camisa e do mapa de calor.
+- `.pitch-panel` usa superfície grafite; `.football-pitch` preenche o espaço. `.pitch-player` contém a camisa vetorial, OVR, nome e condição, sem fundo metálico.
 - Tiers (`--card-bg`): bronze `#e7b083 → #b06b35 → #5e3313`; prata `#f1f5f8 → #a9b4bc → #56636c`; ouro `#ffe590 → #d4a537 → #7a5512`; ouro brilhante `#fff6c4 → #ffcf2e → #e09a00 → #6b3f00` + anel/glow dourado + faixa de brilho animada (`::after`). `--card-name` (faixa do nome) em tons escuros do próprio metal.
 - `.player-card` (ver comum): quadrado, padding 0, foto `inset 6% 0 0 0`, nome em faixa inferior gradiente, OVR/posição brancos no topo-esquerda.
-- `.card-grid` 5 colunas gap 8 px; `.card-scroll` `overflow-y: auto`.
+- `.card-grid` tem 4 colunas no desktop e 3 no celular deitado; `.card-scroll` usa `overflow-y: auto`.
 - `.grid-divider` texto limão + linha gradiente.
-- `.panel`: vidro (`--glass`), borda 1 px `--line`, borda superior 3 px ciano, `backdrop-filter: blur(10px)`, raio 4 px; `.panel h2` 22 px 800 caixa alta.
+- Painéis usam grafite/ardósia e borda ciano discreta, com acabamento específico em `legacy/08-squad.css`.
 - `.squad-controls` flex coluna, `overflow: hidden`; `.picker-heading` não encolhe.
 - Animações respeitam `prefers-reduced-motion`.
 
@@ -232,23 +222,16 @@ Campinho com os 11 titulares à esquerda (mini-cards FIFA por posição da forma
 - 11 slots na ordem de `formations[formação]`; slot 0 **sempre goleiro** (validado em toda troca).
 - OVR exibido no campinho e no seletor é o **overall na função do slot**, não o natural.
 - Indicação de **fora de posição** (familiaridade < 85) e de **condição física** (fitness %) em cada titular.
-- Indisponíveis (lesão, suspensão, fitness < 30) não podem entrar: desabilitados no seletor.
+- Indisponíveis (lesão, suspensão, fitness < 30) não podem entrar: desabilitados no seletor. Um titular indisponível pode sair por um reserva disponível, mas não ser deslocado para outro slot titular.
 - Fluxo de troca: selecionar slot → (a) outro slot = trocar posições, (b) card = substituir/trocar; cancelar devolve o foco ao slot.
 - Recomendados (até 5) primeiro, depois elenco por posição.
-- **Preferência do usuário — "o card é a foto"**: no Elenco principal e no campinho, a foto do jogador grande, centralizada, com a **base colada embaixo** do card; mostrar **só nome, posição e overall (sem número)**; fundo pelo nível **bronze (<65) / prata (65–74) / ouro (75–82) / ouro brilhante (≥83)** conforme `cardTier.ts`; **fonte branca** nos cards; jogador sem foto = **bonequinho/silhueta padrão, sem sigla e sem fundo escuro**.
+- **Preferência do usuário — "o card é a foto"**: nos cards dos seletores, foto grande e centralizada, com a **base colada embaixo**; mostrar **só nome, posição e overall (sem número)** sobre ela. Fundo pelo nível **bronze (<65) / prata (65–74) / ouro (75–82) / ouro brilhante (≥83)**; fonte branca; sem foto = silhueta neutra. O campo usa minicamisas, não cards.
 - Autoescalar sempre acessível.
 - Navegação 100% por controle, com foco visível e retorno de foco ao ponto de origem.
 
 ## Problemas atuais e oportunidades
-- **Fonte escura nos mini-cards do campinho** (`color: #1d1500`) — contraria a preferência "fonte branca nos cards".
-- Estado `unavailable` no campinho **não tem visual** (CSS aponta para `.shirt-number`, inexistente). Lesionados/suspensos escalados não são destacados.
-- Barra de condição sem cor por faixa e sem número; difícil ler.
-- `PlayerCard` recebe `note`/`number` que nunca aparecem; texto "Titular/Reserva" do seletor se perde (só a borda limão indica titular no Elenco principal; no seletor nada indica).
-- Texto "A abre a ficha" fixo (não reflete ✕ no PlayStation).
 - Drag-and-drop só entre titulares; não dá para arrastar do banco.
-- Não existe visão de **banco/reservas** separada no campinho (FIFA mostra Reservas/Não relacionados).
-- Clicar no card do Elenco principal troca de sub-aba sem aviso (pula para Jogadores).
-- Muitos cards (5 por linha) ficam pequenos em telas baixas; nome truncado.
+- Não existe visão de **banco/reservas** separada no campinho; o elenco completo fica na aba Jogadores e no seletor.
 
 ---
 
@@ -270,7 +253,7 @@ Campinho à esquerda (igual à Escalação, reflete a formação em tempo real) 
 │ │                           │ │ ┌───────────────────────────────────┐        │
 │ │                           │ │ │PRESSÃO                      3 / 5 │        │
 │ │                           │ │ │▮▮▮▯▯                              │        │
-│ │                           │ │ │X/✕ EDITAR                         │        │
+│ │                           │ │ │EDITAR                              │        │
 │ │                           │ │ └───────────────────────────────────┘        │
 │ │                           │ │ (Largura · Velocidade de construção ·        │
 │ └───────────────────────────┘ │  Linha defensiva — mesmo formato)            │
@@ -280,20 +263,20 @@ Campinho à esquerda (igual à Escalação, reflete a formação em tempo real) 
 
 ## Elementos
 - `p.eyebrow` **`IDENTIDADE EM CAMPO`**; `h2` **`Como vamos jogar?`**.
-- `div.tactic-form` (grid; 1 coluna em ≤760px) contendo:
-  1. `ChipGroup` **Formação**: chips `4-2-3-1`, `4-3-3`, `4-4-2`, `3-5-2` (`role="radiogroup"`, chip ativo branco). Mudar → `updateTactic({formation})`, que **recalcula a escalação inteira com `bestLineup`** (a escalação manual é descartada). Se não houver 11 aptos → erro `Não há atletas disponíveis para esta formação.` e nada muda.
+- `div.tactic-form` em grade contendo:
+  1. `ChipGroup` **Formação**: chips `4-2-3-1`, `4-3-3`, `4-4-2`, `3-5-2` (`role="radiogroup"`). Há aviso de que escolher uma formação diferente **recalcula a escalação inteira com `bestLineup`**. Selecionar a formação já ativa não altera o onze. Se não houver 11 aptos → erro `Não há atletas disponíveis para esta formação.` e nada muda.
   2. `ChipGroup` **Mentalidade**: `Defensiva`, `Equilibrada`, `Ofensiva`.
-  3. Quatro `TacticSlider` (1–5): **`Pressão`** (`pressure`), **`Largura`** (`width`), **`Velocidade de construção`** (`tempo`), **`Linha defensiva`** (`line`). Cada um mostra: rótulo (caixa alta 15 px) · valor `{v} / 5` (ciano; limão e com `ChevronLeft`/`ChevronRight` 16 px em edição) · trilho de 5 segmentos (`.ts-track i.on` gradiente ciano→azul; limão→verde em edição) · dica `X/✕ editar` ou `← → ajustar · X/✕ salvar · B sair`.
+  3. Quatro `TacticSlider` (1–5): **`Pressão`** (`pressure`), **`Largura`** (`width`), **`Velocidade de construção`** (`tempo`), **`Linha defensiva`** (`line`). Cada um mostra rótulo, valor, cinco segmentos e dica **Editar** ou **Ajustar / Concluir / Sair**, com glifos apropriados quando há controle conectado.
 - `p.muted.small`: **`Pressão alta gasta mais energia e aumenta o risco de cartões. Linha e mentalidade alteram o equilíbrio entre ataque e defesa.`**
-- Campinho à esquerda: `h2` formação e `pill` mentalidade atualizam na hora; posições dos mini-cards mudam com a formação.
+- Campinho à esquerda: `h2` formação e `pill` mentalidade atualizam na hora; posições das camisas mudam com a formação.
 
 ## Estados e variações
 - Chip ativo vs. inativo.
-- Slider normal vs. **modo edição** (`.tactic-slider.editing`: borda limão, fundo gradiente limão, glow).
+- Slider normal vs. **modo edição** (`.tactic-slider.editing`: borda ciano e fundo petróleo).
 - Formação trocada → nova escalação automática visível no campinho.
 
 ## Interações
-**Mouse**: clique no chip aplica. No slider, clicar num segmento do trilho define o valor direto; clicar no corpo do slider liga/desliga o modo edição.
+**Mouse**: clique no chip aplica. No slider, o primeiro clique no corpo ou num segmento entra em edição sem alterar o valor; com edição ativa, clicar num segmento aplica o novo valor.
 **Teclado**: setas navegam; `Enter` liga/desliga a edição do slider; com a edição ligada o elemento recebe `data-stepper` e ←/→ passam a ajustar o valor (evento `mando:step`) em vez de navegar; `Esc` sai da edição.
 **Controle**:
 - D-pad navega entre chips e sliders sem alterar nada.
@@ -302,9 +285,9 @@ Campinho à esquerda (igual à Escalação, reflete a formação em tempo real) 
 - L2/R2 troca sub-aba; o campinho à esquerda continua focável (clicar nele leva à Escalação).
 
 ## Classes CSS e visual atual
-- `.tactic-form` grid; `.chip-group` / `.chips` (flex wrap, gap 6); `.chips > button` (padding 7×12, 14 px, fundo `rgba(0,8,46,.55)`, borda 2 px `--line`; `.active` branco→`#d8e6ff`, texto `#082062`).
+- `.tactic-form` grid; `.chip-group` / `.chips` em flex com opções focáveis e estado ativo.
 - `.control-label` 13 px 700 caixa alta `--ink-2`.
-- `.tactic-slider` (fundo branco 7%, borda 2 px transparente; `.editing` limão), `.ts-head`, `.ts-value`, `.ts-track` (segmentos 9 px), `.ts-hint` 10 px caixa alta `--ink-3`.
+- `.tactic-slider` usa superfície elevada, borda ciano em edição, `.ts-head`, `.ts-value`, `.ts-track` e `.ts-hint`. O componente também é usado na partida e segue o mesmo modo de edição.
 
 ## Regras que o redesign deve preservar
 - 4 formações, 3 mentalidades, 4 parâmetros inteiros 1–5 (`tacticSchema`).
@@ -313,7 +296,6 @@ Campinho à esquerda (igual à Escalação, reflete a formação em tempo real) 
 - Aplicação imediata, sem botão salvar.
 
 ## Problemas atuais e oportunidades
-- Nenhum aviso de que trocar formação descarta a escalação manual.
 - Não há pré-visualização/explicação por slider (efeito numérico, descrição curta de 1 e 5).
 - Sem instruções individuais nem "táticas personalizadas" salvas (FIFA tem 4 slots de tática).
 - O campinho não mostra setas/linhas indicando largura, linha defensiva etc.
@@ -352,14 +334,14 @@ Define capitão, vice e cobradores de bola parada. Painel direito com uma grade 
 - `.panel-heading`: `h2` **`Quem chama a responsabilidade?`**; `span` **`Liderança e bola parada`**.
 - `.role-grid` (3 colunas, gap 10, rolável) com **9** `button.role-card` (`data-role={nome}`), na ordem de `roleNames`: **Capitão**, **Vice-capitão**, **Pênaltis**, **Faltas curtas**, **Faltas longas**, **Escanteio esquerdo**, **Escanteio direito**, **Lateral esquerdo**, **Lateral direito**.
   - `span.role-name` (13 px 800 caixa alta): ícone lucide **`Crown`** (16) para Capitão/Vice-capitão, **`Shirt`** (16) para os demais + nome da função.
-  - Com responsável válido (existe e ainda é do clube): `span.role-number` = **número da camisa** grande (itálico 48 px, branco 30%, canto superior direito); `strong` = `shortName` (22 px); `small` = **`{posição} · OVR {overall natural}`**.
-  - Sem responsável (ou saiu do clube): classe `empty` (`saturate(.4)`), `role-number` **`?`**, `strong` **`Não definido`**, `small` **`Escolher atleta`**.
-  - Cores de fundo por posição na grade (`nth-child`): 1 roxo `#8b45ff→#3a1696`, 2 azul, 3 laranja, 4 verde, 5 rosa; 6–9 repetem o roxo padrão.
+  - Com responsável válido (existe e ainda é do clube): número da camisa, nome, posição, overall, índice da função, disponibilidade e condição.
+  - Sem responsável (ou saiu do clube): classe `empty`, `?`, **`Não definido`** e **`Escolher atleta`**.
+  - Cards usam superfícies ardósia/grafite. Um goleiro já atribuído por um save antigo a uma função que não permite goleiro recebe aviso para regularização, sem alterar o save silenciosamente.
 - **Seletor de responsável** (`picking = {kind:'role', role}`) no painel direito:
   - Cabeçalho: `Cancelar` (`ChevronLeft`, `data-back-action`) · `h2` **{nome da função}** · `pill` **`Escolha o responsável`**.
-  - `PlayerPicker`: **`Melhores para a função`** = top 5 por `roleScore` (goleiros excluídos, exceto para Capitão/Vice); **`Elenco por posição`** = demais (inclui goleiros), por `byPosition`.
+  - `PlayerPicker`: **`Melhores para a função`** = top 5 por `roleScore`; **`Elenco por posição`** = demais, por `byPosition`. Goleiros só aparecem nas duas listas de Capitão/Vice.
   - Card extra **Ninguém** (só se a função já tem responsável): `button.player-card.empty` (borda tracejada) com ícone **`UserX`** (30) + **`Ninguém`** + **`Remover`** → remove a função.
-  - Cards `PlayerCard` com `active` = responsável atual; `note` `Titular`/`Reserva` (não exibida). Indisponíveis **não** são bloqueados aqui.
+  - Cards `PlayerCard` com `active` = responsável atual. Titular/reserva, índice da função, disponibilidade e condição aparecem abaixo da foto e no rótulo acessível. Indisponíveis continuam selecionáveis aqui.
 - `roleScore` (critério dos recomendados):
   - Capitão / Vice: `overall + min(34, idade)×0,8 + relação×0,2`.
   - Pênaltis: `finalização + compostura`.
@@ -381,29 +363,27 @@ Define capitão, vice e cobradores de bola parada. Painel direito com uma grade 
 - L2/R2 troca sub-aba (cancela o seletor).
 
 ## Classes CSS e visual atual
-- `.role-grid` 3 colunas; `.role-card` (min-height 120 px, padding 12×14, raio 6, gradientes por `nth-child`), `.role-card.empty`, `.role-name`, `.role-number`, `.role-card strong` (22 px, `margin-top: auto`), `.role-card small` (branco 82%).
+- `.role-grid` com 3 colunas; `.role-card` e `.role-card.empty` em ardósia/grafite, com `.role-name`, `.role-number` e `.role-condition`.
 - Seletor reutiliza `.picker-heading`, `.card-scroll`, `.grid-divider`, `.card-grid`, `.player-card`, `.player-card.empty`.
 
 ## Regras que o redesign deve preservar
 - As 9 funções e seus nomes exatos (`roleNames`), armazenadas em `c.roles[nome] = playerId`.
 - Responsável que saiu do clube é tratado como "Não definido".
 - Opção de remover (Ninguém) quando já existe responsável.
-- Recomendações pelos critérios de `roleScore`; goleiros só sugeridos para capitão/vice.
+- Recomendações pelos critérios de `roleScore`; goleiros só podem ser escolhidos para capitão/vice.
 - Foco vai ao seletor ao abrir e volta ao card da função ao fechar.
 
 ## Problemas atuais e oportunidades
-- Cores dos cards são arbitrárias por posição na grade (6–9 iguais ao 1º); não comunicam nada.
 - Card de função não mostra foto do responsável (FIFA mostra o mini-card do jogador).
 - Não há "auto-definir" responsabilidades nem validação de capitão = vice.
 - Número da camisa aparece aqui (em contraste com os cards) — avaliar consistência.
-- Indisponíveis não sinalizados no seletor.
 
 ---
 
 # Aba 4 — Jogadores (`view = 'kit'`)
 
 ## Resumo
-Lista completa do elenco em linhas (estilo tabela do FIFA), **ordenável por botão do controle**. À esquerda, no lugar do campinho, um **painel de stats** do jogador focado (foto em card de tier, nome, número, posição, overall, potencial, idade, estilo/função, personalidade, todos os atributos, mapa de calor) que **atualiza ao rolar/focar** a lista. Clicar numa linha **expande a linha** (sem modal) e mostra uma barra de ações (Trocar, Número da camisa, Renovar contrato, Lista de transferências, Lista de empréstimos, Conversar, Evolução e função, Dispensar, Posições e treino); escolher uma ação abre o painel dela **dentro** da linha. "Posições e treino" substitui a lista por um editor de posições com número da camisa e mapa de calor.
+Lista completa do elenco em linhas, **ordenável por botão do controle**. À esquerda, no lugar do campinho, um **painel de stats** do jogador focado (foto em card de tier, nome, número, posição, overall, potencial, idade, estilo/função, personalidade, todos os atributos, mapa de calor) que **atualiza ao rolar/focar** a lista. Clicar numa linha **expande a linha** (sem modal) e mostra uma barra de ações (Trocar, Número da camisa, Renovar contrato, Lista de transferências, Lista de empréstimos, Conversar, Evolução e função, Dispensar, Posições e treino); todas as ações, inclusive o editor de posições com número e mapa de calor, aparecem **dentro da linha**.
 
 ## Wireframe atual (ASCII)
 
@@ -433,10 +413,10 @@ Lista completa do elenco em linhas (estilo tabela do FIFA), **ordenável por bot
 └─────────────────────────────────────┴────────────────────────────────────────┘
 ```
 
-Editor "Posições e treino" (substitui a lista no painel direito):
+Editor "Posições e treino" (dentro da linha expandida no painel direito):
 ```
-[‹ Elenco]  NOME COMPLETO                               (CM · LW)
-┌ kit-side (210px) ┐  POSIÇÕES · ESCOLHA UMA PARA VER O MAPA DE CALOR
+[POSIÇÕES E TREINO] NOME COMPLETO                        [‹ Fechar editor]
+┌ kit-side ────────┐  ESCOLHA UMA POSIÇÃO PARA VER O MAPA DE CALOR
 │   ╱‾‾\__/‾‾╲     │  [GK 45][CB 60][LB 58][RB 57][DM 78]
 │   │  10    │     │  [CM 84][AM 80][LW 79][RW 75][ST 70]   ← OVR + barra de familiaridade
 │   │ (camisa)│    │  ┌ MEIA CENTRAL ──────────────────────┐
@@ -466,21 +446,21 @@ Editor "Posições e treino" (substitui a lista no painel direito):
   2. `b.roster-ovr` — **overall** (800 22 px, centralizado).
   3. `strong` — **valor de mercado** (`money`).
   4. `span` — **`Titular`** ou **`Reserva`**.
-- Linhas alternam fundo (6% / 10% branco). Não há cabeçalho de colunas.
-- Linha aberta (`roster-item.open`): fundo gradiente azul `#1f6fff → #0a2a8f`, texto branco.
+- Linhas usam fundo ardósia. Não há cabeçalho de colunas.
+- Linha aberta (`roster-item.open`): fundo petróleo, texto branco.
 
 ### Área expandida (`div.roster-expand`, só na linha aberta)
-- Fundo azul 10%, borda esquerda limão 3 px, animação `roster-open` (fade + desce 4 px, 0,18 s).
+- Fundo grafite, borda esquerda ciano, animação `roster-open` (fade + desce 4 px, 0,18 s).
 - `div.roster-actions` (`role="toolbar"`, `aria-label="Ações de {nome}"`), botões `.roster-action` (6×12 px, 13 px), na ordem:
   **Trocar** · **Número da camisa** · **Renovar contrato** · **Lista de transferências** · **Lista de empréstimos** · **Conversar** · **Evolução e função** · **Dispensar** (classe `danger-text`, vermelho `#c62828` quando inativo) · **Posições e treino** (ícone `Dumbbell` 14).
-  - Botão ativo: `active` + `aria-pressed`, fundo gradiente azul. Clicar no ativo de novo fecha o painel (volta a `summary`). Trocar de ação reseta a confirmação de dispensa.
-  - "Posições e treino" fecha a linha (`setDetail(null)`) e abre o editor de posições (ver abaixo).
+  - Botão ativo: `active` + `aria-pressed`, fundo petróleo. Clicar no ativo de novo fecha o painel (volta a `summary`). Trocar de ação reseta a confirmação de dispensa.
+  - "Posições e treino" mantém a linha aberta e insere o editor nela (ver abaixo).
 - Abaixo, quando há ação escolhida, `div.hub-panel` (sem limite de altura dentro da linha) com o conteúdo da ação:
 
 #### Ação **Trocar**
 - `p.eyebrow`: **`TROCAR {SOBRENOME} · TITULAR NA POSIÇÃO {função}`** ou **`… · RESERVA`**.
 - `p.muted.small`: titular → **`Escolha um titular para trocar de posição ou um reserva para entrar no lugar dele.`**; reserva → **`Escolha o titular que vai sair para ele entrar.`**
-- `div.hub-list` de botões: se o aberto é titular, todos os outros jogadores; se é reserva, só os titulares. Ordenados titulares primeiro, depois overall desc. Cada botão: `strong` com **função no slot** ou **`RES`** · `PlayerFace sm` · **`{nome} · {posição} · {overall}`** · sufixo **` · indisponível`** (e `disabled`) se for reserva indisponível.
+- `div.hub-list` de botões: se o aberto é titular, todos os outros jogadores; se é reserva, só os titulares. Ordenados titulares primeiro, depois overall desc. Cada botão: função no slot ou `RES`, foto, nome, posição e overall. Trocas inválidas por indisponibilidade ficam desabilitadas.
 - Clique → `swapPlayers(aberto, outro)` (titular↔titular troca posições; titular↔reserva substitui); valida indisponível e goleiro no slot 0; fecha o painel (volta a `summary`) e devolve foco à linha.
 
 #### Ação **Número da camisa**
@@ -514,7 +494,7 @@ Editor "Posições e treino" (substitui a lista no painel direito):
 - `p.eyebrow` **`PLANO DE EVOLUÇÃO`**; `ChipGroup`: `Equilibrado`, `Ataque`, `Criação`, `Defesa`, `Físico` → `onDevelopment`.
 - `OptionCycler` **Função em campo**: `Padrão`, `Finalizador`, `Armador`, `Pivô`, `Volante`, `Zagueiro construtor`, `Lateral ofensivo` (setas `ChevronLeft/Right` 18, valor central, pontinhos indicadores) → `onRole`.
 - `p.muted.small`: **`O plano acelera a evolução individual. Ritmo de jogo, moral e minutos também influenciam o rendimento e o potencial.`**
-- Botão `Dumbbell` **`Posições e treino de posição`** → fecha a linha e abre o editor de posições.
+- Botão `Dumbbell` **`Posições e treino de posição`** → abre o mesmo editor inline, mantendo a linha expandida.
 
 #### Ação **Dispensar**
 - `p.eyebrow` **`DISPENSAR JOGADOR`**; `p.muted.small` **`A rescisão custa metade dos salários restantes do contrato (mínimo de 3 salários). O atleta sai do elenco imediatamente.`**
@@ -524,12 +504,12 @@ Editor "Posições e treino" (substitui a lista no painel direito):
 
 ### Painel de stats (coluna esquerda, `section.panel.player-stats`)
 - Jogador exibido (`fp`), por prioridade: jogador do editor "Posições e treino" → jogador **focado** (`focusId`, atualizado por `onFocus` e `onMouseEnter` de cada linha) → jogador aberto (`detail`) → primeiro da lista ordenada.
-- `.stats-head` (grid `180px | 1fr`; 1 coluna em ≤900px):
+- `.stats-head` (grid `180px | 1fr`, compacto em celular deitado):
   - **Card do jogador** `div.hub-card.{tier}` (proporção 3:4, raio 10, fundo do tier, texto branco): `hub-card-top` = **overall** (44 px) + **posição** (`state.position ?? position`, 20 px); `PlayerFace` grande (`hub-card-face`, ocupa do topo 8% até a base, `contain`, base embaixo; bonequinho sem fundo se não houver foto); `hub-card-name` = sobrenome caixa alta 22 px numa faixa gradiente `var(--card-name)`. **Sem número no card.**
   - `div.stats-info`: `h2` **nome completo**; `p.eyebrow` **`{posições conhecidas (principal primeiro) separadas por " · "} · {função em campo} · {personalidade}`**; `div.hub-facts` (grid `auto-fill minmax(110px,1fr)`), cada fato = rótulo caixa alta 12 px + `strong` 15 px:
     **Camisa** `{n|—}` · **Idade** · **Overall** · **Potencial** `{mín}–{máx}` (= `potential + potentialDelta ∓ uncertainty`, limitado 1–99) · **Moral** · **Ritmo** `{sharpness}%` · **Valor** · **Salário** · **Contrato** `{dateLabel}` · **Temporada** `{gols} gols · {minutos} min`.
   - Se listado: `p.pill.hub-flag` **`À VENDA · {preço}`**.
-- `.hub-summary` (grid `1fr | 180px`; 1 coluna em ≤900px):
+- `.hub-summary` (grid `1fr | 180px`; uma coluna no celular deitado):
   - `.attribute-grid` com os **19 atributos** (na ordem do objeto `attributes`), rótulos: Velocidade, Aceleração, Finalização, Passe curto, Passe longo, Visão, Drible, Controle, Força, Resistência, Posicionamento, Marcação, Desarme, Interceptação, Cabeceio, Compostura, Reflexos, Segurança, Elasticidade. Cada item: **`{Rótulo}: {valor}`** + barra `.attr-bar` (largura = valor%); classe `high` (≥80), `mid` (65–79), `low` (<65) colore a barra.
   - `HeatMap compact` na posição atual (ver abaixo).
 
@@ -538,11 +518,11 @@ Editor "Posições e treino" (substitui a lista no painel direito):
 - `figcaption`: **`{função} · {rótulo de familiaridade} · {n}%`**, `strong` colorido (limão ≥85, âmbar ≥60, vermelho <60).
 - Tamanho: normal máx. 200 px de largura/32vh; compacto máx. 130 px/24vh.
 
-### Editor "Posições e treino" (painel direito, quando `kitId` definido)
-- Cabeçalho `picker-heading`: botão **`Elenco`** (`ChevronLeft`, `data-back-action`) → fecha e devolve foco à linha do jogador; `h2` nome completo; `pill` posições conhecidas (`CM · LW`).
-- `div.kit-editor` (grid `210px | 1fr`):
+### Editor "Posições e treino" (dentro da linha aberta, quando `kitId` definido)
+- Cabeçalho `picker-heading`: nome completo e botão **`Fechar editor`** (`ChevronLeft`, `data-back-action`) → fecha apenas o editor e devolve foco à linha do jogador.
+- `div.kit-editor` em duas colunas, com dimensões compactas no celular deitado:
   - `kit-side`: `ShirtNumberDial` — botão em forma de **camisa** (`clip-path`), número 54 px; dica **`X/✕ editar número`** / em edição **`← → trocar · X/✕ salvar · B cancelar`** com setas `ChevronLeft/Right` 26 limão; nota dourada **`Em uso por {nome}: os dois trocam`** quando o rascunho coincide com número de outro. Abaixo, `HeatMap` (tamanho normal) na posição selecionada.
-  - `kit-main`: eyebrow **`POSIÇÕES · ESCOLHA UMA PARA VER O MAPA DE CALOR`**; `div.position-grid` (5 colunas) com os 10 `position-chip` (`GK CB LB RB DM CM AM LW RW ST`): `strong` sigla, `span` **overall naquela posição**, barra de familiaridade (vermelha <60, âmbar 60–84, limão ≥85), ícone `Dumbbell` 12 âmbar se é a posição em treino. Classes `main` (100%, borda limão), `known` (≥85), `ok` (≥60), `bad`, `active` (selecionada: fundo branco), `training` (anel âmbar). `aria-label`: `{nome da posição}: {rótulo}, {n}%, overall {ovr}`.
+  - `kit-main`: eyebrow **`ESCOLHA UMA POSIÇÃO PARA VER O MAPA DE CALOR`**; `div.position-grid` com os 10 `position-chip` (`GK CB LB RB DM CM AM LW RW ST`): sigla, overall na posição, barra de familiaridade e ícone de treino. A posição selecionada usa fundo petróleo; o rótulo acessível informa nome, familiaridade e overall.
   - `div.kit-status` (borda esquerda ciano): `strong` **nome da posição** (ex. `Meia central`); `span` **`{rótulo} · {n}% · OVR {ovr}`**; se treinando, `small` âmbar **`Treinando {posição} · {n}% (apto a partir de 85%)`**.
   - `div.kit-actions`: **`Treinar como {POS}`** (`Dumbbell`; desabilitado se é a posição principal, se familiaridade ≥ 92, ou se mistura goleiro com linha) **ou** **`Parar treino`** se já treina a selecionada; **`Tornar posição principal`** (primary, `Crown`; desabilitado se já é a principal ou familiaridade < 85).
   - `p.muted.small`: **`O treino evolui um pouco por dia (mais rápido em jovens). Fora de posição o OVR cai e o mapa de calor se espalha.`**
@@ -552,7 +532,7 @@ Editor "Posições e treino" (substitui a lista no painel direito):
 - Lista fechada / uma linha aberta (só uma por vez — `detail`) / linha aberta com uma ação ativa.
 - Linha titular (filete limão), focada (contorno), aberta (azul).
 - Sub-estados de ações: dispensa com/sem confirmação; jogador listado/não listado (rótulo do botão, botão "Tirar da lista", flag no painel de stats, "À VENDA" no subtítulo da linha); lesionado ("Lesionado" no subtítulo).
-- Editor "Posições e treino" aberto (lista some) ou fechado.
+- Editor "Posições e treino" aberto dentro da linha ou fechado; a lista continua presente.
 - ShirtNumberDial em repouso/edição/conflito.
 - Painel de stats: tier do card muda conforme overall; mapa de calor bom/médio/ruim.
 - Sem jogadores: painel de stats não aparece (cai para o campinho).
@@ -576,7 +556,7 @@ Editor "Posições e treino" (substitui a lista no painel direito):
 - **Analógico direito ↑/↓**: rola a lista.
 - **✕ / A** na linha: expande; de novo: recolhe.
 - Com linha aberta: **↓** entra na barra de ações; **←/→** entre botões; **✕/A** ativa a ação (ou fecha se já ativa); **↓** desce para o conteúdo da ação.
-- **○ / B** com linha aberta: o App fecha `detail` (linha recolhe; foco volta à linha). Com editor de posições aberto: **○/B** = botão **Elenco**.
+- **○ / B** com linha aberta: o App fecha `detail` (linha recolhe; foco volta à linha). Com editor de posições aberto: **○/B** = **Fechar editor**; outro **○/B** recolhe a linha.
 - Com linha aberta, **L1/R1 ficam bloqueados** (não muda de aba principal); **L2/R2** ainda mudam sub-aba (a linha continua aberta no estado).
 - `NumberStepper` (preço/multa): **✕/A** abre o teclado numérico virtual; **□/X** liga o modo ajuste (←/→ mudam pelo passo; □ ou ○ saem); fora do modo as setas navegam.
 - `ChipGroup`: D-pad + ✕/A. `OptionCycler`: ✕/A entra em edição, ←/→ trocam, ✕/A ou ○/B saem.
@@ -591,7 +571,7 @@ Editor "Posições e treino" (substitui a lista no painel direito):
 - `.roster-expand`, `.roster-actions`, `.roster-action[.active][.danger-text]`, `.roster-expand .hub-panel`, `@keyframes roster-open`.
 - `.hub-panel`, `.hub-list` (+ botões flex), `.number-grid`, `.number-cell[.taken][.mine]`, `.renewal-terms`, `.button-row`, `button.primary`, `button.danger`, `.number-stepper`, `.stepper-row`, `.stepper-format`, `.stepper-hint`, `.option-cycler`, `.cycler-*`, `.chip-group`, `.chips`.
 - `.kit-editor`, `.kit-side`, `.kit-main`, `.shirt-dial` (+ `.dial-number`, `.dial-arrow`, `.dial-hint`, `.dial-note`), `.position-grid`, `.position-chip[.main|.known|.ok|.bad|.active|.training]`, `.chip-train`, `.kit-status`, `.kit-actions`.
-- Responsivo: `≤760px` `.market-row` mostra só as 2 primeiras colunas (identidade + OVR); `≤900px` `.stats-head` e `.hub-summary` em 1 coluna.
+- Responsivo: no celular deitado o Plantel mantém duas colunas e rolagem; o editor de posições reduz sua grade. Em retrato é exibido o aviso global de orientação.
 
 ## Regras que o redesign deve preservar
 - **Nada de modal**: clicar expande a linha com as ações (trocar, dispensar, colocar à venda, mudar numeração, emprestar, renovar — e também conversar, evolução/função, posições e treino); o conteúdo da ação aparece inline.
@@ -609,8 +589,6 @@ Editor "Posições e treino" (substitui a lista no painel direito):
 - Sem indicação de direção da ordenação nem dica do botão do controle no pill (texto fixo "◀ ▶").
 - A ordenação fica indisponível com linha aberta, sem feedback.
 - Barra de ações com 9 botões quebra em várias linhas; o painel da ação empurra a lista (longas, como a grade de 99 números, deslocam muito o conteúdo).
-- "Posições e treino" sai da linha expandida e vira outra tela (incoerente com o "sem modal"); ação "Evolução e função" duplica o atalho.
-- `state.position` (posição principal alterada) é usada na etiqueta e no card, mas o overall da linha/painel usa `player.position` — pode divergir após "Tornar posição principal".
 - Painel de stats não mostra **pé preferido**, altura/nacionalidade, condição física, lesão/suspensão detalhadas nem histórico; potencial é faixa.
 - Atributos sem agrupamento (Ritmo/Finalização/Passe/Drible/Defesa/Físico/Goleiro como no FIFA) — 19 itens lineares, inclusive atributos de goleiro para jogadores de linha.
 - Painel de stats tem rolagem própria; em telas baixas o mapa de calor some da vista.

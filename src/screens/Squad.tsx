@@ -13,6 +13,7 @@ import {
   UserX,
 } from 'lucide-react';
 import { available, bestLineup, squad } from '../game/matches';
+import { clubById } from '../game/npc';
 import { ageAt } from '../game/random';
 import { overall } from '../game/ratings';
 import { pitchCoordinates } from '../game/pitch';
@@ -43,7 +44,7 @@ import {
   type Tactic,
   type World,
 } from '../game/types';
-import { dateLabel, money, SectionTitle } from '../components/ui';
+import { dateLabel, money, SectionTitle, thresholdPercent } from '../components/ui';
 import {
   ChipGroup,
   NumberStepper,
@@ -166,6 +167,7 @@ export function Squad({
   const panel = useRef<HTMLElement>(null);
   const returnFocus = useRef<string | null>(null);
   const players = useMemo(() => squad(c, world), [c, world]);
+  const club = clubById(world, c.clubId);
   const loanDestinations = world.clubs
     .filter((club) => club.id !== c.clubId)
     .map((club) => ({ club, count: squad(c, world, club.id).length }))
@@ -175,6 +177,13 @@ export function Squad({
   const rolePositions = formations[c.tactic.formation];
   const coordinates = pitchCoordinates(c.tactic.formation);
   const byId = (id: string) => world.players.find((p) => p.id === id)!;
+  const availability = (p: Player) => {
+    const state = c.players[p.id];
+    if (state.injuryDays) return `Lesão · ${state.injuryDays}d`;
+    if (state.suspension) return `Suspenso · ${state.suspension}j`;
+    if (state.fitness < 30) return 'Condição insuficiente';
+    return 'Disponível';
+  };
 
   useEffect(() => {
     requestAnimationFrame(() => {
@@ -216,7 +225,8 @@ export function Squad({
 
   const updateTactic = (change: Partial<Tactic>) => {
     const next = { ...c, tactic: { ...c.tactic, ...change } };
-    if (change.formation) next.lineup = bestLineup(next, world);
+    if (change.formation && change.formation !== c.tactic.formation)
+      next.lineup = bestLineup(next, world);
     if (next.lineup.length !== 11) {
       onError('Não há atletas disponíveis para esta formação.');
       return;
@@ -234,14 +244,26 @@ export function Squad({
     }
     const lineup = [...c.lineup];
     const existing = lineup.indexOf(id);
+    if (existing >= 0 && !available(c, lineup[index])) {
+      onError('Substitua o atleta indisponível por um reserva disponível.');
+      return;
+    }
     if (existing >= 0) lineup[existing] = lineup[index];
     lineup[index] = id;
+    if (byId(lineup[0]).position !== 'GK') {
+      onError('A posição exige um goleiro.');
+      return;
+    }
     onChange({ ...c, lineup });
     returnFocus.current = `[data-slot="${index}"]`;
     setPicking(null);
   };
   const swapSlots = (from: number, to: number) => {
     const lineup = [...c.lineup];
+    if (!available(c, lineup[from]) || !available(c, lineup[to])) {
+      onError('Atletas indisponíveis devem ser substituídos por reservas disponíveis.');
+      return;
+    }
     [lineup[from], lineup[to]] = [lineup[to], lineup[from]];
     if (byId(lineup[0]).position !== 'GK') {
       onError('A posição exige um goleiro.');
@@ -257,6 +279,10 @@ export function Squad({
     const ia = lineup.indexOf(a);
     const ib = lineup.indexOf(b);
     if (ia < 0 && ib < 0) return;
+    if (ia >= 0 && ib >= 0 && (!available(c, a) || !available(c, b))) {
+      onError('Atletas indisponíveis devem ser substituídos por reservas disponíveis.');
+      return;
+    }
     const incoming = ia < 0 ? a : ib < 0 ? b : null;
     if (incoming && !available(c, incoming)) {
       onError('Atleta indisponível.');
@@ -308,7 +334,6 @@ export function Squad({
       .sort((a, b) => (a === p.position ? -1 : b === p.position ? 1 : 0))
       .join(' · ');
 
-  const sortedRoster = [...players].sort(byPosition(c));
   const sortModes = [
     {
       label: 'OVERALL',
@@ -336,15 +361,22 @@ export function Squad({
   if (picking?.kind === 'slot') {
     const role = rolePositions[picking.index];
     const currentId = c.lineup[picking.index];
+    const current = byId(currentId);
     const pool = players.filter(
       (p) => p.id !== currentId && (picking.index !== 0 || p.position === 'GK'),
     );
+    const goalkeeperWouldLeaveGoal = (p: Player) =>
+      p.id === c.lineup[0] && picking.index !== 0 && current.position !== 'GK';
+    const canSelect = (p: Player) =>
+      available(c, p.id) &&
+      (!c.lineup.includes(p.id) || available(c, currentId)) &&
+      !goalkeeperWouldLeaveGoal(p);
     const fit = roleFits[role] || [role];
     // Recomendados: quem é da posição ou já é apto nela (secundária/treinada), pelo OVR na função.
     const recommended = pool
       .filter(
         (p) =>
-          available(c, p.id) &&
+          canSelect(p) &&
           (fit[0] === p.position || familiarity(p, role, c.players[p.id]) >= LEARNED),
       )
       .sort((a, b) => overall(b, role, c.players[b.id]) - overall(a, role, c.players[a.id]))
@@ -352,12 +384,11 @@ export function Squad({
     if (recommended.length < 5)
       recommended.push(
         ...pool
-          .filter((p) => !recommended.includes(p) && fit.includes(p.position) && available(c, p.id))
+          .filter((p) => !recommended.includes(p) && fit.includes(p.position) && canSelect(p))
           .sort((a, b) => overall(b, role, c.players[b.id]) - overall(a, role, c.players[a.id]))
           .slice(0, 5 - recommended.length),
       );
     const others = pool.filter((p) => !recommended.includes(p)).sort(byPosition(c));
-    const current = byId(currentId);
     pickerContent = (
       <>
         <div className="panel-heading picker-heading">
@@ -376,6 +407,9 @@ export function Squad({
           </h2>
           <span className="pill">OVR na função</span>
         </div>
+        {!pool.some(canSelect) && (
+          <p className="squad-empty">Não há atletas disponíveis para esta troca.</p>
+        )}
         <PlayerPicker
           recommended={recommended}
           others={others}
@@ -383,17 +417,31 @@ export function Squad({
           othersLabel="Elenco por posição"
           render={(p) => {
             const starter = c.lineup.indexOf(p.id);
+            const state = c.players[p.id];
+            const fit = familiarity(p, role, state);
+            const reason =
+              starter >= 0 && !available(c, currentId)
+                ? ' · substitua por um reserva'
+                : goalkeeperWouldLeaveGoal(p)
+                  ? ' · titular precisa permanecer no gol'
+                  : '';
+            const condition = `${availability(p)} · condição ${thresholdPercent(state.fitness)}% · ${familiarityLabel(fit)} ${thresholdPercent(fit)}%${reason}`;
             return (
-              <PlayerCard
-                key={p.id}
-                player={p}
-                career={c}
-                role={role}
-                number={numbers[p.id]}
-                disabled={!available(c, p.id)}
-                note={starter >= 0 ? `Titular · ${rolePositions[starter]}` : 'Reserva'}
-                onClick={() => changeSlot(picking.index, p.id)}
-              />
+              <div className="squad-candidate" key={p.id}>
+                <PlayerCard
+                  player={p}
+                  career={c}
+                  role={role}
+                  number={numbers[p.id]}
+                  disabled={!canSelect(p)}
+                  accessibilityNote={`${starter >= 0 ? `Titular ${rolePositions[starter]}` : 'Reserva'}, ${condition}`}
+                  onClick={() => changeSlot(picking.index, p.id)}
+                />
+                <span className={`squad-candidate-meta ${canSelect(p) ? '' : 'unavailable'}`}>
+                  <b>{starter >= 0 ? `Titular · ${rolePositions[starter]}` : 'Reserva'}</b>
+                  {condition}
+                </span>
+              </div>
             );
           }}
         />
@@ -406,7 +454,7 @@ export function Squad({
         picking.role.startsWith('Capit') || picking.role.startsWith('Vice') || p.position !== 'GK',
     );
     const recommended = [...pool].sort((a, b) => score(b, c) - score(a, c)).slice(0, 5);
-    const others = players.filter((p) => !recommended.includes(p)).sort(byPosition(c));
+    const others = pool.filter((p) => !recommended.includes(p)).sort(byPosition(c));
     pickerContent = (
       <>
         <div className="panel-heading picker-heading">
@@ -423,6 +471,7 @@ export function Squad({
           <h2>{picking.role}</h2>
           <span className="pill">Escolha o responsável</span>
         </div>
+        {!pool.length && <p className="squad-empty">Não há atletas elegíveis para esta função.</p>}
         <PlayerPicker
           recommended={recommended}
           others={others}
@@ -441,17 +490,22 @@ export function Squad({
               </button>
             ) : null
           }
-          render={(p) => (
-            <PlayerCard
-              key={p.id}
-              player={p}
-              career={c}
-              number={numbers[p.id]}
-              active={c.roles[picking.role] === p.id}
-              note={c.lineup.includes(p.id) ? 'Titular' : 'Reserva'}
-              onClick={() => setRole(picking.role, p.id)}
-            />
-          )}
+          render={(p) => {
+            const status = `${c.lineup.includes(p.id) ? 'Titular' : 'Reserva'} · índice ${Math.round(score(p, c))} · ${availability(p)} · condição ${thresholdPercent(c.players[p.id].fitness)}%`;
+            return (
+              <div className="squad-candidate" key={p.id}>
+                <PlayerCard
+                  player={p}
+                  career={c}
+                  number={numbers[p.id]}
+                  active={c.roles[picking.role] === p.id}
+                  accessibilityNote={status}
+                  onClick={() => setRole(picking.role, p.id)}
+                />
+                <span className="squad-candidate-meta">{status}</span>
+              </div>
+            );
+          }}
         />
       </>
     );
@@ -468,6 +522,98 @@ export function Squad({
     setKitId(null);
     setKitPos(null);
   };
+
+  const kitEditor =
+    kit && ks ? (
+      <div className="kit-inline">
+        <div className="panel-heading picker-heading">
+          <div>
+            <p className="eyebrow">POSIÇÕES E TREINO</p>
+            <h3>{kit.name}</h3>
+          </div>
+          <button type="button" className="text-button" data-back-action onClick={closeKit}>
+            <ChevronLeft size={16} /> Fechar editor
+          </button>
+        </div>
+        <div className="kit-editor">
+          <div className="kit-side">
+            <ShirtNumberDial
+              value={numbers[kit.id] ?? 1}
+              conflict={numberConflict(kit.id)}
+              onSave={(n) => apply(() => setShirtNumber(c, world, kit.id, n))}
+            />
+            <HeatMap player={kit} position={kitRole} state={ks} />
+          </div>
+          <div className="kit-main">
+            <p className="eyebrow">ESCOLHA UMA POSIÇÃO PARA VER O MAPA DE CALOR</p>
+            <div className="position-grid">
+              {positions.map((pos) => {
+                const f = familiarity(kit, pos, ks);
+                return (
+                  <button
+                    key={pos}
+                    type="button"
+                    className={`position-chip ${pos === kitRole ? 'active' : ''} ${f >= 100 ? 'main' : f >= LEARNED ? 'known' : f >= 60 ? 'ok' : 'bad'} ${ks.training === pos ? 'training' : ''}`}
+                    aria-pressed={pos === kitRole}
+                    aria-label={`${positionNames[pos]}: ${familiarityLabel(f)}, ${thresholdPercent(f)}%, overall ${overall(kit, pos, ks)}`}
+                    onClick={() => setKitPos(pos)}
+                  >
+                    <strong>{pos}</strong>
+                    <span>{overall(kit, pos, ks)}</span>
+                    <i>
+                      <b style={{ width: `${f}%` }} />
+                    </i>
+                    {ks.training === pos && <Dumbbell size={12} className="chip-train" />}
+                  </button>
+                );
+              })}
+            </div>
+            <div className="kit-status">
+              <strong>{positionNames[kitRole]}</strong>
+              <span>
+                {familiarityLabel(familiarity(kit, kitRole, ks))} ·{' '}
+                {thresholdPercent(familiarity(kit, kitRole, ks))}% · OVR {overall(kit, kitRole, ks)}
+              </span>
+              {ks.training && (
+                <small>
+                  Treinando {positionNames[ks.training].toLowerCase()} ·{' '}
+                  {thresholdPercent(familiarity(kit, ks.training, ks))}% (apto a partir de {LEARNED}%)
+                </small>
+              )}
+            </div>
+            <div className="kit-actions">
+              {ks.training === kitRole ? (
+                <button onClick={() => apply(() => setTraining(c, kit, null))}>
+                  <Dumbbell size={16} /> Parar treino
+                </button>
+              ) : (
+                <button
+                  disabled={
+                    kitRole === kit.position ||
+                    familiarity(kit, kitRole, ks) >= TRAIN_CAP ||
+                    (kitRole === 'GK') !== (kit.position === 'GK')
+                  }
+                  onClick={() => apply(() => setTraining(c, kit, kitRole))}
+                >
+                  <Dumbbell size={16} /> Treinar como {kitRole}
+                </button>
+              )}
+              <button
+                className="primary"
+                disabled={kitRole === kit.position || familiarity(kit, kitRole, ks) < LEARNED}
+                onClick={() => apply(() => setMainPosition(c, kit, kitRole))}
+              >
+                <Crown size={16} /> Tornar posição principal
+              </button>
+            </div>
+            <p className="muted small">
+              O treino evolui um pouco por dia (mais rápido em jovens). Fora de posição o OVR cai e
+              o mapa de calor se espalha.
+            </p>
+          </div>
+        </div>
+      </div>
+    ) : null;
 
   const actionPanel =
     d && ds && terms ? (
@@ -498,17 +644,22 @@ export function Squad({
                 )
                 .map((p) => {
                   const slot = c.lineup.indexOf(p.id);
+                  const sourceSlot = c.lineup.indexOf(d.id);
+                  const incoming = sourceSlot < 0 ? d.id : slot < 0 ? p.id : null;
+                  const unavailable = incoming
+                    ? !available(c, incoming)
+                    : !available(c, d.id) || !available(c, p.id);
                   return (
                     <button
                       key={p.id}
                       type="button"
-                      disabled={slot < 0 && !available(c, p.id)}
+                      disabled={unavailable}
                       onClick={() => swapPlayers(d.id, p.id)}
                     >
                       <strong>{slot >= 0 ? rolePositions[slot] : 'RES'}</strong>
                       <PlayerFace player={p} size="sm" />
                       {p.name} · {p.position} · {overall(p, p.position, c.players[p.id])}
-                      {slot < 0 && !available(c, p.id) ? ' · indisponível' : ''}
+                      {unavailable ? ' · troca indisponível' : ''}
                     </button>
                   );
                 })}
@@ -673,8 +824,7 @@ export function Squad({
             </p>
             <button
               onClick={() => {
-                setDetail(null);
-                setView('kit');
+                setAction('summary');
                 setKitId(d.id);
                 setKitPos(d.position);
               }}
@@ -712,6 +862,22 @@ export function Squad({
     d ??
     listRoster[0];
   const fs = fp ? c.players[fp.id] : null;
+  const starters = c.lineup.map((id, index) => {
+    const player = byId(id);
+    const state = c.players[id];
+    const role = rolePositions[index];
+    return {
+      player,
+      state,
+      role,
+      ovr: overall(player, role, state),
+      fit: familiarity(player, role, state),
+    };
+  });
+  const averageFitness = Math.round(
+    starters.reduce((total, starter) => total + starter.state.fitness, 0) / starters.length,
+  );
+  const unavailableStarters = starters.filter(({ player }) => !available(c, player.id)).length;
   const statsPanel =
     fp && fs ? (
       <section className="panel player-stats">
@@ -721,7 +887,7 @@ export function Squad({
               <strong>{overall(fp, fp.position, fs)}</strong>
               <span>{fs.position ?? fp.position}</span>
             </span>
-            <PlayerFace player={fp} className="hub-card-face" />
+            <PlayerFace key={fp.id} player={fp} className="hub-card-face" />
             <strong className="hub-card-name">{shortName(fp.name)}</strong>
           </div>
           <div className="stats-info">
@@ -789,7 +955,7 @@ export function Squad({
       </section>
     ) : null;
   return (
-    <div className="screen-enter">
+    <div className="screen-enter squad-screen">
       <SectionTitle kicker="TIME / GESTÃO DO ELENCO" title="Onze nomes. Uma ideia.">
         <button
           onClick={() => {
@@ -859,11 +1025,14 @@ export function Squad({
                 const selected = picking?.kind === 'slot' && picking.index === i;
                 const fam = familiarity(p, rolePositions[i], s);
                 const swapping = picking?.kind === 'slot' && !selected;
+                const ovr = overall(p, rolePositions[i], s);
                 return (
                   <button
                     key={`${i}-${id}`}
+                    type="button"
                     data-slot={i}
-                    className={`pitch-player ${cardTier(overall(p, rolePositions[i], s))} ${!available(c, id) ? 'unavailable' : ''} ${selected ? 'selected' : ''} ${swapping ? 'swap-target' : ''} ${fam < LEARNED ? 'out-of-position' : ''}`}
+                    data-autofocus={i === 0 ? '' : undefined}
+                    className={`pitch-player ${!available(c, id) ? 'unavailable' : ''} ${selected ? 'selected' : ''} ${swapping ? 'swap-target' : ''} ${fam < LEARNED ? 'out-of-position' : ''}`}
                     style={{ left: `${coordinates[i].x}%`, top: `${coordinates[i].y}%` }}
                     onClick={() => {
                       setView('lineup');
@@ -881,18 +1050,36 @@ export function Squad({
                       const dropped = e.dataTransfer.getData('text/plain');
                       if (players.some((p) => p.id === dropped)) changeSlot(i, dropped);
                     }}
-                    aria-label={`${rolePositions[i]} ${p.name}, camisa ${numbers[id]}, overall ${overall(p, rolePositions[i], s)}${fam < LEARNED ? `, improvisado (${familiarityLabel(fam).toLowerCase()})` : ''}. Trocar atleta`}
+                    aria-label={`${rolePositions[i]}, ${p.name}, camisa ${numbers[id] ?? 'não definida'}, overall ${ovr}, condição ${thresholdPercent(s.fitness)}%, ${availability(p)}, ${familiarityLabel(fam)} ${thresholdPercent(fam)}%. Trocar atleta`}
                   >
-                    <PlayerFace player={p} size="md" className="pitch-face" />
+                    <svg className="squad-shirt" viewBox="0 0 64 68" aria-hidden="true">
+                      <path
+                        d="M21 5 10 9 2 21l10 8 5-6v37h30V23l5 6 10-8-8-12-11-4c-2 4-5 6-11 6s-9-2-11-6Z"
+                        fill={i === 0 ? '#d9a83b' : club.color}
+                        stroke="#e8f4f4"
+                        strokeWidth="2"
+                        strokeLinejoin="round"
+                      />
+                      <text x="32" y="46" textAnchor="middle">
+                        {numbers[id] ?? '–'}
+                      </text>
+                    </svg>
                     <span className="pitch-ovr">
-                      <b>{overall(p, rolePositions[i], s)}</b>
-                      {rolePositions[i]}
+                      <b>{ovr}</b>
+                      <span>{rolePositions[i]}</span>
                     </span>
+                    {!available(c, id) && (
+                      <span className="pitch-alert" aria-hidden="true">
+                        <TriangleAlert size={12} />
+                      </span>
+                    )}
                     <strong>
                       {fam < LEARNED && <TriangleAlert size={11} className="oop-icon" />}
                       {shortName(p.name)}
                     </strong>
-                    <i className="pitch-fitness" style={{ width: `${Math.round(s.fitness)}%` }} />
+                    <span className="pitch-condition" aria-hidden="true">
+                      <i style={{ width: `${s.fitness}%` }} />
+                    </span>
                   </button>
                 );
               })}
@@ -907,98 +1094,6 @@ export function Squad({
         <section ref={panel} className="panel squad-controls" data-focus-region="panel">
           {pickerContent ||
             (view === 'kit' ? (
-              kit && ks ? (
-                <>
-                  <div className="panel-heading picker-heading">
-                    <button className="text-button" data-back-action onClick={closeKit}>
-                      <ChevronLeft size={16} /> Elenco
-                    </button>
-                    <h2>{kit.name}</h2>
-                    <span className="pill">{positionsLine(kit)}</span>
-                  </div>
-                  <div className="kit-editor">
-                    <div className="kit-side">
-                      <ShirtNumberDial
-                        value={numbers[kit.id] ?? 1}
-                        conflict={numberConflict(kit.id)}
-                        onSave={(n) => apply(() => setShirtNumber(c, world, kit.id, n))}
-                      />
-                      <HeatMap player={kit} position={kitRole} state={ks} />
-                    </div>
-                    <div className="kit-main">
-                      <p className="eyebrow">POSIÇÕES · ESCOLHA UMA PARA VER O MAPA DE CALOR</p>
-                      <div className="position-grid">
-                        {positions.map((pos) => {
-                          const f = familiarity(kit, pos, ks);
-                          return (
-                            <button
-                              key={pos}
-                              type="button"
-                              className={`position-chip ${pos === kitRole ? 'active' : ''} ${f >= 100 ? 'main' : f >= LEARNED ? 'known' : f >= 60 ? 'ok' : 'bad'} ${ks.training === pos ? 'training' : ''}`}
-                              aria-pressed={pos === kitRole}
-                              aria-label={`${positionNames[pos]}: ${familiarityLabel(f)}, ${Math.round(f)}%, overall ${overall(kit, pos, ks)}`}
-                              onClick={() => setKitPos(pos)}
-                            >
-                              <strong>{pos}</strong>
-                              <span>{overall(kit, pos, ks)}</span>
-                              <i>
-                                <b style={{ width: `${f}%` }} />
-                              </i>
-                              {ks.training === pos && <Dumbbell size={12} className="chip-train" />}
-                            </button>
-                          );
-                        })}
-                      </div>
-                      <div className="kit-status">
-                        <strong>{positionNames[kitRole]}</strong>
-                        <span>
-                          {familiarityLabel(familiarity(kit, kitRole, ks))} ·{' '}
-                          {Math.round(familiarity(kit, kitRole, ks))}% · OVR{' '}
-                          {overall(kit, kitRole, ks)}
-                        </span>
-                        {ks.training && (
-                          <small>
-                            Treinando {positionNames[ks.training].toLowerCase()} ·{' '}
-                            {Math.round(familiarity(kit, ks.training, ks))}% (apto a partir de{' '}
-                            {LEARNED}%)
-                          </small>
-                        )}
-                      </div>
-                      <div className="kit-actions">
-                        {ks.training === kitRole ? (
-                          <button onClick={() => apply(() => setTraining(c, kit, null))}>
-                            <Dumbbell size={16} /> Parar treino
-                          </button>
-                        ) : (
-                          <button
-                            disabled={
-                              kitRole === kit.position ||
-                              familiarity(kit, kitRole, ks) >= TRAIN_CAP ||
-                              (kitRole === 'GK') !== (kit.position === 'GK')
-                            }
-                            onClick={() => apply(() => setTraining(c, kit, kitRole))}
-                          >
-                            <Dumbbell size={16} /> Treinar como {kitRole}
-                          </button>
-                        )}
-                        <button
-                          className="primary"
-                          disabled={
-                            kitRole === kit.position || familiarity(kit, kitRole, ks) < LEARNED
-                          }
-                          onClick={() => apply(() => setMainPosition(c, kit, kitRole))}
-                        >
-                          <Crown size={16} /> Tornar posição principal
-                        </button>
-                      </div>
-                      <p className="muted small">
-                        O treino evolui um pouco por dia (mais rápido em jovens). Fora de posição o
-                        OVR cai e o mapa de calor se espalha.
-                      </p>
-                    </div>
-                  </div>
-                </>
-              ) : (
                 <>
                   <div className="panel-heading">
                     <h2>Jogadores</h2>
@@ -1025,7 +1120,13 @@ export function Squad({
                               className={`market-row roster-row ${c.lineup.includes(p.id) ? 'starter' : ''} ${focusId === p.id ? 'focused' : ''}`}
                               onFocus={() => setFocusId(p.id)}
                               onMouseEnter={() => setFocusId(p.id)}
-                              onClick={() => (open ? setDetail(null) : openDetail(p))}
+                              onClick={() => {
+                                if (open) {
+                                  setKitId(null);
+                                  setKitPos(null);
+                                  setDetail(null);
+                                } else openDetail(p);
+                              }}
                             >
                               <span>
                                 <span className="position-tag">{s.position ?? p.position}</span>
@@ -1060,6 +1161,8 @@ export function Squad({
                                         className={`roster-action ${action === a.id ? 'active' : ''} ${a.id === 'release' ? 'danger-text' : ''}`}
                                         aria-pressed={action === a.id}
                                         onClick={() => {
+                                          setKitId(null);
+                                          setKitPos(null);
                                           setAction(action === a.id ? 'summary' : a.id);
                                           setConfirmRelease(false);
                                         }}
@@ -1069,18 +1172,19 @@ export function Squad({
                                     ))}
                                   <button
                                     type="button"
-                                    className="roster-action"
+                                    className={`roster-action ${kitId === p.id ? 'active' : ''}`}
+                                    aria-pressed={kitId === p.id}
                                     onClick={() => {
-                                      returnFocus.current = `[data-player="${p.id}"]`;
-                                      setDetail(null);
-                                      setKitId(p.id);
-                                      setKitPos(p.position);
+                                      setAction('summary');
+                                      setConfirmRelease(false);
+                                      setKitId(kitId === p.id ? null : p.id);
+                                      setKitPos(kitId === p.id ? null : p.position);
                                     }}
                                   >
                                     <Dumbbell size={14} /> Posições e treino
                                   </button>
                                 </div>
-                                {action !== 'summary' && actionPanel}
+                                {kitId === p.id ? kitEditor : action !== 'summary' && actionPanel}
                               </div>
                             )}
                           </div>
@@ -1089,21 +1193,26 @@ export function Squad({
                     </div>
                   </div>
                 </>
-              )
             ) : view === 'tactics' ? (
               <>
                 <p className="eyebrow">IDENTIDADE EM CAMPO</p>
                 <h2>Como vamos jogar?</h2>
                 <div className="tactic-form">
-                  <ChipGroup
-                    label="Formação"
-                    value={c.tactic.formation}
-                    options={Object.keys(formations).map((f) => ({
-                      value: f as Formation,
-                      label: f,
-                    }))}
-                    onChange={(formation) => updateTactic({ formation })}
-                  />
+                  <div className="formation-setting">
+                    <ChipGroup
+                      label="Formação"
+                      value={c.tactic.formation}
+                      options={Object.keys(formations).map((f) => ({
+                        value: f as Formation,
+                        label: f,
+                      }))}
+                      onChange={(formation) => updateTactic({ formation })}
+                    />
+                    <p className="formation-warning">
+                      <TriangleAlert size={14} /> Trocar a formação refaz a escalação
+                      automaticamente.
+                    </p>
+                  </div>
                   <ChipGroup
                     label="Mentalidade"
                     value={c.tactic.mentality}
@@ -1146,6 +1255,11 @@ export function Squad({
                       ? world.players.find((pl) => pl.id === c.roles[role])
                       : undefined;
                     const valid = p && c.players[p.id]?.clubId === c.clubId;
+                    const goalkeeperNotAllowed =
+                      valid &&
+                      p.position === 'GK' &&
+                      !role.startsWith('Capit') &&
+                      !role.startsWith('Vice');
                     return (
                       <button
                         key={role}
@@ -1155,7 +1269,11 @@ export function Squad({
                         onClick={() => setPicking({ kind: 'role', role })}
                       >
                         <span className="role-name">
-                          {role.startsWith('Capit') ? <Crown size={16} /> : <Shirt size={16} />}
+                          {role.startsWith('Capit') || role.startsWith('Vice') ? (
+                            <Crown size={16} />
+                          ) : (
+                            <Shirt size={16} />
+                          )}
                           {role}
                         </span>
                         {valid ? (
@@ -1163,8 +1281,16 @@ export function Squad({
                             <span className="role-number">{numbers[p.id]}</span>
                             <strong>{shortName(p.name)}</strong>
                             <small>
-                              {p.position} · OVR {overall(p, p.position, c.players[p.id])}
+                              {p.position} · OVR {overall(p, p.position, c.players[p.id])} · índice{' '}
+                              {Math.round(roleScore[role](p, c))}
                             </small>
+                            <span
+                              className={`role-condition ${goalkeeperNotAllowed || !available(c, p.id) ? 'unavailable' : ''}`}
+                            >
+                              {goalkeeperNotAllowed
+                                ? 'Goleiro não permitido nesta função'
+                                : `${availability(p)} · condição ${thresholdPercent(c.players[p.id].fitness)}%`}
+                            </span>
                           </>
                         ) : (
                           <>
@@ -1180,28 +1306,67 @@ export function Squad({
               </>
             ) : (
               <>
-                <div className="panel-heading">
-                  <h2>Elenco principal</h2>
-                  <span>{players.length} atletas · A abre a ficha</span>
-                </div>
-                <div className="card-scroll">
-                  <div className="card-grid">
-                    {sortedRoster.map((p) => (
-                      <PlayerCard
-                        key={p.id}
-                        player={p}
-                        career={c}
-                        number={numbers[p.id]}
-                        active={c.lineup.includes(p.id)}
-                        note={
-                          c.lineup.includes(p.id)
-                            ? `Titular · ${ageAt(p.birthDate, c.date)}a`
-                            : `${ageAt(p.birthDate, c.date)} anos`
-                        }
-                        onClick={() => openDetail(p)}
-                      />
-                    ))}
+                <div className="panel-heading lineup-overview-heading">
+                  <div>
+                    <p className="eyebrow">O TIME QUE ENTRA EM CAMPO</p>
+                    <h2>Onze inicial</h2>
                   </div>
+                  <button
+                    type="button"
+                    className="lineup-roster-link"
+                    onClick={() => {
+                      setView('kit');
+                      setPicking(null);
+                      setKitId(null);
+                      setDetail(null);
+                      setFocusId(null);
+                      requestAnimationFrame(() =>
+                        panel.current?.querySelector<HTMLElement>('.roster-row')?.focus(),
+                      );
+                    }}
+                  >
+                    <Hash size={15} /> Ver elenco completo
+                  </button>
+                </div>
+                <div className="lineup-metrics">
+                  <span>
+                    Formação <strong>{c.tactic.formation}</strong>
+                  </span>
+                  <span>
+                    Condição média <strong>{averageFitness}%</strong>
+                  </span>
+                  <span>
+                    Indisponíveis <strong>{unavailableStarters}</strong>
+                  </span>
+                  <span>
+                    Reservas <strong>{Math.max(0, players.length - starters.length)}</strong>
+                  </span>
+                </div>
+                <div className="lineup-list-heading">
+                  <span>TITULARES</span>
+                  <span>OVR NA FUNÇÃO · CONDIÇÃO</span>
+                </div>
+                <div className="lineup-list">
+                  {starters.map(({ player, state, role, ovr, fit }) => (
+                    <button
+                      type="button"
+                      key={player.id}
+                      className={`lineup-list-row ${available(c, player.id) ? '' : 'unavailable'}`}
+                      onClick={() => openDetail(player)}
+                      aria-label={`${player.name}, ${role}, overall ${ovr}, condição ${thresholdPercent(state.fitness)}%, ${availability(player)}, ${familiarityLabel(fit)} ${thresholdPercent(fit)}%. Abrir ficha`}
+                    >
+                      <span className="lineup-position">{role}</span>
+                      <span className="lineup-name">
+                        <strong>{player.name}</strong>
+                        <small>
+                          {availability(player)}
+                          {fit < LEARNED ? ` · ${familiarityLabel(fit)}` : ''}
+                        </small>
+                      </span>
+                      <b className="lineup-ovr">{ovr}</b>
+                      <span className="lineup-condition">{thresholdPercent(state.fitness)}%</span>
+                    </button>
+                  ))}
                 </div>
               </>
             ))}

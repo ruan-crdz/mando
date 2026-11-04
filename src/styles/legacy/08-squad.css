@@ -1,0 +1,536 @@
+.squad-screen {
+  --squad-coal: #151d2b;
+  --squad-slate: #253348;
+  --squad-raised: #334258;
+  width: min(1720px, 100%);
+  margin-inline: auto;
+  gap: 10px;
+}
+
+.squad-screen .squad-layout {
+  grid-template-columns: minmax(300px, 0.9fr) minmax(0, 1.3fr);
+  gap: 8px;
+}
+
+.squad-screen .pitch-panel,
+.squad-screen .player-stats,
+.squad-screen .squad-controls {
+  padding: 14px 16px;
+  border: 1px solid var(--mando-border);
+  border-top: 2px solid rgba(54, 214, 231, 0.5);
+  background: var(--squad-coal);
+  box-shadow: none;
+}
+
+.squad-screen .squad-controls {
+  background: var(--squad-slate);
+}
+
+.squad-screen .panel h2 {
+  font-weight: 600;
+}
+
+.squad-screen .football-pitch {
+  border-color: rgba(224, 245, 231, 0.58);
+  background: repeating-linear-gradient(0deg, #1d603d 0 8%, #236c45 8% 16%);
+  box-shadow: inset 0 0 55px rgba(0, 18, 12, 0.35);
+}
+
+.squad-screen .pitch-player {
+  width: clamp(58px, 17%, 82px);
+  min-width: 0;
+  padding: 2px 2px 4px;
+  gap: 1px;
+  overflow: visible;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: #fff;
+  box-shadow: none;
+}
+
+.squad-screen .pitch-player:hover:not(:disabled),
+.squad-screen .pitch-player:focus {
+  background: rgba(10, 25, 28, 0.55);
+}
+
+.squad-screen .pitch-player.selected {
+  outline: 2px solid var(--mando-cyan);
+  background: rgba(8, 24, 31, 0.75);
+}
+
+.squad-screen .pitch-player.swap-target {
+  animation: none;
+}
+
+.squad-screen .pitch-player.out-of-position {
+  box-shadow: none;
+}
+
+.squad-shirt {
+  display: block;
+  width: 49px;
+  height: 52px;
+  filter: drop-shadow(0 3px 3px rgba(0, 0, 0, 0.6));
+}
+
+.squad-shirt text {
+  fill: #fff;
+  stroke: #111827;
+  stroke-width: 3px;
+  paint-order: stroke;
+  font: 800 24px var(--display);
+}
+
+.squad-screen .pitch-player .pitch-ovr {
+  top: 3px;
+  left: 0;
+  padding: 3px;
+  border-radius: 3px;
+  background: rgba(7, 17, 25, 0.9);
+  color: #fff;
+  font-size: 9px;
+}
+
+.squad-screen .pitch-player .pitch-ovr b {
+  font-size: 14px;
+}
+
+.squad-screen .pitch-player > strong {
+  width: 100%;
+  padding: 3px 3px 2px;
+  border: 0;
+  border-radius: 2px;
+  background: rgba(7, 17, 25, 0.86);
+  color: #fff;
+  font-size: 10px;
+}
+
+.pitch-alert {
+  position: absolute;
+  top: 4px;
+  right: 3px;
+  display: grid;
+  place-items: center;
+  width: 17px;
+  height: 17px;
+  border-radius: 3px;
+  background: #842b3b;
+  color: #fff;
+}
+
+.pitch-condition {
+  width: 70%;
+  height: 3px;
+  overflow: hidden;
+  border-radius: 2px;
+  background: rgba(0, 0, 0, 0.6);
+}
+
+.pitch-condition i {
+  display: block;
+  height: 100%;
+  background: var(--mando-cyan);
+}
+
+.pitch-player.unavailable .pitch-condition i {
+  background: var(--mando-danger);
+}
+
+.squad-screen .pitch-panel > .muted {
+  color: var(--mando-text-secondary);
+}
+
+.lineup-overview-heading {
+  align-items: flex-start;
+}
+
+.lineup-overview-heading h2 {
+  margin: 3px 0 0;
+}
+
+.lineup-roster-link {
+  flex-shrink: 0;
+  padding: 7px 10px;
+  background: var(--mando-petrol);
+  color: #fff;
+  font-size: 12px;
+}
+
+.lineup-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.lineup-metrics > span {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  padding: 9px 10px;
+  background: var(--squad-coal);
+  color: var(--mando-text-secondary);
+  font-size: 11px;
+  text-transform: uppercase;
+}
+
+.lineup-metrics strong {
+  color: var(--mando-text);
+  font: 700 20px/1 var(--display);
+}
+
+.lineup-list-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 12px 2px 6px;
+  color: var(--mando-text-secondary);
+  font: 600 11px var(--display);
+  letter-spacing: 0.08em;
+}
+
+.lineup-list {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 4px;
+  min-height: 0;
+  padding: 2px 4px 5px 2px;
+  overflow-y: auto;
+}
+
+.lineup-list-row {
+  display: grid;
+  grid-template-columns: 39px minmax(0, 1fr) 42px 60px;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 10px;
+  background: var(--squad-raised);
+  color: var(--mando-text);
+  text-align: left;
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+.lineup-position {
+  padding: 5px 3px;
+  border-radius: 2px;
+  background: var(--mando-petrol);
+  text-align: center;
+  font: 700 12px var(--display);
+}
+
+.lineup-name {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.lineup-name strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lineup-name small {
+  color: var(--mando-text-secondary);
+}
+
+.lineup-list-row.unavailable .lineup-name small,
+.squad-candidate-meta.unavailable,
+.role-condition.unavailable {
+  color: #ffb1b8;
+}
+
+.lineup-ovr {
+  text-align: center;
+  font: 700 20px var(--display);
+}
+
+.lineup-condition {
+  text-align: right;
+  font-weight: 700;
+}
+
+.squad-screen .card-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.squad-candidate {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.squad-candidate .player-card {
+  width: 100%;
+}
+
+.squad-candidate-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  color: var(--mando-text-secondary);
+  font-size: 11px;
+  line-height: 1.25;
+}
+
+.squad-candidate-meta b {
+  color: var(--mando-text);
+}
+
+.squad-empty {
+  margin: 4px 0 10px;
+  color: var(--mando-text-secondary);
+}
+
+.squad-screen .squad-candidate .pc-meta {
+  display: none;
+}
+
+.squad-screen .player-card .pc-top,
+.squad-screen .hub-card-top {
+  padding: 4px 6px;
+  border-radius: 3px;
+  background: rgba(8, 14, 24, 0.83);
+}
+
+.squad-screen .player-card .pc-name,
+.squad-screen .hub-card[class*='card-'] .hub-card-name {
+  background: linear-gradient(180deg, transparent, rgba(8, 14, 24, 0.9) 50%);
+}
+
+.squad-screen .formation-warning {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin-top: 7px;
+  color: #ffe0ad;
+  font-size: 12px;
+}
+
+.formation-warning svg {
+  flex-shrink: 0;
+}
+
+.squad-screen .tactic-form {
+  gap: 10px;
+  overflow-y: auto;
+}
+
+.squad-screen .tactic-slider {
+  background: var(--squad-raised);
+}
+
+.squad-screen .tactic-slider.editing {
+  border-color: var(--mando-cyan);
+  background: var(--mando-petrol);
+  box-shadow: none;
+}
+
+.squad-screen .tactic-slider.editing .ts-value {
+  color: #fff;
+}
+
+.squad-screen .tactic-slider.editing .ts-track i.on {
+  background: var(--mando-cyan);
+}
+
+.squad-screen .role-grid {
+  flex: 1;
+  gap: 8px;
+  padding: 3px;
+}
+
+.squad-screen .role-card,
+.squad-screen .role-card:nth-child(n) {
+  min-height: 130px;
+  border: 1px solid var(--mando-border);
+  background: var(--squad-raised);
+}
+
+.squad-screen .role-card.empty {
+  filter: none;
+  background: var(--squad-coal);
+}
+
+.squad-screen .role-number {
+  color: rgba(195, 209, 229, 0.25);
+}
+
+.role-condition {
+  color: var(--mando-text-secondary);
+  font-size: 11px;
+}
+
+.squad-screen .roster-row {
+  background: var(--squad-raised);
+}
+
+.squad-screen .roster-item.open .roster-row {
+  background: var(--mando-petrol);
+}
+
+.squad-screen .roster-expand {
+  background: var(--squad-coal);
+  border-left-color: var(--mando-cyan);
+}
+
+.squad-screen .roster-action.active {
+  background: var(--mando-petrol);
+}
+
+.squad-screen .roster-action.danger-text:not(.active) {
+  color: #ffb1b8;
+}
+
+.squad-screen .hub-facts span,
+.squad-screen .attribute-grid > div {
+  background: var(--squad-slate);
+}
+
+.kit-inline {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-top: 6px;
+}
+
+.squad-screen .kit-editor,
+.squad-screen .kit-main {
+  overflow: visible;
+}
+
+.squad-screen .kit-editor {
+  flex: none;
+  grid-template-columns: minmax(110px, 160px) minmax(0, 1fr);
+}
+
+.squad-screen .position-chip.active {
+  border-color: var(--mando-cyan);
+  background: var(--mando-petrol);
+  color: #fff;
+}
+
+.squad-screen .position-chip.active span {
+  color: #fff;
+}
+
+@media (max-width: 1100px) and (orientation: landscape) {
+  .squad-screen {
+    gap: 7px;
+  }
+
+  .squad-screen .section-title h1 {
+    font-size: clamp(20px, 3vw, 26px);
+  }
+
+  .squad-screen .segmented > button {
+    padding: 5px 10px;
+    font-size: 12px;
+  }
+
+  .squad-screen .squad-layout {
+    flex: none;
+    height: clamp(420px, calc(100vh - 180px), 540px);
+    grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  }
+
+  .squad-screen .pitch-panel,
+  .squad-screen .player-stats,
+  .squad-screen .squad-controls {
+    min-height: 0;
+    padding: 10px;
+    overflow: hidden;
+  }
+
+  .squad-screen .player-stats {
+    overflow-y: auto;
+  }
+
+  .squad-screen .football-pitch {
+    flex: 1 1 0;
+    height: auto;
+    min-height: 0;
+  }
+
+  .squad-screen .pitch-player {
+    width: min(72px, 19%);
+    padding: 0 1px 2px;
+  }
+
+  .squad-shirt {
+    width: 34px;
+    height: 36px;
+  }
+
+  .squad-screen .pitch-player > strong {
+    padding: 2px;
+    font-size: 8px;
+  }
+
+  .squad-screen .pitch-player .oop-icon {
+    width: 8px;
+    height: 8px;
+  }
+
+  .squad-screen .pitch-panel > .muted {
+    font-size: 11px;
+    line-height: 1.2;
+  }
+
+  .lineup-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .lineup-metrics > span {
+    padding: 5px 7px;
+  }
+
+  .lineup-metrics strong {
+    font-size: 16px;
+  }
+
+  .squad-screen .card-grid,
+  .squad-screen .role-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .squad-screen .tactic-form {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .squad-screen .stats-head {
+    grid-template-columns: minmax(95px, 135px) minmax(0, 1fr);
+  }
+
+  .squad-screen .hub-summary {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .squad-screen .kit-editor {
+    grid-template-columns: minmax(85px, 115px) minmax(0, 1fr);
+  }
+
+  .squad-screen .position-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 700px) and (orientation: landscape) {
+  .squad-screen .squad-layout {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .squad-screen .kit-editor {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .squad-screen .kit-side {
+    grid-template-columns: minmax(70px, 100px) minmax(0, 1fr);
+    align-items: start;
+  }
+}
