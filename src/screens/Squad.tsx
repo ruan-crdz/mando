@@ -107,9 +107,10 @@ const roleScore: Record<string, (p: Player, c: Career) => number> = {
 type Picking = { kind: 'slot'; index: number } | { kind: 'role'; role: string } | null;
 
 type PlayerAction =
-  'summary' | 'number' | 'sale' | 'loan' | 'renew' | 'talk' | 'develop' | 'release';
+  'summary' | 'swap' | 'number' | 'sale' | 'loan' | 'renew' | 'talk' | 'develop' | 'release';
 const playerActions: { id: PlayerAction; label: string }[] = [
   { id: 'summary', label: 'Visão geral' },
+  { id: 'swap', label: 'Trocar' },
   { id: 'number', label: 'Número da camisa' },
   { id: 'renew', label: 'Renovar contrato' },
   { id: 'sale', label: 'Lista de transferências' },
@@ -249,6 +250,27 @@ export function Squad({
     onChange({ ...c, lineup });
     returnFocus.current = `[data-slot="${to}"]`;
     setPicking(null);
+  };
+  /** Troca dois atletas: posições entre titulares, ou titular ↔ reserva. */
+  const swapPlayers = (a: string, b: string) => {
+    const lineup = [...c.lineup];
+    const ia = lineup.indexOf(a);
+    const ib = lineup.indexOf(b);
+    if (ia < 0 && ib < 0) return;
+    const incoming = ia < 0 ? a : ib < 0 ? b : null;
+    if (incoming && !available(c, incoming)) {
+      onError('Atleta indisponível.');
+      return;
+    }
+    if (ia >= 0) lineup[ia] = b;
+    if (ib >= 0) lineup[ib] = a;
+    if (byId(lineup[0]).position !== 'GK') {
+      onError('A posição exige um goleiro.');
+      return;
+    }
+    onChange({ ...c, lineup });
+    returnFocus.current = `[data-player="${a}"]`;
+    setAction('summary');
   };
   const setRole = (role: string, id: string | null) => {
     const roles = { ...c.roles };
@@ -450,6 +472,49 @@ export function Squad({
   const actionPanel =
     d && ds && terms ? (
       <div className="hub-panel">
+        {action === 'swap' && (
+          <>
+            <p className="eyebrow">
+              TROCAR {shortName(d.name).toUpperCase()} ·{' '}
+              {c.lineup.includes(d.id)
+                ? `TITULAR NA POSIÇÃO ${rolePositions[c.lineup.indexOf(d.id)]}`
+                : 'RESERVA'}
+            </p>
+            <p className="muted small">
+              {c.lineup.includes(d.id)
+                ? 'Escolha um titular para trocar de posição ou um reserva para entrar no lugar dele.'
+                : 'Escolha o titular que vai sair para ele entrar.'}
+            </p>
+            <div className="hub-list">
+              {players
+                .filter(
+                  (p) => p.id !== d.id && (c.lineup.includes(d.id) || c.lineup.includes(p.id)),
+                )
+                .sort(
+                  (a, b) =>
+                    Number(c.lineup.includes(b.id)) - Number(c.lineup.includes(a.id)) ||
+                    overall(b, b.position, c.players[b.id]) -
+                      overall(a, a.position, c.players[a.id]),
+                )
+                .map((p) => {
+                  const slot = c.lineup.indexOf(p.id);
+                  return (
+                    <button
+                      key={p.id}
+                      type="button"
+                      disabled={slot < 0 && !available(c, p.id)}
+                      onClick={() => swapPlayers(d.id, p.id)}
+                    >
+                      <strong>{slot >= 0 ? rolePositions[slot] : 'RES'}</strong>
+                      <PlayerFace player={p} size="sm" />
+                      {p.name} · {p.position} · {overall(p, p.position, c.players[p.id])}
+                      {slot < 0 && !available(c, p.id) ? ' · indisponível' : ''}
+                    </button>
+                  );
+                })}
+            </div>
+          </>
+        )}
         {action === 'number' && (
           <>
             <p className="eyebrow">NÚMERO DA CAMISA · ATUAL {numbers[d.id] ?? '—'}</p>
