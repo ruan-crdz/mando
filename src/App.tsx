@@ -503,7 +503,7 @@ function Game() {
               paused={Boolean(popup) || busy}
               onFinish={() =>
                 act(() => {
-                  let session: PressSession | null = null;
+                  let session: PressSession | null;
                   try {
                     session = buildPress(career, live!);
                   } catch {

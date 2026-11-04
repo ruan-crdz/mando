@@ -190,7 +190,7 @@ export function buildPress(career: Career, world: World): PressSession | null {
 
   const [r3, o3] = pick(2);
   const league = currentLeague(career, world);
-  let position = 0;
+  let position: number;
   try {
     position = standings(career, world, league).findIndex((r) => r.clubId === career.clubId) + 1;
   } catch {

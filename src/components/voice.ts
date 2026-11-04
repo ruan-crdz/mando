@@ -63,7 +63,7 @@ let loading = false;
 let token = 0;
 let audio: HTMLAudioElement | null = null;
 // Mantém a referência viva: o Chrome descarta utterances sem referência e o onend some.
-let utterance: SpeechSynthesisUtterance | null = null;
+const utterances = new Set<SpeechSynthesisUtterance>();
 let state: VoiceState = { current: null, position: 0, total: 0, mailbox: false, loading: false };
 const listeners = new Set<() => void>();
 const pending = new Map<string, Promise<Blob>>();
@@ -136,7 +136,8 @@ function speakSystem(item: VoiceItem, current: number) {
     if (e.error === 'interrupted' || e.error === 'canceled') return;
     advance(current);
   };
-  utterance = u;
+  utterances.clear();
+  utterances.add(u);
   speechSynthesis.speak(u);
 }
 
@@ -184,7 +185,7 @@ function speakCurrent() {
 
 function silence() {
   token += 1;
-  utterance = null;
+  utterances.clear();
   loading = false;
   if (audio) {
     audio.onended = null;
