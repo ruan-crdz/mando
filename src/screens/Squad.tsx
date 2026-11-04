@@ -27,7 +27,13 @@ import {
 } from '../game/types';
 import { dateLabel, Metric, Modal, money, SectionTitle } from '../components/ui';
 import { ChipGroup, NumberStepper, TacticSlider } from '../components/controls';
-import { byPosition, PlayerCard, PlayerPicker, roleFits, shortName } from '../components/PlayerCard';
+import {
+  byPosition,
+  PlayerCard,
+  PlayerPicker,
+  roleFits,
+  shortName,
+} from '../components/PlayerCard';
 
 const attributeLabels: Record<string, string> = {
   pace: 'Velocidade',
@@ -53,18 +59,25 @@ const attributeLabels: Record<string, string> = {
 
 const roleScore: Record<string, (p: Player, c: Career) => number> = {
   Capitão: (p, c) =>
-    overall(p) + Math.min(34, ageAt(p.birthDate, c.date)) * 0.8 + c.players[p.id].relationship * 0.2,
+    overall(p) +
+    Math.min(34, ageAt(p.birthDate, c.date)) * 0.8 +
+    c.players[p.id].relationship * 0.2,
   'Vice-capitão': (p, c) =>
-    overall(p) + Math.min(34, ageAt(p.birthDate, c.date)) * 0.8 + c.players[p.id].relationship * 0.2,
+    overall(p) +
+    Math.min(34, ageAt(p.birthDate, c.date)) * 0.8 +
+    c.players[p.id].relationship * 0.2,
   Pênaltis: (p) => p.attributes.finishing + p.attributes.composure,
-  'Faltas curtas': (p) => p.attributes.shortPass + p.attributes.vision + p.attributes.finishing * 0.5,
+  'Faltas curtas': (p) =>
+    p.attributes.shortPass + p.attributes.vision + p.attributes.finishing * 0.5,
   'Faltas longas': (p) => p.attributes.longPass + p.attributes.vision,
   'Escanteio esquerdo': (p) =>
     p.attributes.longPass + p.attributes.vision + (p.foot === 'E' || p.foot === 'A' ? 8 : 0),
   'Escanteio direito': (p) =>
     p.attributes.longPass + p.attributes.vision + (p.foot === 'D' || p.foot === 'A' ? 8 : 0),
-  'Lateral esquerdo': (p) => p.attributes.strength + p.attributes.longPass + (p.position === 'LB' ? 12 : 0),
-  'Lateral direito': (p) => p.attributes.strength + p.attributes.longPass + (p.position === 'RB' ? 12 : 0),
+  'Lateral esquerdo': (p) =>
+    p.attributes.strength + p.attributes.longPass + (p.position === 'LB' ? 12 : 0),
+  'Lateral direito': (p) =>
+    p.attributes.strength + p.attributes.longPass + (p.position === 'RB' ? 12 : 0),
 };
 
 type Picking = { kind: 'slot'; index: number } | { kind: 'role'; role: string } | null;
@@ -100,11 +113,15 @@ export function Squad({
 
   useEffect(() => {
     requestAnimationFrame(() => {
-      if (picking)
-        panel.current?.querySelector<HTMLElement>('.player-card:not(:disabled), .role-card')?.focus();
-      else if (returnFocus.current)
+      // Ao escolher uma posição o foco fica no campinho: → vai às recomendações,
+      // ou outro titular pode ser selecionado para trocar de posição.
+      if (picking?.kind === 'role')
+        panel.current
+          ?.querySelector<HTMLElement>('.player-card:not(:disabled), .role-card')
+          ?.focus();
+      else if (!picking && returnFocus.current)
         document.querySelector<HTMLElement>(returnFocus.current)?.focus();
-      returnFocus.current = null;
+      if (!picking) returnFocus.current = null;
     });
   }, [picking]);
 
@@ -134,6 +151,17 @@ export function Squad({
     returnFocus.current = `[data-slot="${index}"]`;
     setPicking(null);
   };
+  const swapSlots = (from: number, to: number) => {
+    const lineup = [...c.lineup];
+    [lineup[from], lineup[to]] = [lineup[to], lineup[from]];
+    if (byId(lineup[0]).position !== 'GK') {
+      onError('A posição exige um goleiro.');
+      return;
+    }
+    onChange({ ...c, lineup });
+    returnFocus.current = `[data-slot="${to}"]`;
+    setPicking(null);
+  };
   const setRole = (role: string, id: string | null) => {
     const roles = { ...c.roles };
     if (id) roles[role] = id;
@@ -153,7 +181,9 @@ export function Squad({
   if (picking?.kind === 'slot') {
     const role = rolePositions[picking.index];
     const currentId = c.lineup[picking.index];
-    const pool = players.filter((p) => p.id !== currentId && (picking.index !== 0 || p.position === 'GK'));
+    const pool = players.filter(
+      (p) => p.id !== currentId && (picking.index !== 0 || p.position === 'GK'),
+    );
     const fit = roleFits[role] || [role];
     const recommended = pool
       .filter((p) => fit.includes(p.position) && available(c, p.id))
@@ -168,10 +198,14 @@ export function Squad({
     pickerContent = (
       <>
         <div className="panel-heading picker-heading">
-          <button className="text-button" data-back-action onClick={() => {
-            returnFocus.current = `[data-slot="${picking.index}"]`;
-            setPicking(null);
-          }}>
+          <button
+            className="text-button"
+            data-back-action
+            onClick={() => {
+              returnFocus.current = `[data-slot="${picking.index}"]`;
+              setPicking(null);
+            }}
+          >
             <ChevronLeft size={16} /> Cancelar
           </button>
           <h2>
@@ -204,16 +238,23 @@ export function Squad({
     );
   } else if (picking?.kind === 'role') {
     const score = roleScore[picking.role];
-    const pool = players.filter((p) => picking.role.startsWith('Capit') || picking.role.startsWith('Vice') || p.position !== 'GK');
+    const pool = players.filter(
+      (p) =>
+        picking.role.startsWith('Capit') || picking.role.startsWith('Vice') || p.position !== 'GK',
+    );
     const recommended = [...pool].sort((a, b) => score(b, c) - score(a, c)).slice(0, 5);
     const others = players.filter((p) => !recommended.includes(p)).sort(byPosition(c));
     pickerContent = (
       <>
         <div className="panel-heading picker-heading">
-          <button className="text-button" data-back-action onClick={() => {
-            returnFocus.current = `[data-role="${picking.role}"]`;
-            setPicking(null);
-          }}>
+          <button
+            className="text-button"
+            data-back-action
+            onClick={() => {
+              returnFocus.current = `[data-role="${picking.role}"]`;
+              setPicking(null);
+            }}
+          >
             <ChevronLeft size={16} /> Cancelar
           </button>
           <h2>{picking.role}</h2>
@@ -226,7 +267,11 @@ export function Squad({
           othersLabel="Elenco por posição"
           extra={
             c.roles[picking.role] ? (
-              <button type="button" className="player-card empty" onClick={() => setRole(picking.role, null)}>
+              <button
+                type="button"
+                className="player-card empty"
+                onClick={() => setRole(picking.role, null)}
+              >
                 <UserX size={30} />
                 <strong className="pc-name">Ninguém</strong>
                 <span className="pc-meta">Remover</span>
@@ -313,15 +358,20 @@ export function Squad({
               const p = byId(id);
               const s = c.players[id];
               const selected = picking?.kind === 'slot' && picking.index === i;
+              const swapping = picking?.kind === 'slot' && !selected;
               return (
                 <button
                   key={`${i}-${id}`}
                   data-slot={i}
-                  className={`pitch-player ${!available(c, id) ? 'unavailable' : ''} ${selected ? 'selected' : ''}`}
+                  className={`pitch-player ${!available(c, id) ? 'unavailable' : ''} ${selected ? 'selected' : ''} ${swapping ? 'swap-target' : ''}`}
                   style={{ left: `${coordinates[i].x}%`, top: `${coordinates[i].y}%` }}
                   onClick={() => {
                     setView('lineup');
-                    setPicking(selected ? null : { kind: 'slot', index: i });
+                    if (picking?.kind === 'slot' && !selected) swapSlots(picking.index, i);
+                    else {
+                      returnFocus.current = `[data-slot="${i}"]`;
+                      setPicking(selected ? null : { kind: 'slot', index: i });
+                    }
                   }}
                   draggable
                   onDragStart={(e) => e.dataTransfer.setData('text/plain', id)}
@@ -344,7 +394,9 @@ export function Squad({
             })}
           </div>
           <p className="muted small">
-            Selecione uma posição: o painel ao lado mostra as opções recomendadas.
+            {picking?.kind === 'slot'
+              ? `Escolha outro titular para trocar de posição com ${shortName(byId(c.lineup[picking.index]).name)}, ou vá → para as recomendações.`
+              : 'Selecione uma posição: o painel ao lado mostra as opções recomendadas.'}
           </p>
         </section>
         <section ref={panel} className="panel squad-controls" data-focus-region="panel">
@@ -357,7 +409,10 @@ export function Squad({
                   <ChipGroup
                     label="Formação"
                     value={c.tactic.formation}
-                    options={Object.keys(formations).map((f) => ({ value: f as Formation, label: f }))}
+                    options={Object.keys(formations).map((f) => ({
+                      value: f as Formation,
+                      label: f,
+                    }))}
                     onChange={(formation) => updateTactic({ formation })}
                   />
                   <ChipGroup
@@ -398,7 +453,9 @@ export function Squad({
                 </div>
                 <div className="role-grid">
                   {roleNames.map((role) => {
-                    const p = c.roles[role] ? world.players.find((pl) => pl.id === c.roles[role]) : undefined;
+                    const p = c.roles[role]
+                      ? world.players.find((pl) => pl.id === c.roles[role])
+                      : undefined;
                     const valid = p && c.players[p.id]?.clubId === c.clubId;
                     return (
                       <button

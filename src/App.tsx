@@ -68,6 +68,7 @@ function Game() {
   const [user, setUser] = useState<User | null>(null);
   const [tab, setTab] = useState(0);
   const [popup, setPopup] = useState<Popup>(null);
+  const [hapticNote, setHapticNote] = useState('');
   const [detail, setDetail] = useState<Player | null>(null);
   const [deleting, setDeleting] = useState<SavedCareer | null>(null);
   const [error, setError] = useState('');
@@ -600,6 +601,24 @@ function Game() {
               {controller.vibration ? <Vibrate size={18} /> : <VibrateOff size={18} />}
               Vibração: {controller.vibration ? 'Ligada' : 'Desligada'}
             </button>
+            <button
+              onClick={() => {
+                const status = controller.haptics();
+                controller.rumble('goal');
+                setHapticNote(
+                  status === 'ok'
+                    ? controller.vibration
+                      ? 'Sentiu? Se não vibrou, conecte o controle por USB no Chrome ou Edge.'
+                      : 'A vibração está desligada. Ligue no botão acima.'
+                    : status === 'nopad'
+                      ? 'Nenhum controle detectado. Aperte qualquer botão do controle.'
+                      : 'Este navegador não libera a vibração do controle. Use Chrome ou Edge.',
+                );
+              }}
+            >
+              <Vibrate size={18} /> Testar vibração
+            </button>
+            {hapticNote && <p className="muted small haptic-note">{hapticNote}</p>}
             <button onClick={controller.toggleSound}>
               {controller.sound ? <Volume2 size={18} /> : <VolumeX size={18} />}
               Sons do menu: {controller.sound ? 'Ligados' : 'Desligados'}

@@ -17,10 +17,10 @@ type Actions = Partial<Record<Action, () => void>>;
 export type RumbleKind =
   'move' | 'confirm' | 'back' | 'tab' | 'goal' | 'concede' | 'whistle' | 'moment' | 'error';
 const rumblePatterns: Record<RumbleKind, [number, number, number][]> = {
-  move: [[16, 0, 0.18]],
-  confirm: [[45, 0.3, 0.55]],
-  back: [[35, 0.12, 0.4]],
-  tab: [[28, 0.2, 0.35]],
+  move: [[42, 0.28, 0.55]],
+  confirm: [[70, 0.55, 0.85]],
+  back: [[55, 0.35, 0.7]],
+  tab: [[55, 0.45, 0.7]],
   error: [
     [90, 0.75, 0.2],
     [90, 0.75, 0.2],
@@ -60,6 +60,8 @@ type ControllerContext = {
   vibration: boolean;
   toggleVibration: () => void;
   rumble: (kind: RumbleKind) => void;
+  /** Diagnóstico de vibração do controle ativo. */
+  haptics: () => 'ok' | 'unsupported' | 'nopad';
   hints: Record<Action, string>;
   register: (actions: Actions) => () => void;
 };
@@ -152,20 +154,21 @@ export function GamepadProvider({ children }: { children: ReactNode }) {
     if (!pad?.connected) return;
     let delay = 0;
     for (const [duration, strongMagnitude, weakMagnitude] of rumblePatterns[kind]) {
-      const startDelay = delay;
-      if (pad.vibrationActuator?.playEffect)
-        void pad.vibrationActuator
-          .playEffect('dual-rumble', { duration, strongMagnitude, weakMagnitude, startDelay })
-          .catch(() => undefined);
-      else if (pad.hapticActuators?.[0]?.pulse)
-        setTimeout(
-          () =>
-            void pad.hapticActuators?.[0]
-              ?.pulse?.(strongMagnitude, duration)
-              ?.catch(() => undefined),
-          startDelay,
-        );
-      delay += duration + 70;
+      // Cada playEffect cancela o anterior: os pulsos são agendados em sequência.
+      const fire = () => {
+        const live = (navigator.getGamepads()[pad.index] as HapticPad | null) || pad;
+        if (live.vibrationActuator?.playEffect)
+          void live.vibrationActuator
+            .playEffect('dual-rumble', { duration, strongMagnitude, weakMagnitude })
+            .catch(() => undefined);
+        else
+          void live.hapticActuators?.[0]
+            ?.pulse?.(strongMagnitude, duration)
+            ?.catch(() => undefined);
+      };
+      if (delay) setTimeout(fire, delay);
+      else fire();
+      delay += duration + 60;
     }
   }, []);
   const register = useCallback((value: Actions) => {
@@ -277,7 +280,9 @@ export function GamepadProvider({ children }: { children: ReactNode }) {
           return;
         }
         const screenBack =
-          !topModal() && document.querySelector<HTMLElement>('main [data-back-action]');
+          !topModal() &&
+          (document.querySelector<HTMLElement>('[data-focus-trap] [data-trap-exit]') ||
+            document.querySelector<HTMLElement>('main [data-back-action]'));
         if (screenBack) {
           screenBack.click();
           rumble('back');
@@ -499,6 +504,15 @@ export function GamepadProvider({ children }: { children: ReactNode }) {
             return !v;
           }),
         rumble,
+        haptics: () => {
+          const pads = navigator.getGamepads ? [...navigator.getGamepads()] : [];
+          const pad = (pads.find((p) => p?.connected) || null) as HapticPad | null;
+          if (!pad) return 'nopad';
+          return typeof pad.vibrationActuator?.playEffect === 'function' ||
+            typeof pad.hapticActuators?.[0]?.pulse === 'function'
+            ? 'ok'
+            : 'unsupported';
+        },
         register,
         hints,
       }}

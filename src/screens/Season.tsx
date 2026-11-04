@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { TrophyArt } from '../components/TrophyArt';
 import { CalendarDays, ChevronLeft, ChevronRight, Medal, Trophy } from 'lucide-react';
 import { Badge, dateLabel, SectionTitle } from '../components/ui';
 import { standings } from '../game/engine';
@@ -80,20 +81,6 @@ const shortCompetition = (id: string) =>
               ? 'Sul-Americana'
               : competitionName(id);
 
-const trophyPhotos: Record<string, string> = {
-  A: 'serie-a',
-  B: 'serie-b',
-  CDB: 'copa-do-brasil',
-  SUP: 'supercopa',
-  LIB: 'libertadores',
-  SUL: 'sul-americana',
-  'EST-SP': 'paulista',
-  'EST-RJ': 'carioca',
-  'EST-RS': 'gaucho',
-};
-const trophyUrl = (id: string) =>
-  trophyPhotos[id] ? `${import.meta.env.BASE_URL}assets/trofeus/${trophyPhotos[id]}.jpg` : null;
-
 const weekDays = ['DOM', 'SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SÁB'];
 const monthName = (month: string) =>
   new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(
@@ -125,7 +112,9 @@ export function Season({ career: c, world }: { career: Career; world: World }) {
     setMonth(next);
     setDay(`${next}-01`);
   };
-  useStickX((dir) => (view === 'calendar' ? cycleMonth(dir) : view !== 'trophies' && cycleComp(dir)));
+  useStickX((dir) =>
+    view === 'calendar' ? cycleMonth(dir) : view !== 'trophies' && cycleComp(dir),
+  );
   const pad = input === 'xbox' || input === 'playstation';
   const isLeague = comp === 'A' || comp === 'B';
   const statsLeague = isLeague ? (comp as 'A' | 'B') : club.league;
@@ -173,7 +162,9 @@ export function Season({ career: c, world }: { career: Career; world: World }) {
 
   // Calendário mensal: começa no domingo, completa a última semana.
   const first = new Date(`${month}-01T12:00:00Z`);
-  const daysInMonth = new Date(Date.UTC(first.getUTCFullYear(), first.getUTCMonth() + 1, 0)).getUTCDate();
+  const daysInMonth = new Date(
+    Date.UTC(first.getUTCFullYear(), first.getUTCMonth() + 1, 0),
+  ).getUTCDate();
   const lead = first.getUTCDay();
   const cells = Array.from({ length: Math.ceil((lead + daysInMonth) / 7) * 7 }, (_, i) => {
     const n = i - lead + 1;
@@ -207,7 +198,12 @@ export function Season({ career: c, world }: { career: Career; world: World }) {
         <div className="season-layout">
           <section className="panel standings-panel">
             <div className="panel-heading">
-              {switcher(competitionName(comp), () => cycleComp(-1), () => cycleComp(1), available)}
+              {switcher(
+                competitionName(comp),
+                () => cycleComp(-1),
+                () => cycleComp(1),
+                available,
+              )}
               <span className="pill">
                 {champion(comp) ? `CAMPEÃO: ${clubById(world, champion(comp)!).short}` : c.season}
               </span>
@@ -233,10 +229,14 @@ export function Season({ career: c, world }: { career: Career; world: World }) {
                   }
                 />
                 <div className="table-legend">
-                  <span className="legend-up">● {comp === 'B' ? 'Acesso direto' : 'Libertadores (G6)'}</span>
+                  <span className="legend-up">
+                    ● {comp === 'B' ? 'Acesso direto' : 'Libertadores (G6)'}
+                  </span>
                   {comp === 'B' && <span className="legend-playoff">● Playoffs (3º–6º)</span>}
                   {comp === 'A' && <span className="legend-down">● Rebaixamento</span>}
-                  <span className="muted">{pad ? <kbd>{hints.stick}</kbd> : 'Roda do mouse'} ▲▼ rolar</span>
+                  <span className="muted">
+                    {pad ? <kbd>{hints.stick}</kbd> : 'Roda do mouse'} ▲▼ rolar
+                  </span>
                 </div>
               </>
             ) : (
@@ -330,8 +330,14 @@ export function Season({ career: c, world }: { career: Career; world: World }) {
         <div className="season-layout calendar-layout">
           <section className="panel month-panel">
             <div className="panel-heading">
-              {switcher(monthName(month), () => cycleMonth(-1), () => cycleMonth(1))}
-              <span className="pill">{ownFixtures.filter((f) => f.date.startsWith(month)).length} jogos</span>
+              {switcher(
+                monthName(month),
+                () => cycleMonth(-1),
+                () => cycleMonth(1),
+              )}
+              <span className="pill">
+                {ownFixtures.filter((f) => f.date.startsWith(month)).length} jogos
+              </span>
             </div>
             <div className="month-grid">
               {weekDays.map((w) => (
@@ -346,7 +352,9 @@ export function Season({ career: c, world }: { career: Career; world: World }) {
                 const home = f?.homeId === c.clubId;
                 const won =
                   f?.result &&
-                  (home ? f.result.homeGoals - f.result.awayGoals : f.result.awayGoals - f.result.homeGoals);
+                  (home
+                    ? f.result.homeGoals - f.result.awayGoals
+                    : f.result.awayGoals - f.result.homeGoals);
                 return (
                   <button
                     key={date}
@@ -400,7 +408,10 @@ export function Season({ career: c, world }: { career: Career; world: World }) {
               <h3>Dia sem jogo · treino e recuperação.</h3>
             )}
             <p className="eyebrow">AGENDA NACIONAL</p>
-            {(dayMilestones.length ? dayMilestones : milestones(c.season).filter((m) => m.date.startsWith(month))).map((m) => (
+            {(dayMilestones.length
+              ? dayMilestones
+              : milestones(c.season).filter((m) => m.date.startsWith(month))
+            ).map((m) => (
               <div className="milestone" key={m.title}>
                 <CalendarDays size={17} />
                 <div>
@@ -452,7 +463,6 @@ export function Season({ career: c, world }: { career: Career; world: World }) {
           <div className="trophy-shelf carousel">
             {shelf.map((id) => {
               const titles = ownTitles.filter((h) => h.competition === id);
-              const url = trophyUrl(id);
               return (
                 <button
                   type="button"
@@ -461,11 +471,8 @@ export function Season({ career: c, world }: { career: Career; world: World }) {
                   aria-label={`${competitionName(id)}: ${titles.length} títulos`}
                 >
                   <span className="trophy-light" />
-                  {url ? (
-                    <img src={url} alt="" loading="lazy" draggable={false} />
-                  ) : (
-                    <Trophy className="trophy-fallback" size={96} strokeWidth={1.2} />
-                  )}
+                  <TrophyArt id={id} />
+
                   <span className="trophy-plate">
                     <strong>{titles.length}</strong>
                     <small>{titles.length === 1 ? 'TÍTULO' : 'TÍTULOS'}</small>
@@ -484,8 +491,8 @@ export function Season({ career: c, world }: { career: Career; world: World }) {
           </div>
           <div className="trophy-footer">
             <span>
-              <strong>{ownTitles.length}</strong>{' '}
-              {ownTitles.length === 1 ? 'título' : 'títulos'} na sua gestão
+              <strong>{ownTitles.length}</strong> {ownTitles.length === 1 ? 'título' : 'títulos'} na
+              sua gestão
             </span>
             {c.history.slice(-3).map((h) => (
               <span key={h.season}>
@@ -493,11 +500,8 @@ export function Season({ career: c, world }: { career: Career; world: World }) {
               </span>
             ))}
             {c.seasonEnded && (
-              <span>
-                Acesso — {c.promoted.map((id) => clubById(world, id).short).join(', ')}
-              </span>
+              <span>Acesso — {c.promoted.map((id) => clubById(world, id).short).join(', ')}</span>
             )}
-            <small className="muted">Fotos: Wikimedia Commons (CC BY / CC BY-SA)</small>
           </div>
         </div>
       )}

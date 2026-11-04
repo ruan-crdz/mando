@@ -9,7 +9,9 @@ export class FocusManager {
 
   elements(): HTMLElement[] {
     const dialogs = [...document.querySelectorAll<HTMLElement>('[data-focus-scope="modal"]')];
-    const scope = dialogs.at(-1) || document.body;
+    // Painéis "entráveis" (ex.: conversa de negociação) prendem o foco até o B.
+    const scope =
+      dialogs.at(-1) || document.querySelector<HTMLElement>('[data-focus-trap]') || document.body;
     return [...scope.querySelectorAll<HTMLElement>(focusable)].filter(
       (el) =>
         el.getClientRects().length > 0 &&

@@ -2,6 +2,7 @@ import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowLeftRight,
   Check,
+  ChevronLeft,
   ChevronRight,
   Clock3,
   Handshake,
@@ -106,8 +107,7 @@ function LikelihoodMeter({ label, value }: { label: string; value: number }) {
   );
 }
 
-const needsAction = (o: Offer) =>
-  o.incoming ? o.status === 'pending' : o.status === 'countered';
+const needsAction = (o: Offer) => (o.incoming ? o.status === 'pending' : o.status === 'countered');
 
 function statusLabel(o: Offer) {
   if (o.status === 'pending') return o.incoming ? 'Responder' : 'Aguardando';
@@ -155,6 +155,8 @@ function ChatPanel({
   onAnswer,
   onAsk,
   onCounter,
+  inside,
+  onExit,
 }: {
   offer: Offer;
   career: Career;
@@ -164,14 +166,30 @@ function ChatPanel({
   onAnswer: (id: string, accept: boolean) => void;
   onAsk: (id: string, fee: number) => void;
   onCounter: () => void;
+  inside: boolean;
+  onExit: () => void;
 }) {
   const scroller = useRef<HTMLDivElement>(null);
+  const root = useRef<HTMLElement>(null);
   const thread = threadOf(offer);
   const [ask, setAsk] = useState(Math.round((offer.fee * 1.2) / 50000) * 50000);
   useEffect(() => {
     const el = scroller.current;
     if (el) el.scrollTop = el.scrollHeight;
   }, [thread.length]);
+  useEffect(() => {
+    if (!inside) return;
+    requestAnimationFrame(() => {
+      const active = document.activeElement;
+      if (root.current?.contains(active) && active !== document.body) return;
+      const box = root.current;
+      (
+        box?.querySelector<HTMLElement>(
+          '.chat-actions button:not(:disabled), .chat-actions input',
+        ) || box?.querySelector<HTMLElement>('[data-trap-exit]')
+      )?.focus();
+    });
+  }, [inside, offer.status]);
   const p = world.players.find((p) => p.id === offer.playerId)!;
   const other = clubById(world, offer.incoming ? offer.fromClubId : offer.toClubId);
   const mine = clubById(world, c.clubId);
@@ -180,7 +198,11 @@ function ChatPanel({
   const stillThere = c.players[p.id]?.clubId === offer.toClubId;
   const locked = offer.lockedUntil && offer.lockedUntil > c.date;
   return (
-    <section className="panel chat-panel">
+    <section
+      ref={root}
+      className={`panel chat-panel ${inside ? 'inside' : ''}`}
+      data-focus-trap={inside ? '' : undefined}
+    >
       <header className="chat-head">
         <Badge club={other} />
         <span>
@@ -189,6 +211,11 @@ function ChatPanel({
             {p.position} · OVR {overall(p, p.position, c.players[p.id])} · {other.name}
           </small>
         </span>
+        {inside && (
+          <button type="button" className="text-button chat-exit" data-trap-exit onClick={onExit}>
+            <ChevronLeft size={15} /> Sair da conversa
+          </button>
+        )}
         {!offer.incoming && (
           <div className="chat-stages">
             <span className={offer.stage === 'player' ? 'done' : 'active'}>
@@ -212,7 +239,11 @@ function ChatPanel({
             ) : (
               <div className={`bubble from-${m.from === 'me' ? 'me' : 'them'} kind-${m.kind}`}>
                 <span className="bubble-author">
-                  {m.from === 'agent' ? <span className="agent-avatar">AG</span> : <Badge club={m.from === 'me' ? mine : other} size="small" />}
+                  {m.from === 'agent' ? (
+                    <span className="agent-avatar">AG</span>
+                  ) : (
+                    <Badge club={m.from === 'me' ? mine : other} size="small" />
+                  )}
                   {author(m)}
                   {kindLabel[m.kind] && <i className="bubble-tag">{kindLabel[m.kind]}</i>}
                 </span>
@@ -224,7 +255,9 @@ function ChatPanel({
         ))}
         {offer.status === 'pending' && !offer.incoming && (
           <div className="bubble from-them typing">
-            <span className="bubble-author">{offer.stage === 'player' ? `Agente de ${p.name}` : other.name}</span>
+            <span className="bubble-author">
+              {offer.stage === 'player' ? `Agente de ${p.name}` : other.name}
+            </span>
             <p className="typing-dots">
               <i />
               <i />
@@ -259,10 +292,12 @@ function ChatPanel({
         )}
         {!offer.incoming && offer.status === 'pending' && (
           <p className="chat-wait">
-            <Clock3 size={16} /> Aguardando resposta até {dateLabel(offer.responseDate)}. Avance o dia.
+            <Clock3 size={16} /> Aguardando resposta até {dateLabel(offer.responseDate)}. Avance o
+            dia.
           </p>
         )}
-        {!offer.incoming && offer.status === 'declined' &&
+        {!offer.incoming &&
+          offer.status === 'declined' &&
           (locked ? (
             <p className="chat-wait">Conversas encerradas até {dateLabel(offer.lockedUntil!)}.</p>
           ) : (
@@ -298,7 +333,9 @@ function ChatPanel({
             <Check size={16} /> Negócio concluído.
           </p>
         )}
-        {offer.incoming && offer.status === 'declined' && <p className="chat-wait">Conversa encerrada.</p>}
+        {offer.incoming && offer.status === 'declined' && (
+          <p className="chat-wait">Conversa encerrada.</p>
+        )}
       </footer>
     </section>
   );
@@ -329,6 +366,7 @@ export function Transfers({
 }) {
   const [view, setView] = useState<'market' | 'shortlist' | 'negotiations'>('market');
   const [selected, setSelected] = useState('');
+  const [inside, setInside] = useState(false);
   const [filters, setFilters] = useState(initialFilters);
   const [deal, setDeal] = useState<Deal | null>(null);
   const [step, setStep] = useState<'club' | 'player'>('club');
@@ -377,8 +415,7 @@ export function Transfers({
     setDeal({
       player: p,
       fee: previous?.fee ?? last?.fee ?? marketValue(c, p),
-      wage:
-        previous?.wage ?? last?.wage ?? Math.round((c.players[p.id].wage * 1.15) / 1000) * 1000,
+      wage: previous?.wage ?? last?.wage ?? Math.round((c.players[p.id].wage * 1.15) / 1000) * 1000,
       years: previous?.years ?? last?.years ?? 3,
       bonus: previous?.bonus ?? last?.bonus ?? 0,
       exchange: previous?.exchange ?? last?.exchangePlayerId ?? '',
@@ -425,13 +462,18 @@ export function Transfers({
       deal.bonus,
       dealThread?.ask,
     );
-  const exchangePlayer = deal?.exchange ? world.players.find((p) => p.id === deal.exchange) : undefined;
+  const exchangePlayer = deal?.exchange
+    ? world.players.find((p) => p.id === deal.exchange)
+    : undefined;
   const totalCost = deal ? deal.fee + deal.bonus + deal.wage * 12 * deal.years : 0;
   const update = (patch: Partial<Deal>) => setDeal((d) => (d ? { ...d, ...patch } : d));
 
   return (
     <div className="screen-enter transfers-screen">
-      <SectionTitle kicker="TRANSFERÊNCIAS / O MERCADO SE MOVE" title="A próxima peça do seu plano.">
+      <SectionTitle
+        kicker="TRANSFERÊNCIAS / O MERCADO SE MOVE"
+        title="A próxima peça do seu plano."
+      >
         <span className={`status-pill ${open ? 'open' : ''}`}>
           {open ? 'JANELA ABERTA' : 'JANELA FECHADA'} · {money(finance.transferBudget)} disponíveis
         </span>
@@ -440,12 +482,18 @@ export function Transfers({
         <button className={view === 'market' ? 'active' : ''} onClick={() => setView('market')}>
           <Search size={16} /> Mercado
         </button>
-        <button className={view === 'shortlist' ? 'active' : ''} onClick={() => setView('shortlist')}>
+        <button
+          className={view === 'shortlist' ? 'active' : ''}
+          onClick={() => setView('shortlist')}
+        >
           <Star size={16} /> Observados <span className="count">{shortlisted.length}</span>
         </button>
         <button
           className={view === 'negotiations' ? 'active' : ''}
-          onClick={() => setView('negotiations')}
+          onClick={() => {
+            setView('negotiations');
+            setInside(false);
+          }}
         >
           <MessageSquare size={16} /> Negociações <span className="count">{pending}</span>
         </button>
@@ -455,7 +503,9 @@ export function Transfers({
           <div className="deal-room">
             <aside className="deal-target">
               <div className={`deal-card pos-${deal.player.position}`}>
-                <span className="deal-ovr">{overall(deal.player, deal.player.position, c.players[deal.player.id])}</span>
+                <span className="deal-ovr">
+                  {overall(deal.player, deal.player.position, c.players[deal.player.id])}
+                </span>
                 <span className="deal-pos">{deal.player.position}</span>
                 <Badge club={clubById(world, c.players[deal.player.id].clubId!)} />
                 <strong>{deal.player.name}</strong>
@@ -707,10 +757,16 @@ export function Transfers({
                 className="primary send-offer"
                 disabled={!open}
                 onClick={() => {
-                  const sent = onOffer(deal.player.id, deal.fee, deal.wage, deal.exchange || undefined, {
-                    years: deal.years,
-                    bonus: deal.bonus,
-                  });
+                  const sent = onOffer(
+                    deal.player.id,
+                    deal.fee,
+                    deal.wage,
+                    deal.exchange || undefined,
+                    {
+                      years: deal.years,
+                      bonus: deal.bonus,
+                    },
+                  );
                   if (sent) {
                     setDeal(null);
                     setSelected(deal.player.id);
@@ -719,7 +775,11 @@ export function Transfers({
                 }}
               >
                 <Send size={17} />{' '}
-                {!open ? 'Janela fechada' : dealThread ? 'Enviar contraproposta' : 'Enviar proposta'}
+                {!open
+                  ? 'Janela fechada'
+                  : dealThread
+                    ? 'Enviar contraproposta'
+                    : 'Enviar proposta'}
               </button>
               <small className="muted">Resposta amanhã. B fecha a sala.</small>
             </aside>
@@ -771,11 +831,51 @@ export function Transfers({
                 onChange={(v) => filter('position', v)}
               />
               <div className="filter-pairs">
-                <NumberStepper label="Idade mín." optional min={15} max={45} step={1} value={filters.minAge} onChange={(v) => filter('minAge', v)} />
-                <NumberStepper label="Idade máx." optional min={15} max={45} step={1} value={filters.maxAge} onChange={(v) => filter('maxAge', v)} />
-                <NumberStepper label="OVR mín." optional min={1} max={99} step={1} value={filters.minOvr} onChange={(v) => filter('minOvr', v)} />
-                <NumberStepper label="OVR máx." optional min={1} max={99} step={1} value={filters.maxOvr} onChange={(v) => filter('maxOvr', v)} />
-                <NumberStepper label="Potencial mín." optional min={1} max={99} step={1} value={filters.minPotential} onChange={(v) => filter('minPotential', v)} />
+                <NumberStepper
+                  label="Idade mín."
+                  optional
+                  min={15}
+                  max={45}
+                  step={1}
+                  value={filters.minAge}
+                  onChange={(v) => filter('minAge', v)}
+                />
+                <NumberStepper
+                  label="Idade máx."
+                  optional
+                  min={15}
+                  max={45}
+                  step={1}
+                  value={filters.maxAge}
+                  onChange={(v) => filter('maxAge', v)}
+                />
+                <NumberStepper
+                  label="OVR mín."
+                  optional
+                  min={1}
+                  max={99}
+                  step={1}
+                  value={filters.minOvr}
+                  onChange={(v) => filter('minOvr', v)}
+                />
+                <NumberStepper
+                  label="OVR máx."
+                  optional
+                  min={1}
+                  max={99}
+                  step={1}
+                  value={filters.maxOvr}
+                  onChange={(v) => filter('maxOvr', v)}
+                />
+                <NumberStepper
+                  label="Potencial mín."
+                  optional
+                  min={1}
+                  max={99}
+                  step={1}
+                  value={filters.minPotential}
+                  onChange={(v) => filter('minPotential', v)}
+                />
                 <NumberStepper
                   label="Valor máx."
                   optional
@@ -852,7 +952,8 @@ export function Transfers({
                     <span className="position-tag">{p.position}</span>
                     <span>
                       <strong>
-                        {c.shortlist.includes(p.id) && <Star size={13} className="star-on" />} {p.name}
+                        {c.shortlist.includes(p.id) && <Star size={13} className="star-on" />}{' '}
+                        {p.name}
                       </strong>
                       <small>
                         {clubName(p)} · {ageAt(p.birthDate, c.date)} anos · OVR{' '}
@@ -867,7 +968,9 @@ export function Transfers({
               ))}
             </div>
             {!filtered.length && (
-              <p className="empty-state">Nenhum atleta atende a todos os critérios. Ajuste os filtros.</p>
+              <p className="empty-state">
+                Nenhum atleta atende a todos os critérios. Ajuste os filtros.
+              </p>
             )}
             <div className="pagination">
               <button disabled={page === 0} onClick={() => setPage(page - 1)}>
@@ -876,7 +979,10 @@ export function Transfers({
               <span>
                 {page + 1} / {Math.max(1, Math.ceil(filtered.length / 20))}
               </span>
-              <button disabled={(page + 1) * 20 >= filtered.length} onClick={() => setPage(page + 1)}>
+              <button
+                disabled={(page + 1) * 20 >= filtered.length}
+                onClick={() => setPage(page + 1)}
+              >
                 Próxima
               </button>
             </div>
@@ -929,7 +1035,11 @@ export function Transfers({
                       key={o.id}
                       className={`thread-item ${o.id === current.id ? 'active' : ''} ${needsAction(o) ? 'attention' : ''}`}
                       data-autofocus={i === 0 ? '' : undefined}
-                      onClick={() => setSelected(o.id)}
+                      data-thread={o.id}
+                      onClick={() => {
+                        setSelected(o.id);
+                        setInside(true);
+                      }}
                     >
                       <Badge club={other} size="small" />
                       <span className="thread-text">
@@ -955,6 +1065,13 @@ export function Transfers({
               onAnswer={onAnswer}
               onAsk={onAsk}
               onCounter={() => openCounter(current)}
+              inside={inside}
+              onExit={() => {
+                setInside(false);
+                requestAnimationFrame(() =>
+                  document.querySelector<HTMLElement>(`[data-thread="${current.id}"]`)?.focus(),
+                );
+              }}
             />
           </div>
         ) : (
