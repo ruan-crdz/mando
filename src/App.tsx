@@ -44,6 +44,13 @@ import {
   applyStaffPlan,
   advanceStep,
   validateCareerForWorld,
+  acceptJobOffer,
+  hireScout,
+  signProspect,
+  playerConversation,
+  setDevelopmentPlan,
+  setReleaseClause,
+  setPlayerRole,
 } from './game/engine';
 import { bestLineup, beginMatch, resolveMoment, substitute } from './game/matches';
 import { careerWorld } from './game/live';
@@ -54,6 +61,10 @@ import {
   createOffer,
   renewContract,
   respondCounter,
+  arrangeLoan,
+  signPreContract,
+  exerciseReleaseClause,
+  loanOutPlayer,
 } from './game/transfers';
 import { type Career, type Player, type World } from './game/types';
 import { listLocal, removeLocal, saveLocal, type SavedCareer } from './services/storage';
@@ -67,7 +78,7 @@ import {
   toggleMusic,
 } from './audio/music';
 import { startCrowd, stopCrowd } from './audio/crowd';
-import { applyPress, buildPress, type PressSession } from './game/press';
+import { applyPress, buildPress, buildPreMatchPress, type PressSession } from './game/press';
 import { playVoice, skipVoice, stopVoice, useVoice } from './components/voice';
 import { achievements, unlockAchievements, type Achievement } from './game/achievements';
 
@@ -567,6 +578,28 @@ function Game() {
                       setNotice('Contrato renovado. Luvas debitadas do caixa.');
                     })
                   }
+                  onConversation={(id, choice) =>
+                    act(() => {
+                      setCareer(playerConversation(career, id, choice));
+                      setNotice('Conversa registrada na memória do jogador.');
+                    })
+                  }
+                  onDevelopment={(id, plan) =>
+                    setCareer(setDevelopmentPlan(career, id, plan))
+                  }
+                  onRole={(id, role) => setCareer(setPlayerRole(career, id, role))}
+                  onSetClause={(id, amount) =>
+                    act(() => {
+                      setCareer(setReleaseClause(career, id, amount));
+                      setNotice('Multa rescisória atualizada.');
+                    })
+                  }
+                  onLoanOut={(id, clubId) =>
+                    act(() => {
+                      setCareer(loanOutPlayer(career, live!, id, clubId, 6));
+                      setNotice('Empréstimo concluído. O jogador retornará em seis meses.');
+                    })
+                  }
                 />
               )}
               {tab === 2 && (
@@ -588,6 +621,24 @@ function Game() {
                       shortlist: career.shortlist.includes(id)
                         ? career.shortlist.filter((p) => p !== id)
                         : [...career.shortlist, id],
+                    })
+                  }
+                  onLoan={(id) =>
+                    act(() => {
+                      setCareer(arrangeLoan(career, live!, id, 6));
+                      setNotice('Empréstimo concluído por seis meses.');
+                    })
+                  }
+                  onPrecontract={(id, wage) =>
+                    act(() => {
+                      setCareer(signPreContract(career, live!, id, wage));
+                      setNotice('Pré-contrato assinado. O reforço chega ao fim do vínculo atual.');
+                    })
+                  }
+                  onClause={(id) =>
+                    act(() => {
+                      setCareer(exerciseReleaseClause(career, live!, id));
+                      setNotice('Multa rescisória paga e transferência concluída.');
                     })
                   }
                   onAnswer={(id, accept) =>
@@ -633,6 +684,30 @@ function Game() {
                     act(() => {
                       setCareer(applyStaffPlan(career, world!, id));
                       setNotice('Plano do auxiliar aplicado na tática e na escalação.');
+                    })
+                  }
+                  onHireScout={(region) =>
+                    act(() => {
+                      setCareer(hireScout(career, live!, region));
+                      setNotice(`Olheiro contratado para ${region}.`);
+                    })
+                  }
+                  onSignProspect={(id) =>
+                    act(() => {
+                      setCareer(signProspect(career, id));
+                      setNotice('Jovem talento integrado às categorias de base.');
+                    })
+                  }
+                  onAcceptJob={(id) =>
+                    act(() => {
+                      setCareer(acceptJobOffer(career, live!, id));
+                      setNotice('Novo clube aceito. A carreira continua em um novo desafio.');
+                    })
+                  }
+                  onDeclineJob={(id) =>
+                    setCareer({
+                      ...career,
+                      jobOffers: career.jobOffers.filter((offer) => offer.id !== id),
                     })
                   }
                   onAvatar={(photo) =>
@@ -961,6 +1036,18 @@ function Game() {
             <p>Confira lesões, suspensões e condição física antes de entrar em campo.</p>
           </div>
           <div className="button-row">
+            <button
+              onClick={() => {
+                const session = buildPreMatchPress(career, live!);
+                if (!session) return fail('Não foi possível iniciar a coletiva pré-jogo.');
+                setPress(session);
+                setPressStep(0);
+                setPressAnswers({});
+                setPopup(null);
+              }}
+            >
+              Coletiva pré-jogo
+            </button>
             <button
               onClick={() => {
                 setPopup(null);

@@ -190,6 +190,21 @@ export const playerStateSchema = z.object({
   trained: z.record(z.string(), z.number().min(0).max(100)).optional(),
   ratingTotal: z.number().optional(),
   rated: z.number().int().optional(),
+  monthlyRatingTotal: z.number().default(0),
+  monthlyRated: z.number().int().nonnegative().default(0),
+  personality: z
+    .enum(['Profissional', 'Ambicioso', 'Temperamental', 'Leal', 'Disciplinado', 'Líder'])
+    .default('Profissional'),
+  sharpness: percent.default(50),
+  potentialDelta: z.number().min(-8).max(8).default(0),
+  development: z.enum(['Equilibrado', 'Ataque', 'Criação', 'Defesa', 'Físico']).default('Equilibrado'),
+  role: z
+    .enum(['Padrão', 'Finalizador', 'Armador', 'Pivô', 'Volante', 'Zagueiro construtor', 'Lateral ofensivo'])
+    .default('Padrão'),
+  clause: z.number().nonnegative().optional(),
+  loanFrom: z.string().optional(),
+  loanUntil: isoDate.optional(),
+  promiseUntil: isoDate.optional(),
 });
 export type PlayerState = z.infer<typeof playerStateSchema>;
 export const tacticSchema = z.object({
@@ -410,6 +425,50 @@ export const careerSchema = z.object({
     .default({ advance: 'day' }),
   /** Lista de observação do mercado. */
   shortlist: z.array(z.string()).default([]),
+  scouts: z
+    .array(
+      z.object({
+        id: z.string(),
+        name: z.string(),
+        region: z.string(),
+        skill: z.number().int().min(1).max(5),
+        progress: z.number().int().min(0).max(30).default(0),
+      }),
+    )
+    .default([]),
+  prospects: z.array(playerSchema).default([]),
+  awards: z
+    .array(
+      z.object({
+        season: z.number().int(),
+        month: z.number().int().min(0).max(12),
+        category: z.enum(['Jogador do mês', 'Time do mês', 'Melhor jogador', 'Artilheiro', 'Revelação', 'Goleiro']),
+        playerId: z.string().optional(),
+        clubId: z.string().optional(),
+      }),
+    )
+    .default([]),
+  jobOffers: z
+    .array(
+      z.object({
+        id: z.string(),
+        clubId: z.string(),
+        expires: isoDate,
+        salary: z.number().nonnegative(),
+      }),
+    )
+    .default([]),
+  preContracts: z
+    .array(
+      z.object({
+        playerId: z.string(),
+        clubId: z.string(),
+        wage: z.number().nonnegative(),
+        joined: z.boolean().default(false),
+      }),
+    )
+    .default([]),
+  sacked: z.boolean().default(false),
   history: z
     .array(
       z.object({

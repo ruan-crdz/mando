@@ -440,6 +440,13 @@ export const npcState: PlayerState = {
   contractEnd: '2099-12-31',
   relationship: 50,
   benchGames: 0,
+  personality: 'Profissional',
+  sharpness: 50,
+  potentialDelta: 0,
+  development: 'Equilibrado',
+  role: 'Padrão',
+  monthlyRatingTotal: 0,
+  monthlyRated: 0,
 };
 
 const indexes = new WeakMap<World, { players: Map<string, Player>; clubs: Map<string, Club> }>();

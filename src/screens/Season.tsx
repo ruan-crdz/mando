@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { TrophyArt } from '../components/TrophyArt';
-import { CalendarDays, ChevronLeft, ChevronRight, Medal, Trophy } from 'lucide-react';
+import { Award, CalendarDays, ChevronLeft, ChevronRight, Medal, Trophy } from 'lucide-react';
 import { Badge, dateLabel, SectionTitle } from '../components/ui';
 import { standings } from '../game/engine';
 import { competitionName, fixtureCompetition, fixtureLabel, milestones } from '../game/calendar';
@@ -96,7 +96,7 @@ export function Season({ career: c, world }: { career: Career; world: World }) {
   const club = world.clubs.find((club) => club.id === c.clubId)!;
   const { input, hints } = useGamepad();
   const [comp, setComp] = useState<string>(c.leagues[c.clubId] || club.league);
-  const [view, setView] = useState<'table' | 'calendar' | 'stats' | 'trophies'>('table');
+  const [view, setView] = useState<'table' | 'calendar' | 'stats' | 'trophies' | 'awards'>('table');
   const [month, setMonth] = useState(c.date.slice(0, 7));
   const [day, setDay] = useState(c.date);
   const available = ['A', 'B', `EST-${club.state}`, 'CDB', 'SUP', 'LIB', 'SUL'].filter(
@@ -113,7 +113,9 @@ export function Season({ career: c, world }: { career: Career; world: World }) {
     setDay(`${next}-01`);
   };
   useStickX((dir) =>
-    view === 'calendar' ? cycleMonth(dir) : view !== 'trophies' && cycleComp(dir),
+    view === 'calendar'
+      ? cycleMonth(dir)
+      : view !== 'trophies' && view !== 'awards' && cycleComp(dir),
   );
   const pad = input === 'xbox' || input === 'playstation';
   const isLeague = comp === 'A' || comp === 'B';
@@ -186,6 +188,7 @@ export function Season({ career: c, world }: { career: Career; world: World }) {
             ['calendar', 'Calendário', CalendarDays],
             ['stats', 'Estatísticas', Medal],
             ['trophies', 'Troféus', Trophy],
+            ['awards', 'Prêmios', Award],
           ] as const
         ).map(([id, name, Icon]) => (
           <button className={view === id ? 'active' : ''} key={id} onClick={() => setView(id)}>
@@ -503,6 +506,41 @@ export function Season({ career: c, world }: { career: Career; world: World }) {
               <span>Acesso — {c.promoted.map((id) => clubById(world, id).short).join(', ')}</span>
             )}
           </div>
+        </div>
+      )}
+      {view === 'awards' && (
+        <div className="stats-grid">
+          {c.awards.length === 0 ? (
+            <section className="panel">
+              <h2>Prêmios da temporada</h2>
+              <p className="muted">Os destaques mensais e os prêmios do ano aparecem aqui.</p>
+            </section>
+          ) : (
+            [...c.awards].reverse().map((award, index) => {
+              const athlete = award.playerId && world.players.find((p) => p.id === award.playerId);
+              const team = award.clubId && world.clubs.find((item) => item.id === award.clubId);
+              const monthName = award.month
+                ? new Intl.DateTimeFormat('pt-BR', { month: 'long' }).format(
+                    new Date(Date.UTC(award.season, award.month - 1, 1)),
+                  )
+                : 'Temporada';
+              return (
+                <section
+                  className="panel"
+                  key={`${award.season}-${award.month}-${award.category}-${index}`}
+                >
+                  <p className="eyebrow">
+                    {award.season} · {monthName}
+                  </p>
+                  <h2>
+                    <Award size={20} /> {award.category}
+                  </h2>
+                  <strong>{athlete?.name || team?.name || 'Sem vencedor definido'}</strong>
+                  {team && athlete && <p className="muted">{team.name}</p>}
+                </section>
+              );
+            })
+          )}
         </div>
       )}
     </div>

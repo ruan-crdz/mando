@@ -2,7 +2,7 @@ import { hash } from './random';
 import { matchRatings, manOfTheMatch } from './matchRatings';
 import { clubById, findPlayer } from './npc';
 import { currentLeague, standings } from './engine';
-import { competitionName } from './calendar';
+import { competitionName, fixtureLabel, nextFixture } from './calendar';
 import { type Career, type World } from './types';
 
 export type PressEffect = {
@@ -26,6 +26,7 @@ export type PressSession = {
   fixtureId: string;
   headline: string;
   questions: PressQuestion[];
+  mode?: 'pre' | 'post';
 };
 
 const reporters = [
@@ -231,7 +232,56 @@ export function buildPress(career: Career, world: World): PressSession | null {
     fixtureId: match.fixtureId,
     headline: `Coletiva · ${club} ${home ? match.homeGoals : match.awayGoals} x ${home ? match.awayGoals : match.homeGoals} ${rival}`,
     questions,
+    mode: 'post',
   };
+}
+
+export function buildPreMatchPress(career: Career, world: World): PressSession | null {
+  const fixture = nextFixture(career);
+  if (!fixture || fixture.date > career.date) return null;
+  const home = fixture.homeId === career.clubId;
+  const opponentId = home ? fixture.awayId : fixture.homeId;
+  const opponent = clubById(world, opponentId);
+  const club = clubById(world, career.clubId);
+  const label = fixtureLabel(fixture);
+  const seed = hash(`${career.id}:${fixture.id}:pre-press`);
+  const pick = (i: number) => reporters[(seed + i * 5) % reporters.length];
+  const questions: PressQuestion[] = [
+    {
+      id: 'expectation',
+      reporter: pick(0)[0],
+      outlet: pick(0)[1],
+      text: `O ${club.name} enfrenta o ${opponent.name} pela ${label.name}. Qual é a prioridade da equipe?`,
+      answers: [
+        { text: 'Vamos competir com intensidade e respeitar nosso plano.', tone: 'Equilibrado', effect: { confidence: 1, squad: 2 } },
+        { text: 'A vitória é obrigação. Não aceitamos outro resultado.', tone: 'Confiante', effect: { confidence: 2, squad: -1 } },
+        { text: 'O adversário é favorito; precisamos ser pacientes.', tone: 'Cauteloso', effect: { confidence: -1, squad: 1 } },
+      ],
+    },
+    {
+      id: 'tactics',
+      reporter: pick(1)[0],
+      outlet: pick(1)[1],
+      text: `Seu time vem com ${career.tactic.formation} e postura ${career.tactic.mentality.toLowerCase()}. A estratégia pode mudar durante o jogo?`,
+      answers: [
+        { text: 'Temos um plano, mas vamos reagir ao que acontecer em campo.', tone: 'Flexível', effect: { squad: 2 } },
+        { text: 'Nossa identidade não muda por causa do adversário.', tone: 'Firme', effect: { confidence: 1, squad: 1 } },
+        { text: 'Vamos avaliar a partida antes de expor nossos ajustes.', tone: 'Reservado', effect: { confidence: 1 } },
+      ],
+    },
+    {
+      id: 'players',
+      reporter: pick(2)[0],
+      outlet: pick(2)[1],
+      text: 'A torcida espera uma grande atuação. O que você pediu aos jogadores no vestiário?',
+      answers: [
+        { text: 'Que joguem juntos e façam o simples com qualidade.', tone: 'Motivador', effect: { squad: 3 } },
+        { text: 'Que assumam a responsabilidade e decidam o jogo.', tone: 'Exigente', effect: { confidence: 1, squad: -1 } },
+        { text: 'Que aproveitem a oportunidade e se divirtam em campo.', tone: 'Leve', effect: { squad: 2 } },
+      ],
+    },
+  ];
+  return { fixtureId: fixture.id, headline: `Pré-jogo · ${club.name} x ${opponent.name}`, questions, mode: 'pre' };
 }
 
 const clamp = (v: number) => Math.max(0, Math.min(100, Math.round(v)));
@@ -276,7 +326,7 @@ export function applyPress(
         date: career.date,
         from: 'Imprensa',
         title,
-        body: `Após o jogo, o técnico do ${club} falou aos jornalistas. ${quotes.join(' ')}`,
+        body: `${session.mode === 'pre' ? 'Antes do jogo' : 'Após o jogo'}, o técnico do ${club} falou aos jornalistas. ${quotes.join(' ')}`,
         kind: 'news',
         important: false,
         read: false,

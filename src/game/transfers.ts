@@ -31,6 +31,8 @@ export function askingPrice(career: Career, world: World, player: Player, buyerI
 function checkOutgoing(c: Career, world: World, playerId: string, clubId: string) {
   const players = squad(c, world, clubId);
   const p = world.players.find((p) => p.id === playerId)!;
+  if (c.players[playerId]?.loanFrom)
+    throw new Error('Um atleta emprestado não pode ser transferido novamente.');
   if (
     players.length <= 18 ||
     (p.position === 'GK' && players.filter((p) => p.position === 'GK').length <= 2)
@@ -676,7 +678,9 @@ export function processOffers(c: Career, world: World) {
   const rng = random(hash(`${c.seed}:${c.date}:market`));
   if (rng() > 0.045) return;
   const own = squad(c, world).filter(
-    (p) => !c.offers.some((o) => o.playerId === p.id && o.status === 'pending'),
+    (p) =>
+      !c.players[p.id].loanFrom &&
+      !c.offers.some((o) => o.playerId === p.id && o.status === 'pending'),
   );
   const player = own[Math.floor(rng() * own.length)];
   const buyers = world.clubs.filter((club) => club.id !== c.clubId);
@@ -723,6 +727,115 @@ export function processOffers(c: Career, world: World) {
     read: false,
     playerId: player.id,
   });
+}
+
+export function arrangeLoan(
+  career: Career,
+  world: World,
+  playerId: string,
+  months = 6,
+  destinationId?: string,
+): Career {
+  const c = structuredClone(career);
+  if (!transferWindow(c.date)) throw new Error('A janela de transferências está fechada.');
+  const player = world.players.find((p) => p.id === playerId);
+  const state = c.players[playerId];
+  if (!player || !state?.clubId || state.clubId === c.clubId || state.loanFrom)
+    throw new Error('Este jogador não está disponível para empréstimo.');
+  const destination = destinationId || c.clubId;
+  if (destination !== c.clubId) throw new Error('O destino do empréstimo precisa ser o seu clube.');
+  state.loanFrom = state.clubId;
+  state.loanUntil = addMonths(c.date, Math.max(1, Math.min(12, months)));
+  state.clubId = c.clubId;
+  state.morale = clamp(state.morale + 4);
+  return c;
+}
+
+export function loanOutPlayer(
+  career: Career,
+  world: World,
+  playerId: string,
+  destinationId: string,
+  months = 6,
+): Career {
+  const c = structuredClone(career);
+  if (!transferWindow(c.date)) throw new Error('A janela de transferências está fechada.');
+  const player = world.players.find((p) => p.id === playerId);
+  const state = c.players[playerId];
+  if (!player || state?.clubId !== c.clubId || state.loanFrom || destinationId === c.clubId)
+    throw new Error('O jogador ou clube de destino não está disponível.');
+  checkOutgoing(c, world, playerId, c.clubId);
+  state.loanFrom = c.clubId;
+  state.loanUntil = addMonths(c.date, Math.max(1, Math.min(12, months)));
+  state.clubId = destinationId;
+  reconcileSquad(c, world);
+  return c;
+}
+
+export function signPreContract(
+  career: Career,
+  world: World,
+  playerId: string,
+  wage: number,
+): Career {
+  const c = structuredClone(career);
+  const player = world.players.find((p) => p.id === playerId);
+  const state = c.players[playerId];
+  if (!player || !state?.clubId || state.clubId === c.clubId)
+    throw new Error('Jogador indisponível para pré-contrato.');
+  if (state.contractEnd <= c.date || state.contractEnd > addMonths(c.date, 6))
+    throw new Error('O pré-contrato só pode ser assinado nos últimos seis meses do vínculo.');
+  if (wage < requiredWage(c, player)) throw new Error('O salário está abaixo do pedido do atleta.');
+  if (c.preContracts.some((contract) => contract.playerId === playerId && !contract.joined))
+    throw new Error('Já existe um pré-contrato para este jogador.');
+  c.preContracts.push({ playerId, clubId: c.clubId, wage, joined: false });
+  c.messages.unshift({
+    id: `precontract-${hash(`${c.id}:${playerId}:${c.date}`)}`,
+    date: c.date,
+    from: `Agente de ${player.name}`,
+    title: 'Pré-contrato assinado',
+    body: `${player.name} chegará sem taxa de transferência quando terminar seu vínculo atual.`,
+    kind: 'market',
+    important: false,
+    read: false,
+    resolved: true,
+    playerId,
+  });
+  return c;
+}
+
+export function exerciseReleaseClause(
+  career: Career,
+  world: World,
+  playerId: string,
+): Career {
+  const c = structuredClone(career);
+  if (!transferWindow(c.date)) throw new Error('A janela de transferências está fechada.');
+  const player = world.players.find((p) => p.id === playerId);
+  const state = c.players[playerId];
+  if (!player || !state?.clubId || state.clubId === c.clubId || !state.clause)
+    throw new Error('Este jogador não tem multa rescisória disponível.');
+  const wage = requiredWage(c, player);
+  const offer: Offer = {
+    id: `clause-${hash(`${c.id}:${playerId}:${c.date}`)}`,
+    playerId,
+    fromClubId: c.clubId,
+    toClubId: state.clubId,
+    fee: state.clause,
+    wage,
+    years: 3,
+    date: c.date,
+    responseDate: c.date,
+    status: 'accepted',
+    incoming: false,
+    minimum: state.clause,
+    stage: 'player',
+    messages: [],
+  };
+  checkBudget(c, offer.fee, 0);
+  completeTransfer(c, world, offer);
+  c.offers.push({ ...offer, status: 'completed' });
+  return c;
 }
 
 export const renewalOptions = [6, 12, 24, 36, 48, 60] as const;

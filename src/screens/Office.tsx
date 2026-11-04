@@ -5,6 +5,7 @@ import {
   Check,
   ChevronRight,
   Landmark,
+  MapPinned,
   MessageSquare,
   Square,
   Target,
@@ -44,6 +45,10 @@ export function Office({
   onRead,
   onAvatar,
   onApplyPlan,
+  onHireScout,
+  onSignProspect,
+  onAcceptJob,
+  onDeclineJob,
   aiAvailable,
   busy,
 }: {
@@ -53,11 +58,15 @@ export function Office({
   onRead: (id: string) => void;
   onAvatar: (photo?: string) => void;
   onApplyPlan: (id: string) => void;
+  onHireScout: (region: string) => void;
+  onSignProspect: (id: string) => void;
+  onAcceptJob: (id: string) => void;
+  onDeclineJob: (id: string) => void;
   aiAvailable: boolean;
   busy: boolean;
 }) {
   const [camera, setCamera] = useState(false);
-  const [view, setView] = useState<'inbox' | 'finances' | 'board' | 'staff'>('inbox');
+  const [view, setView] = useState<'inbox' | 'finances' | 'board' | 'staff' | 'scouts'>('inbox');
   const [selectedId, setSelected] = useState(
     c.messages.find((m) => m.important && !m.resolved)?.id || c.messages[0]?.id,
   );
@@ -78,6 +87,7 @@ export function Office({
   };
   const club = world.clubs.find((club) => club.id === c.clubId)!;
   const finance = c.finances[c.clubId];
+  const scoutCost = 500000 + c.scouts.length * 250000;
   const players = squad(c, world);
   const wages = players.reduce((sum, p) => sum + c.players[p.id].wage, 0);
   const expenses = wages + club.reputation * 30000 + finance.debt * 0.002;
@@ -114,6 +124,43 @@ export function Office({
     .join(' ');
   const income = history.reduce((n, h) => n + h.income, 0);
   const outgo = history.reduce((n, h) => n + h.expenses, 0);
+  const scoutingPanel = (
+    <div className="staff-layout">
+      <section className="panel staff-reports">
+        <h2><MapPinned size={22} /> Rede de olheiros</h2>
+        <p className="muted">Cada olheiro encontra um jovem talento a cada sete dias. A qualidade da rede reduz a incerteza do potencial.</p>
+        {c.scouts.map((scout) => (
+          <div key={scout.id}>
+            <span>{scout.region.toUpperCase()} · NÍVEL {scout.skill}</span>
+            <strong>{scout.name}</strong>
+            <p>Progresso da próxima observação: {scout.progress}/7 dias</p>
+            <meter min={0} max={7} value={scout.progress} />
+          </div>
+        ))}
+        {c.scouts.length < 3 && (
+          <div className="button-row">
+            {['Brasil', 'América do Sul', 'Europa'].map((region) => (
+              <button key={region} onClick={() => onHireScout(region)}>
+                Contratar olheiro · {region} · {money(scoutCost)}
+              </button>
+            ))}
+          </div>
+        )}
+      </section>
+      <section className="panel staff-reports">
+        <h2><Users size={22} /> Captação na base</h2>
+        {c.prospects.length === 0 && <p className="muted">Sem relatórios novos. Contrate um olheiro para iniciar a busca.</p>}
+        {c.prospects.map((prospect) => (
+          <div key={prospect.id}>
+            <span>{prospect.position} · {prospect.nationality}</span>
+            <strong>{prospect.name}</strong>
+            <p>{prospect.potential} de potencial · {prospect.uncertainty} de incerteza · {money(prospect.value)} de valor estimado</p>
+            <button className="primary" onClick={() => onSignProspect(prospect.id)}>Promover à base do clube</button>
+          </div>
+        ))}
+      </section>
+    </div>
+  );
   return (
     <div className="screen-enter">
       <SectionTitle
@@ -131,6 +178,7 @@ export function Office({
             ['finances', 'Finanças', TrendingUp],
             ['board', 'Diretoria', Landmark],
             ['staff', 'Comissão e perfil', Users],
+            ['scouts', 'Olheiros e base', MapPinned],
           ] as const
         ).map(([id, label, Icon]) => (
           <button key={id} className={view === id ? 'active' : ''} onClick={() => setView(id)}>
@@ -405,6 +453,17 @@ export function Office({
               Resultados, dificuldade e desafio determinam a reação da diretoria. A confiança não
               aumenta o overall dos adversários.
             </p>
+            {c.sacked && <strong className="status-pill">CARGO ENCERRADO</strong>}
+            {c.jobOffers.map((offer) => (
+              <article className="panel" key={offer.id}>
+                <h3>{world.clubs.find((item) => item.id === offer.clubId)?.name}</h3>
+                <p>Proposta válida até {dateLabel(offer.expires)} · {money(offer.salary)}/mês</p>
+                <div className="button-row">
+                  <button className="primary" onClick={() => onAcceptJob(offer.id)}>Aceitar desafio</button>
+                  {!c.sacked && <button onClick={() => onDeclineJob(offer.id)}>Recusar</button>}
+                </div>
+              </article>
+            ))}
           </section>
           <section className="panel objectives">
             <p className="eyebrow">O QUE ESPERAM DE VOCÊ</p>
@@ -539,6 +598,7 @@ export function Office({
           </section>
         </div>
       )}
+      {view === 'scouts' && scoutingPanel}
     </div>
   );
 }

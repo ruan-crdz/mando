@@ -18,20 +18,19 @@ de todo o roadmap. Não exige conta para experimentar.
 | Série A/B      | 38 rodadas, ida/volta, classificação, playoffs de acesso da B                                              |
 | Copas          | Estaduais, Supercopa, Copa do Brasil (64 clubes), Libertadores e Sul-Americana (grupos + mata-mata)        |
 | Clubes NPC     | Nível B: clubes brasileiros por estado; nível C: clubes sul-americanos — força, reputação e elenco simples |
-| Temporadas     | Campeões, acesso/rebaixamento, vagas continentais, aposentadorias, renovações, base e novo calendário      |
+| Temporadas     | Campeões, acesso/rebaixamento, prêmios mensais e anuais, potencial dinâmico, aposentadorias e calendário    |
 | Partidas       | Engine determinística por seed, minuto a minuto, pausas, 1×/2×/4×, cinco substituições, ajustes táticos    |
-| Elenco         | Campo com troca por controle ou arrastar, overall por posição, condição, lesões, suspensões e contratos    |
-| Mercado        | Filtros combinados, dinheiro + jogador, salário, propostas NPC, decisão matemática e renovação             |
-| Clube          | Mensagens, respostas com consequências, memórias, confiança, objetivos, folha, caixa e gráficos            |
+| Elenco         | Campo com troca por controle ou arrastar, planos de evolução, ritmo de jogo, personalidades e conversas     |
+| Mercado        | Propostas, empréstimos, multas rescisórias, pré-contratos, salário, renovações e negociações com NPCs       |
+| Clube          | Olheiros, captação na base, eventos, coletivas, mensagens, confiança, objetivos e propostas de emprego    |
 | Save           | IndexedDB, exportação/importação JSON e sincronização manual autenticada com conflito de revisão           |
 | IA             | Quatro Edge Functions, Responses API com JSON Schema, retrato, cache e limites de uso                      |
 | Plataforma     | Gamepad centralizado, teclado virtual, teclado/mouse, PWA e workflow GitHub Pages                          |
 
 **Ainda não implementado:** Série C (por isso ninguém cai da Série B);
 fases preliminares da Libertadores e playoffs entre Libertadores/Sul-Americana;
-elencos detalhados dos clubes NPC; demissão/troca de emprego; contratação de staff; categorias de base completas;
-instruções individuais; motor específico de bola parada; memória vetorial;
-realtime/fila de geração de histórias e entrevistas. A visão 2D exibe posições
+elencos detalhados dos clubes NPC; categorias de base completas; motor específico
+de bola parada; memória vetorial; realtime/fila de geração de histórias. A visão 2D exibe posições
 ilustrativas, não trajetórias físicas da bola/jogadores. Responsabilidades são
 persistidas, mas ainda não afetam cobranças específicas da engine.
 

@@ -30,7 +30,7 @@ import {
   threadOf,
 } from '../game/transfers';
 import { squad } from '../game/matches';
-import { ageAt } from '../game/random';
+import { addMonths, ageAt } from '../game/random';
 import { overall } from '../game/ratings';
 import { transferWindow } from '../game/calendar';
 import { clubById } from '../game/npc';
@@ -349,6 +349,9 @@ export function Transfers({
   onRespond,
   onAsk,
   onShortlist,
+  onLoan,
+  onPrecontract,
+  onClause,
 }: {
   career: Career;
   world: World;
@@ -363,6 +366,9 @@ export function Transfers({
   onRespond: (id: string, accept: boolean) => void;
   onAsk: (id: string, fee: number) => void;
   onShortlist: (id: string) => void;
+  onLoan: (id: string) => void;
+  onPrecontract: (id: string, wage: number) => void;
+  onClause: (id: string) => void;
 }) {
   const [view, setView] = useState<'market' | 'shortlist' | 'negotiations'>('market');
   const [selected, setSelected] = useState('');
@@ -542,6 +548,38 @@ export function Transfers({
                 <Star size={16} />
                 {c.shortlist.includes(deal.player.id) ? 'Observado' : 'Observar'}
               </button>
+              <div className="button-row">
+                {c.players[deal.player.id].contractEnd > c.date &&
+                  c.players[deal.player.id].contractEnd <= addMonths(c.date, 6) && (
+                  <button
+                    onClick={() => {
+                      onPrecontract(deal.player.id, requiredWage(c, deal.player));
+                      setDeal(null);
+                    }}
+                  >
+                    Assinar pré-contrato · {money(requiredWage(c, deal.player))}/mês
+                  </button>
+                )}
+                {open && c.players[deal.player.id].clause && !c.players[deal.player.id].loanFrom && (
+                  <button
+                    onClick={() => {
+                      onClause(deal.player.id);
+                      setDeal(null);
+                    }}
+                    Acionar multa · {money(c.players[deal.player.id].clause!)}
+                  </button>
+                )}
+                {open && !c.players[deal.player.id].loanFrom && (
+                  <button
+                    onClick={() => {
+                      onLoan(deal.player.id);
+                      setDeal(null);
+                    }}
+                  >
+                    Pedir empréstimo · 6 meses
+                  </button>
+                )}
+              </div>
             </aside>
             <section className="deal-table">
               <div className="deal-steps" role="tablist">

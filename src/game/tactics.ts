@@ -347,9 +347,22 @@ export function strength(
       .map(({ player: p, role }) => {
         const s = stateOf(career, p.id)!;
         const fatigue = clamp(s.fitness - (spent[p.id] || 0), 25, 100) / 100;
+        const sharpness = 0.85 + clamp(s.sharpness, 0, 100) * 0.003;
+        const rolePositions: Record<string, string[]> = {
+          Finalizador: ['ST'],
+          Armador: ['AM', 'CM'],
+          Pivô: ['ST'],
+          Volante: ['DM', 'CM'],
+          'Zagueiro construtor': ['CB'],
+          'Lateral ofensivo': ['LB', 'RB', 'LW', 'RW'],
+        };
+        const roleFit =
+          s.role === 'Padrão' ? 1 : rolePositions[s.role]?.includes(role) ? 1.04 : 0.96;
         return (
           overall(p, role, s) *
           (0.65 + fatigue * 0.25 + s.morale / 1000) *
+          sharpness *
+          roleFit *
           (injured.includes(p.id) ? 0.6 : 1)
         );
       });

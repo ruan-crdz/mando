@@ -41,7 +41,13 @@ import {
   type World,
 } from '../game/types';
 import { dateLabel, Metric, Modal, money, SectionTitle } from '../components/ui';
-import { ChipGroup, ShirtNumberDial, TacticSlider } from '../components/controls';
+import {
+  ChipGroup,
+  NumberStepper,
+  OptionCycler,
+  ShirtNumberDial,
+  TacticSlider,
+} from '../components/controls';
 import {
   byPosition,
   PlayerCard,
@@ -102,6 +108,11 @@ export function Squad({
   world,
   onChange,
   onRenew,
+  onConversation,
+  onDevelopment,
+  onRole,
+  onSetClause,
+  onLoanOut,
   onError,
   detail,
   setDetail,
@@ -110,6 +121,11 @@ export function Squad({
   world: World;
   onChange: (c: Career) => void;
   onRenew: (id: string, months: number) => void;
+  onConversation: (id: string, choice: 'praise' | 'challenge' | 'promise') => void;
+  onDevelopment: (id: string, plan: NonNullable<Career['players'][string]['development']>) => void;
+  onRole: (id: string, role: Career['players'][string]['role']) => void;
+  onSetClause: (id: string, amount: number) => void;
+  onLoanOut: (id: string, clubId: string) => void;
   onError: (s: string) => void;
   detail: Player | null;
   setDetail: (p: Player | null) => void;
@@ -119,9 +135,15 @@ export function Squad({
   const [kitPos, setKitPos] = useState<Position | null>(null);
   const [picking, setPicking] = useState<Picking>(null);
   const [months, setMonths] = useState(36);
+  const [clauseValue, setClauseValue] = useState(0);
   const panel = useRef<HTMLElement>(null);
   const returnFocus = useRef<string | null>(null);
   const players = useMemo(() => squad(c, world), [c, world]);
+  const loanDestinations = world.clubs
+    .filter((club) => club.id !== c.clubId)
+    .map((club) => ({ club, count: squad(c, world, club.id).length }))
+    .sort((a, b) => a.count - b.count)
+    .slice(0, 3);
   const numbers = useMemo(() => shirtNumbers(c, world), [c, world]);
   const rolePositions = formations[c.tactic.formation];
   const coordinates = pitchCoordinates(c.tactic.formation);
@@ -197,6 +219,7 @@ export function Squad({
   };
   const openDetail = (p: Player) => {
     setMonths(36);
+    setClauseValue(c.players[p.id]?.clause || Math.round(p.value * 2.5));
     setDetail(p);
   };
   const apply = (fn: () => Career) => {
@@ -709,9 +732,10 @@ export function Squad({
                 <Metric label="OVERALL" value={overall(d, d.position, ds)} />
                 <Metric
                   label="POTENCIAL"
-                  value={`${d.potential - d.uncertainty}–${Math.min(99, d.potential + d.uncertainty)}`}
+                  value={`${Math.max(1, Math.round(d.potential + ds.potentialDelta - d.uncertainty))}–${Math.min(99, Math.round(d.potential + ds.potentialDelta + d.uncertainty))}`}
                 />
                 <Metric label="IDADE" value={ageAt(d.birthDate, c.date)} />
+                <Metric label="RITMO DE JOGO" value={`${Math.round(ds.sharpness)}%`} />
               </div>
               <div className="contract-info">
                 <p>
@@ -735,6 +759,64 @@ export function Squad({
                       />
                     </div>
                     <HeatMap player={d} position={d.position} state={ds} compact />
+                  </div>
+                  <div className="detail-block">
+                    <p className="eyebrow">PERSONALIDADE · {ds.personality.toUpperCase()}</p>
+                    <div className="button-row">
+                      <button onClick={() => onConversation(d.id, 'praise')}>Elogiar</button>
+                      <button onClick={() => onConversation(d.id, 'challenge')}>Cobrar</button>
+                      <button onClick={() => onConversation(d.id, 'promise')}>Prometer minutos</button>
+                    </div>
+                  </div>
+                  <div className="detail-block">
+                    <p className="eyebrow">PLANO DE EVOLUÇÃO</p>
+                    <ChipGroup
+                      value={ds.development}
+                      options={(['Equilibrado', 'Ataque', 'Criação', 'Defesa', 'Físico'] as const).map((plan) => ({
+                        value: plan,
+                        label: plan,
+                      }))}
+                      onChange={(plan) => onDevelopment(d.id, plan as typeof ds.development)}
+                    />
+                    <OptionCycler
+                      label="Função em campo"
+                      value={ds.role}
+                      options={(
+                        [
+                          'Padrão',
+                          'Finalizador',
+                          'Armador',
+                          'Pivô',
+                          'Volante',
+                          'Zagueiro construtor',
+                          'Lateral ofensivo',
+                        ] as const
+                      ).map((role) => ({ value: role, label: role }))}
+                      onChange={(role) => onRole(d.id, role)}
+                    />
+                    <p className="muted small">O plano acelera a evolução individual. Ritmo de jogo, moral e minutos também influenciam o rendimento e o potencial.</p>
+                  </div>
+                  <div className="detail-block">
+                    <p className="eyebrow">MULTA RESCISÓRIA</p>
+                    <NumberStepper
+                      label="Valor da multa"
+                      value={clauseValue}
+                      min={0}
+                      step={100000}
+                      onChange={(value) => setClauseValue(value ?? 0)}
+                      format={money}
+                    />
+                    <button onClick={() => onSetClause(d.id, clauseValue)}>Definir multa</button>
+                  </div>
+                  <div className="detail-block">
+                    <p className="eyebrow">EMPRÉSTIMO · 6 MESES</p>
+                    <div className="button-row">
+                      {loanDestinations.map(({ club }) => (
+                        <button key={club.id} onClick={() => onLoanOut(d.id, club.id)}>
+                          {club.short} · {club.name}
+                        </button>
+                      ))}
+                    </div>
                   </div>
                   <div className="detail-block">
                     <p className="eyebrow">RENOVAR CONTRATO · ESTENDER POR</p>
