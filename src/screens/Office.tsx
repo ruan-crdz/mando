@@ -20,8 +20,10 @@ import {
   Voicemail,
   Volume2,
 } from 'lucide-react';
-import { type Career, type Living, type Message, type World } from '../game/types';
+import { type Career, type FacilityKind, type Living, type Message, type World } from '../game/types';
 import { ClubPanel } from '../components/LivingPanels';
+import { FacilitiesPanel, SponsorPanel, StadiumPanel } from '../components/FinancePanels';
+import { economyOf, upkeep } from '../game/economy';
 import {
   playVoice,
   stopVoice,
@@ -71,6 +73,9 @@ export function Office({
   onDeclineJob,
   onLiving,
   onUpgradeAnalyst,
+  onPrices,
+  onSponsor,
+  onWork,
   aiAvailable,
   busy,
 }: {
@@ -88,10 +93,16 @@ export function Office({
   onDeclineJob: (id: string) => void;
   onLiving: (patch: Partial<Living>) => void;
   onUpgradeAnalyst: () => void;
+  onPrices: (patch: { ticket?: number; fee?: number }) => void;
+  onSponsor: (index: number) => void;
+  onWork: (kind: FacilityKind) => void;
   aiAvailable: boolean;
   busy: boolean;
 }) {
   const [camera, setCamera] = useState(false);
+  const [financeView, setFinanceView] = useState<'overview' | 'stadium' | 'sponsor' | 'facilities'>(
+    'overview',
+  );
   const [view, setView] = useState<'inbox' | 'finances' | 'board' | 'staff' | 'scouts' | 'club'>(
     c.sacked ? 'board' : 'inbox',
   );
@@ -140,9 +151,11 @@ export function Office({
   };
   const players = squad(c, world);
   const wages = players.reduce((sum, p) => sum + c.players[p.id].wage, 0);
-  const expenses = wages + club.reputation * 30000 + finance.debt * 0.002;
+  const economy = economyOf(c, world);
+  const operation = club.reputation * 30000 + upkeep(economy);
+  const expenses = wages + operation + finance.debt * 0.002;
   const wageShare = (wages / Math.max(1, expenses)) * 100;
-  const opShare = ((club.reputation * 30000) / Math.max(1, expenses)) * 100;
+  const opShare = (operation / Math.max(1, expenses)) * 100;
   const table = standings(c, world, club.league);
   const rank = table.findIndex((r) => r.clubId === club.id) + 1;
   const points = table.find((r) => r.clubId === club.id)!.points;
@@ -545,6 +558,18 @@ export function Office({
                         </button>
                         <button onClick={() => onMessage(m.id, 'firm')}>Cobrar dedicação</button>
                       </div>
+                    ) : m.id === economy.offersMessage && economy.offers.length ? (
+                      <div className="button-row sponsor-choice">
+                        {economy.offers.map((o, i) => (
+                          <button
+                            key={o.name}
+                            className={i === 0 ? 'primary' : ''}
+                            onClick={() => onSponsor(i)}
+                          >
+                            {o.name} · {o.style} · {money(o.monthly)}/mês
+                          </button>
+                        ))}
+                      </div>
                     ) : (
                       <button className="primary" onClick={() => onMessage(m.id, 'support')}>
                         Ciente. Continuar o trabalho.
@@ -585,6 +610,41 @@ export function Office({
         </div>
       )}
       {view === 'finances' && (
+        <div className="finance-section">
+          <div
+            className="segmented compact club-tabs finance-tabs"
+            role="group"
+            aria-label="Áreas das finanças"
+          >
+            {(
+              [
+                ['overview', 'Visão geral'],
+                ['stadium', 'Estádio e torcida'],
+                ['sponsor', 'Patrocínio'],
+                ['facilities', 'Instalações'],
+              ] as const
+            ).map(([id, label]) => (
+              <button
+                key={id}
+                className={financeView === id ? 'active' : ''}
+                aria-pressed={financeView === id}
+                onClick={() => setFinanceView(id)}
+              >
+                {label}
+                {id === 'sponsor' && economy.offers.length > 0 && <b className="nav-dot" />}
+              </button>
+            ))}
+          </div>
+          {financeView === 'stadium' && (
+            <StadiumPanel career={c} world={world} onPrices={onPrices} />
+          )}
+          {financeView === 'sponsor' && (
+            <SponsorPanel career={c} world={world} onSponsor={onSponsor} />
+          )}
+          {financeView === 'facilities' && (
+            <FacilitiesPanel career={c} world={world} onWork={onWork} />
+          )}
+          {financeView === 'overview' && (
         <div className="finance-layout">
           <div className="metrics-strip">
             <Metric label="CAIXA ATUAL" value={money(finance.cash)} />
@@ -684,6 +744,8 @@ export function Office({
               </p>
             )}
           </section>
+        </div>
+          )}
         </div>
       )}
       {view === 'board' && (

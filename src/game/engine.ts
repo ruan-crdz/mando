@@ -8,8 +8,20 @@ import { clubById, findPlayer, isForeign, knownClub } from './npc';
 import { baseWorld, careerWorld } from './live';
 import { scoutReport } from './scouting';
 import { livingAfterMatch, livingDay, livingSeasonEnd } from './living';
-import { regionOf } from './context';
+import { regionOf, rivalry } from './context';
 import { remember } from './chronicle';
+import {
+  economyDay,
+  economyMonth,
+  economySeasonEnd,
+  ensureEconomy,
+  recordGate,
+  settleSponsorMessage,
+  trainingEffect,
+  trainingLevel,
+  youthBonus,
+  youthLevel,
+} from './economy';
 import {
   createCups,
   cupsFinished,
@@ -249,6 +261,7 @@ export function createCareer(
     living: livingSchema.parse({ hiredAt: world.date }),
   };
   createCups(c, world, 2026, initialQualification(world));
+  ensureEconomy(c, world);
   if (challenge === 'Do zero') c.finances[clubId].transferBudget = 0;
   if (challenge === 'Crise financeira') {
     c.finances[clubId].debt *= 1.6;
@@ -284,6 +297,11 @@ function applyMatch(c: Career, world: World, result: Match) {
   if (!fixture || fixture.result || result.minute !== 90)
     throw new Error('Resultado inválido ou já registrado.');
   fixture.result = result;
+  // Público calculado com o humor da torcida de antes do apito final (o mesmo da preleção).
+  const gate =
+    fixture.homeId === c.clubId
+      ? recordGate(c, world, fixture, Boolean(rivalry(fixture.homeId, fixture.awayId)))
+      : null;
   livingAfterMatch(c, world, fixture, result);
   const isOurs = fixture.homeId === c.clubId || fixture.awayId === c.clubId;
   const allIds = Object.keys(result.minutesPlayed);
@@ -326,6 +344,11 @@ function applyMatch(c: Career, world: World, result: Match) {
     }
     if (e.type === 'injury') {
       s.injuryDays = 3 + (hash(`${result.seed}:${e.playerId}:${e.minute}`) % 25);
+      if (s.clubId === c.clubId)
+        s.injuryDays = Math.max(
+          1,
+          Math.round(s.injuryDays * (1 - trainingEffect(trainingLevel(c)).injury)),
+        );
       if (
         result.moments?.some(
           (m) => m.kind === 'injury' && m.playerId === e.playerId && m.action === 'insist',
@@ -344,7 +367,15 @@ function applyMatch(c: Career, world: World, result: Match) {
     }
   }
   const homeFinance = c.finances[fixture.homeId];
-  if (homeFinance) {
+  if (homeFinance && gate) {
+    homeFinance.cash += gate.income - gate.cost;
+    homeFinance.history.push({
+      date: c.date,
+      income: gate.income,
+      expenses: gate.cost,
+      balance: homeFinance.cash,
+    });
+  } else if (homeFinance) {
     const income = Math.round(
       clubById(world, fixture.homeId).reputation *
         12000 *
@@ -377,6 +408,10 @@ function applyMatch(c: Career, world: World, result: Match) {
           : goals < 0
             ? 'O resultado aumenta a cobrança por uma resposta no próximo compromisso.'
             : 'Equilíbrio em campo. A comissão já analisa os próximos ajustes.'
+      }${
+        gate
+          ? ` Público: ${gate.crowd.toLocaleString('pt-BR')} (${Math.round(gate.occupancy * 100)}% da capacidade, ${gate.members.toLocaleString('pt-BR')} sócios). Bilheteria: R$ ${(gate.income / 1e6).toFixed(2).replace('.', ',')} mi.`
+          : ''
       }`,
     });
     boardVerdict(c, world, goals > 0 ? 3 : goals === 0 ? 1 : 0);
@@ -772,6 +807,7 @@ export function acceptJobOffer(career: Career, world: World, offerId: string): C
   delete c.living.lastUltimatum;
   for (const m of c.messages)
     if (m.kind === 'board' && m.important && !m.resolved) m.resolved = m.read = true;
+  ensureEconomy(c, world);
   remember(
     c,
     'cargo',
@@ -788,6 +824,10 @@ export function acceptJobOffer(career: Career, world: World, offerId: string): C
   return c;
 }
 
+/** Decisão que trava o calendário; as propostas de patrocínio expiram sozinhas (primeira proposta). */
+export const blocks = (c: Career, m: Career['messages'][number]) =>
+  m.important && !m.resolved && m.id !== c.living.economy?.offersMessage;
+
 export function advanceDay(career: Career, world: World): Career {
   const c = structuredClone(career);
   const live = careerWorld(world, c);
@@ -800,13 +840,14 @@ export function advanceDay(career: Career, world: World): Career {
     throw new Error(
       'Você foi demitido. Aceite uma proposta na Diretoria para continuar a carreira.',
     );
-  if (c.messages.some((m) => m.important && !m.resolved))
+  if (c.messages.some((m) => blocks(c, m)))
     throw new Error('Há uma decisão importante pendente no escritório.');
   const fixture = nextFixture(c);
   if (fixture && fixture.date <= c.date)
     throw new Error('Hoje é dia de jogo. Prepare a equipe e comece a partida.');
   c.date = addDays(c.date, 1);
   c.jobOffers = c.jobOffers.filter((offer) => c.sacked || offer.expires >= c.date);
+  const ct = trainingEffect(trainingLevel(c));
   for (const player of live.players) {
     const s = c.players[player.id];
     if (!s || s.retired) continue;
@@ -826,7 +867,7 @@ export function advanceDay(career: Career, world: World): Career {
     }
     s.injuryDays = Math.max(0, s.injuryDays - 1);
     s.fitness = clamp(s.fitness + (s.injuryDays ? 1 : 4));
-    s.sharpness = clamp(s.sharpness - 0.15);
+    s.sharpness = clamp(s.sharpness - (s.clubId === c.clubId ? ct.decay : 0.15));
     if (s.training && s.clubId === c.clubId) trainPosition(c, player, s);
     if (s.clubId && ageAt(player.birthDate, c.date) <= 27 && s.injuryDays === 0 && rng() < 0.035) {
       const target =
@@ -852,7 +893,12 @@ export function advanceDay(career: Career, world: World): Career {
         s.growth = Math.min(
           20,
           s.growth +
-            0.025 * (0.5 + s.minutes / 1800) * (s.morale / 100) * personalityBoost * planBoost,
+            0.025 *
+              (0.5 + s.minutes / 1800) *
+              (s.morale / 100) *
+              personalityBoost *
+              planBoost *
+              (s.clubId === c.clubId ? 1 + ct.growth : 1),
         );
     }
     if (s.promiseUntil && s.promiseUntil < c.date) {
@@ -980,6 +1026,7 @@ export function advanceDay(career: Career, world: World): Career {
       body: `A rede de ${scout.region} identificou ${prospect.name}, ${prospect.position}, com potencial estimado de ${prospect.potential}. Confira em Comissão e perfil.`,
     });
   }
+  economyDay(c, live);
   if (c.date.endsWith('-01')) {
     monthlyReviews(c, live);
     const base = baseWorld(world);
@@ -989,8 +1036,13 @@ export function advanceDay(career: Career, world: World): Career {
       // Receita de TV e patrocínio acompanha a divisão atual.
       const factor = original === club.league ? 1 : club.league === 'A' ? 1.4 : 0.6;
       const wage = squad(c, live, club.id).reduce((sum, p) => sum + c.players[p.id].wage, 0);
-      const income = Math.round(club.reputation * 140000 * factor);
-      const expense = wage + club.reputation * 30000 + f.debt * 0.002;
+      // O clube do usuário separa TV, patrocínio master, sócios e manutenção das instalações.
+      const own = club.id === c.clubId ? economyMonth(c, live) : null;
+      const income = own
+        ? Math.round(own.tv * factor) + own.sponsor + own.membership
+        : Math.round(club.reputation * 140000 * factor);
+      const expense =
+        wage + club.reputation * 30000 + f.debt * 0.002 + (own ? own.upkeep : 0);
       f.cash += income - expense;
       f.history.push({ date: c.date, income, expenses: expense, balance: f.cash });
       f.transferBudget = Math.max(0, Math.min(f.transferBudget, f.cash));
@@ -1055,7 +1107,7 @@ export function advanceStep(
   if (mode === 'auto')
     for (const m of c.messages.filter((m) => m.important && !m.resolved))
       c = respondMessage(c, m.id, 'support');
-  else if (c.messages.some((m) => m.important && !m.resolved))
+  else if (c.messages.some((m) => blocks(c, m)))
     return { career: c, stop: 'decision' };
   const fixture = nextFixture(c);
   if (fixture && fixture.date <= c.date) {
@@ -1073,7 +1125,7 @@ export function advanceStep(
   if (mode === 'auto') return { career: c, stop: null };
   const next = nextFixture(c);
   if (next && next.date <= c.date) return { career: c, stop: 'match' };
-  if (c.messages.some((m) => m.important && !m.resolved)) return { career: c, stop: 'decision' };
+  if (c.messages.some((m) => blocks(c, m))) return { career: c, stop: 'decision' };
   if (c.messages.some((m) => !known.has(m.id))) return { career: c, stop: 'message' };
   return { career: c, stop: null };
 }
@@ -1227,6 +1279,12 @@ export function startNextSeason(career: Career, world: World): Career {
       .filter((h) => h.season === y && h.clubId === c.clubId)
       .map((h) => h.competition),
   });
+  const finalPosition = c.history[c.history.length - 1].position;
+  economySeasonEnd(c, live, y, {
+    promoted: c.promoted.includes(c.clubId),
+    relegated: c.relegated.includes(c.clubId),
+    g4: league === 'A' && finalPosition > 0 && finalPosition <= 4,
+  });
   // Vagas continentais e Supercopa pela campanha encerrada.
   const a = tableA.map((r) => r.clubId);
   const cdb = c.honours.find((h) => h.season === y && h.competition === 'CDB')?.clubId;
@@ -1323,9 +1381,11 @@ export function startNextSeason(career: Career, world: World): Career {
   }
   // Categorias de base: três atletas por clube principal.
   const revealed: Player[] = [];
+  const baseBonus = youthBonus(youthLevel(c));
   for (const club of live.clubs) {
     for (let i = 0; i < 3; i++) {
       const p = youthPlayer(c, club.id, club.reputation, i, undefined, club.state);
+      if (club.id === c.clubId) p.potential = Math.min(94, p.potential + baseBonus);
       c.youth.push(p);
       c.players[p.id] = freshState(p);
       if (club.id === c.clubId) revealed.push(p);
@@ -1366,6 +1426,7 @@ export function startNextSeason(career: Career, world: World): Career {
       youthPlayer(c, c.clubId, 60, 10 + i, i < needGk ? 'GK' : undefined),
     );
     for (const p of extra) {
+      p.potential = Math.min(94, p.potential + baseBonus);
       c.youth.push(p);
       c.players[p.id] = freshState(p);
     }
@@ -1455,6 +1516,7 @@ export function respondMessage(career: Career, id: string, choice: 'support' | '
   m.read = true;
   m.resolved = true;
   m.choice = choice;
+  settleSponsorMessage(c, m.id);
   if (m.kind === 'player' && m.playerId) {
     const s = c.players[m.playerId];
     const sensitivity =

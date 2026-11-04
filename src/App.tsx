@@ -59,6 +59,7 @@ import {
   setDevelopmentPlan,
   setReleaseClause,
   setPlayerRole,
+  blocks,
 } from './game/engine';
 import { bestLineup, beginMatch, resolveMoment, substitute } from './game/matches';
 import { careerWorld } from './game/live';
@@ -91,6 +92,7 @@ import {
 import { startCrowd, stopCrowd } from './audio/crowd';
 import { applyPress, buildPress, buildPreMatchPress, type PressSession } from './game/press';
 import { upgradeAnalyst } from './game/living';
+import { chooseSponsor, setPrices, startWork } from './game/economy';
 import { MatchOdds } from './components/LivingPanels';
 import { AdvanceOverlay } from './components/CareerCalendar';
 import { playVoice, skipVoice, stopVoice, useVoice } from './components/voice';
@@ -618,7 +620,7 @@ function Game() {
                   onAdvance={advance}
                   onMatch={() => {
                     const f = nextFixture(career);
-                    if (career.messages.some((m) => m.important && !m.resolved)) setTab(3);
+                    if (career.messages.some((m) => blocks(career, m))) setTab(3);
                     else if (f && f.date <= career.date) setPopup('prematch');
                     else setTab(4);
                   }}
@@ -815,6 +817,20 @@ function Game() {
                     act(() => {
                       setCareer(upgradeAnalyst(career));
                       setNotice('Novo analista de desempenho contratado.');
+                    })
+                  }
+                  onPrices={(patch) => act(() => setCareer(setPrices(career, live!, patch)))}
+                  onSponsor={(index) =>
+                    act(() => {
+                      const offer = career.living.economy?.offers[index];
+                      setCareer(chooseSponsor(career, live!, index));
+                      setNotice(`Contrato assinado com ${offer?.name || 'o novo patrocinador'}.`);
+                    })
+                  }
+                  onWork={(kind) =>
+                    act(() => {
+                      setCareer(startWork(career, live!, kind));
+                      setNotice('Obra iniciada. Acompanhe o prazo em Finanças → Instalações.');
                     })
                   }
                   onDeclineJob={(id) =>

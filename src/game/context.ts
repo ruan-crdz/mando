@@ -1,5 +1,6 @@
 import { clamp } from './random';
 import { clubById, type NpcClub } from './npc';
+import { crowdFor } from './economy';
 import { type Career, type Fixture, type World } from './types';
 
 /** Clássicos entre os clubes principais (ordem alfabética dos ids). */
@@ -147,12 +148,20 @@ export function matchConditions(
   if (living) {
     const ourHome = fixture.homeId === career.clubId;
     const ourAway = fixture.awayId === career.clubId;
-    if (ourHome && living.fans >= 78) {
+    const gate = ourHome ? crowdFor(career, world, fixture, Boolean(name)) : null;
+    if (gate)
+      r.notes.push(
+        `Público esperado: ${gate.crowd.toLocaleString('pt-BR')} (${Math.round(gate.occupancy * 100)}% da capacidade)`,
+      );
+    if (ourHome && (living.fans >= 78 || (gate && gate.occupancy >= 0.92))) {
       r.home += 0.015;
       r.notes.push('Casa cheia empurra o time');
     } else if (ourHome && living.fans < 30) {
       r.home -= 0.015;
       r.notes.push('Torcida impaciente: vaias pesam no time da casa');
+    } else if (gate && gate.occupancy < 0.4) {
+      r.home -= 0.005;
+      r.notes.push('Arquibancada vazia: o fator casa quase some');
     }
     const focus = living.training;
     const side = ourHome ? 'home' : ourAway ? 'away' : null;

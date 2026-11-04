@@ -423,6 +423,56 @@ export const trainingFocus = [
   'Recuperação',
 ] as const;
 const axis = percent.default(60);
+export const facilityKinds = ['stadium', 'training', 'youth'] as const;
+export type FacilityKind = (typeof facilityKinds)[number];
+const facilityLevel = z.number().int().min(1).max(5);
+export const sponsorDealSchema = z.object({
+  name: z.string(),
+  style: z.enum(['Fixo', 'Equilibrado', 'Desempenho']).default('Equilibrado'),
+  monthly: z.number().nonnegative(),
+  months: z.number().int().min(1).max(48),
+  /** Bônus únicos pagos na virada da temporada. */
+  title: z.number().nonnegative().default(0),
+  access: z.number().nonnegative().default(0),
+  g4: z.number().nonnegative().default(0),
+});
+export type SponsorDeal = z.infer<typeof sponsorDealSchema>;
+/** Economia do clube do usuário: estádio, sócios, patrocínio master e instalações. */
+export const economySchema = z.object({
+  clubId: z.string(),
+  ticket: z.number().int().min(5).max(1000),
+  fee: z.number().int().min(5).max(1000),
+  members: z.number().int().nonnegative(),
+  facilities: z.object({ stadium: facilityLevel, training: facilityLevel, youth: facilityLevel }),
+  works: z
+    .array(
+      z.object({
+        kind: z.enum(facilityKinds),
+        level: facilityLevel,
+        start: isoDate,
+        done: isoDate,
+        cost: z.number().nonnegative(),
+      }),
+    )
+    .default([]),
+  sponsor: sponsorDealSchema.extend({ since: isoDate, until: isoDate }).optional(),
+  offers: z.array(sponsorDealSchema).default([]),
+  offersMessage: z.string().optional(),
+  offersExpire: isoDate.optional(),
+  /** Últimos jogos em casa (público e bilheteria). */
+  games: z
+    .array(
+      z.object({
+        date: isoDate,
+        crowd: z.number().int().nonnegative(),
+        capacity: z.number().int().nonnegative(),
+        members: z.number().int().nonnegative(),
+        income: z.number().nonnegative(),
+      }),
+    )
+    .default([]),
+});
+export type Economy = z.infer<typeof economySchema>;
 export const livingSchema = z.object({
   /** Técnicos dos clubes da IA. */
   coaches: z
@@ -533,6 +583,7 @@ export const livingSchema = z.object({
     .optional(),
   /** Última vez que a diretoria deu ultimato (evita ultimatos em sequência). */
   lastUltimatum: isoDate.optional(),
+  economy: economySchema.optional(),
 });
 export type Living = z.infer<typeof livingSchema>;
 export const careerSchema = z.object({

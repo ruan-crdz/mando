@@ -1156,3 +1156,109 @@
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* Fase 1: finanças com sub-abas (estádio, patrocínio e instalações). */
+.office-screen .finance-section {
+  display: flex;
+  min-height: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.office-screen .finance-section > .finance-layout,
+.office-screen .finance-section > .finance-living {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.office-screen .finance-tabs > button {
+  position: relative;
+}
+
+.office-screen .finance-living > .club-grid {
+  overflow-y: auto;
+  align-content: start;
+  scrollbar-width: thin;
+}
+
+.office-screen .finance-living .panel {
+  border-top-color: var(--mando-gold);
+}
+
+.office-screen .facilities-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.office-screen .facilities-grid .analyst-step {
+  grid-template-columns: 30px minmax(0, 1fr);
+}
+
+.office-screen .facilities-grid .analyst-step > em,
+.office-screen .facilities-grid .analyst-step > button,
+.office-screen .facilities-grid .analyst-step > small {
+  grid-column: 2;
+  justify-self: start;
+}
+
+.office-screen .price-options {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.office-screen .price-stepper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.office-screen .price-stepper > span {
+  flex: 1;
+  color: var(--mando-text-secondary);
+  text-align: center;
+}
+
+.office-screen .sponsor-offers {
+  display: grid;
+  gap: 6px;
+}
+
+.office-screen .sponsor-offer {
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px;
+  border: 1px solid var(--mando-border);
+  border-left: 3px solid var(--mando-cyan);
+  background: var(--os-raised);
+}
+
+.office-screen .sponsor-offer h3 {
+  margin: 0;
+}
+
+.office-screen .sponsor-offer small {
+  color: var(--mando-text-secondary);
+}
+
+.office-screen .sponsor-offer > button {
+  justify-self: start;
+  margin-top: 4px;
+}
+
+.office-screen .sponsor-choice {
+  flex-wrap: wrap;
+}
+
+.office-screen .finance-note {
+  margin: 0;
+}
+
+@media (max-width: 700px) and (orientation: landscape) {
+  .office-screen .facilities-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .office-screen .price-options {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}

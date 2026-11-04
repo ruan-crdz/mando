@@ -283,7 +283,8 @@ export function ClubPanel({
             <Bar label="Humor" value={l.fans} />
             <ul className="club-rules">
               <li>Vitória +3, derrota −4, empate −1. Em clássico, vale o dobro.</li>
-              <li>A partir de 78: casa cheia empurra o time. Acima de 80: bônus mensal de bilheteria.</li>
+              <li>A partir de 78 (ou estádio 92% cheio): casa cheia empurra o time. Acima de 80: bônus mensal de bilheteria.</li>
+              <li>O humor puxa o público e o número de sócios (veja Finanças → Estádio e torcida).</li>
               <li>Abaixo de 30: vaias em casa. Abaixo de 25: protesto no CT e a moral do elenco cai.</li>
             </ul>
             <h3>Situação do clube</h3>
