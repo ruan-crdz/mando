@@ -7,6 +7,7 @@ import {
   Landmark,
   MapPinned,
   MessageSquare,
+  Radar,
   Square,
   Target,
   TrendingUp,
@@ -37,6 +38,15 @@ const messageVoice: Record<Message['kind'], VoiceRole> = {
   market: 'staff',
   player: 'player',
   news: 'narrator',
+};
+
+const messageKindLabel: Record<Message['kind'], string> = {
+  board: 'DIRETORIA',
+  finance: 'FINANÇAS',
+  staff: 'COMISSÃO',
+  market: 'MERCADO',
+  player: 'ELENCO',
+  news: 'NOTÍCIAS',
 };
 
 export function Office({
@@ -80,6 +90,9 @@ export function Office({
     c.messages.find((m) => m.important && !m.resolved)?.id || c.messages[0]?.id,
   );
   const m = c.messages.find((m) => m.id === selectedId);
+  const pendingActions = c.messages.filter(
+    (message) => message.important && !message.resolved,
+  ).length;
   const voice = useVoice();
   const speaking = voice.mailbox ? null : voice.current?.id;
   const voiceItem = (msg: Message): VoiceItem => ({
@@ -134,7 +147,51 @@ export function Office({
   const income = history.reduce((n, h) => n + h.income, 0);
   const outgo = history.reduce((n, h) => n + h.expenses, 0);
   const scoutingPanel = (
-    <div className="staff-layout">
+    <div className="staff-layout scout-layout">
+      <section className="panel scout-network-panel">
+        <div>
+          <p className="eyebrow">GLOBAL SCOUTING NETWORK · MANDO</p>
+          <h2>
+            <Radar size={22} /> Rede de observação
+          </h2>
+          <p className="muted">
+            Referência visual das regiões do Brasil. O mapa não indica a localização de olheiros ou
+            atletas; os destinos ativos aparecem ao lado.
+          </p>
+        </div>
+        <div className="scout-network-content">
+          <div
+            className="scout-region-map"
+            role="img"
+            aria-label="Mapa esquemático do Brasil, sem localização de atletas ou olheiros"
+          >
+            <span className="region-north">NORTE</span>
+            <span className="region-northeast">NORDESTE</span>
+            <span className="region-center">CENTRO-OESTE</span>
+            <span className="region-southeast">SUDESTE</span>
+            <span className="region-south">SUL</span>
+          </div>
+          <div className="scout-destinations">
+            <p className="eyebrow">DESTINOS CONFIGURADOS</p>
+            {(['Brasil', 'América do Sul', 'Europa'] as const).map((region) => {
+              const assigned = c.scouts.filter((scout) => scout.region === region);
+              return (
+                <div className={assigned.length ? 'assigned' : ''} key={region}>
+                  <span>{region}</span>
+                  <strong>
+                    {assigned.length
+                      ? `${assigned.length} olheiro${assigned.length > 1 ? 's' : ''}`
+                      : 'Sem olheiro'}
+                  </strong>
+                </div>
+              );
+            })}
+            <p className="muted small">
+              {c.scouts.length}/3 olheiros · {c.prospects.length} jovens nos relatórios
+            </p>
+          </div>
+        </div>
+      </section>
       <section className="panel staff-reports">
         <h2>
           <MapPinned size={22} /> Rede de olheiros
@@ -192,16 +249,16 @@ export function Office({
     </div>
   );
   return (
-    <div className="screen-enter">
+    <div className="screen-enter office-screen">
       <SectionTitle
         kicker="ESCRITÓRIO / ALÉM DAS QUATRO LINHAS"
         title="Um clube inteiro ao seu redor."
       >
-        <span className="status-pill">
-          {c.messages.filter((m) => m.important && !m.resolved).length} AÇÕES NECESSÁRIAS
+        <span className={`status-pill ${pendingActions ? 'attention' : 'no-actions'}`}>
+          {pendingActions} AÇÕES NECESSÁRIAS
         </span>
       </SectionTitle>
-      <div className="segmented">
+      <div className="segmented" role="group" aria-label="Áreas do Escritório">
         {(
           [
             ['inbox', 'Mensagens', MessageSquare],
@@ -212,7 +269,12 @@ export function Office({
             ['club', 'Clube vivo', Landmark],
           ] as const
         ).map(([id, label, Icon]) => (
-          <button key={id} className={view === id ? 'active' : ''} onClick={() => setView(id)}>
+          <button
+            key={id}
+            className={view === id ? 'active' : ''}
+            onClick={() => setView(id)}
+            aria-pressed={view === id}
+          >
             <Icon size={16} />
             {label}
           </button>
@@ -274,7 +336,9 @@ export function Office({
                     <strong>{m.from}</strong>
                     <p>{dateLabel(m.date, true)}</p>
                   </div>
-                  <span className="pill">{m.kind.toUpperCase()}</span>
+                  <span className={`pill message-kind kind-${m.kind}`}>
+                    {messageKindLabel[m.kind]}
+                  </span>
                 </div>
                 <h2>{m.title}</h2>
                 {voiceAvailable() && (
@@ -379,7 +443,7 @@ export function Office({
                   aria-label={`Salários ${Math.round(wageShare)}%, operação ${Math.round(opShare)}%, juros ${Math.round(100 - wageShare - opShare)}%`}
                   className="donut"
                   style={{
-                    background: `conic-gradient(#00b4ff 0 ${wageShare}%, #ff8a00 ${wageShare}% ${wageShare + opShare}%, #c6ff00 ${wageShare + opShare}% 100%)`,
+                    background: `conic-gradient(#36d6e7 0 ${wageShare}%, #8c6cff ${wageShare}% ${wageShare + opShare}%, #334258 ${wageShare + opShare}% 100%)`,
                   }}
                 >
                   <span>

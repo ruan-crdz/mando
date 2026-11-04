@@ -377,3 +377,13 @@ Layout `.staff-layout` com 3 `section.panel`:
 14. Clube vivo: 3 painéis num grid de 2 colunas (o terceiro cai sozinho); `select` nativo pouco "console"; listas de técnicos/imprensa em texto corrido — poderiam ser cards com escudo, estrelas de nível e medidores.
 15. `.living-headline` em âmbar escuro com baixo contraste (ultimato, Seleção).
 16. Olheiros: permitir mesma região repetida sem aviso; prospectos sem foto/card de jogador (poderiam usar o card FIFA com tier usado no resto do jogo).
+
+## Ato 6 implementado
+
+- As seis sub-abas permanecem na ordem e usam uma barra horizontal de console, com estado ativo petróleo/ciano e atributos de seleção para acessibilidade.
+- Mensagens adotam a leitura em duas colunas (lista e reading pane); pendências recebem marcador coral, seleção petróleo, tipos em português e caixa postal/botões de voz permanecem no fluxo. A contagem sem pendências fica neutra.
+- Finanças mantêm as quatro métricas, distribuição, histórico, receitas/despesas e até 15 lançamentos; o gráfico usa cores semânticas mais contidas.
+- Diretoria, perfil, comissão, olheiros/base e Clube vivo receberam superfícies grafite/ardósia, hierarquia consistente e foco ciano, preservando ações existentes.
+- Olheiros/base ganhou mapa esquemático do Brasil como elemento editorial, explicitamente sem indicar localização de atletas ou olheiros. Destinos e progresso exibidos continuam vindo dos scouts do save.
+- O painel contextual de Clube vivo acompanha o foco entre Diretoria e torcida, Comissão e preparação e Técnicos rivais, resumindo os valores reais do save.
+- CSS isolado em `src/styles/legacy/10-office-season.css`; o layout móvel continua restrito a landscape. As oportunidades restantes acima não foram alteradas nem implicam novas regras de jogo.

@@ -36,7 +36,12 @@ function StandingsTable({
         </thead>
         <tbody>
           {rows.map((r, i) => (
-            <tr key={r.clubId} className={`${r.clubId === c.clubId ? 'your-club' : ''} ${zone(i)}`}>
+            <tr
+              key={r.clubId}
+              className={`${r.clubId === c.clubId ? 'your-club' : ''} ${zone(i)}`}
+              tabIndex={0}
+              aria-label={`${i + 1}º, ${clubById(world, r.clubId).name}, ${r.points} pontos`}
+            >
               <td>{i + 1}</td>
               <td>
                 <Badge club={clubById(world, r.clubId)} size="small" />
@@ -116,11 +121,42 @@ export function Season({ career: c, world }: { career: Career; world: World }) {
     setMonth(next);
     setDay(`${next}-01`);
   };
-  useStickX((dir) =>
-    view === 'calendar'
-      ? cycleMonth(dir)
-      : view !== 'trophies' && view !== 'awards' && view !== 'legacy' && cycleComp(dir),
-  );
+  useStickX((dir) => {
+    if (view === 'calendar') {
+      cycleMonth(dir);
+      return;
+    }
+    if (view === 'table') {
+      cycleComp(dir);
+      return;
+    }
+    const selector =
+      view === 'stats'
+        ? '.stats-grid'
+        : view === 'trophies'
+          ? '.trophy-shelf'
+          : view === 'awards'
+            ? '.awards-list'
+            : '.legacy-layout';
+    const viewTarget = document.querySelector<HTMLElement>(`.season-screen ${selector}`);
+    const target =
+      viewTarget &&
+      (view === 'awards' || view === 'legacy'
+        ? viewTarget.scrollHeight > viewTarget.clientHeight
+        : view === 'stats' && window.innerWidth <= 700
+          ? viewTarget.scrollHeight > viewTarget.clientHeight
+          : viewTarget.scrollWidth > viewTarget.clientWidth)
+        ? viewTarget
+        : document.querySelector<HTMLElement>('main.stage');
+    if (!target) return;
+    const vertical =
+      view === 'awards' || view === 'legacy' || (view === 'stats' && window.innerWidth <= 700);
+    target.scrollBy(
+      vertical
+        ? { top: dir * target.clientHeight * 0.6, behavior: 'smooth' }
+        : { left: dir * target.clientWidth * 0.6, behavior: 'smooth' },
+    );
+  });
   const pad = input === 'xbox' || input === 'playstation';
   const isLeague = comp === 'A' || comp === 'B';
   const statsLeague = isLeague ? (comp as 'A' | 'B') : club.league;
@@ -183,9 +219,9 @@ export function Season({ career: c, world }: { career: Career; world: World }) {
 
   const shelf = ['A', 'B', `EST-${club.state}`, 'CDB', 'SUP', 'LIB', 'SUL'];
   return (
-    <div className="screen-enter">
+    <div className="screen-enter season-screen">
       <SectionTitle kicker={`TEMPORADA / ${c.season}`} title="Cada rodada conta." />
-      <div className="segmented">
+      <div className="segmented" role="group" aria-label="Áreas da Temporada">
         {(
           [
             ['table', isLeague ? 'Classificação' : 'Chaves e grupos', Trophy],
@@ -196,7 +232,12 @@ export function Season({ career: c, world }: { career: Career; world: World }) {
             ['legacy', 'Legado', Medal],
           ] as const
         ).map(([id, name, Icon]) => (
-          <button className={view === id ? 'active' : ''} key={id} onClick={() => setView(id)}>
+          <button
+            className={view === id ? 'active' : ''}
+            key={id}
+            onClick={() => setView(id)}
+            aria-pressed={view === id}
+          >
             <Icon size={16} />
             {name}
           </button>
@@ -443,15 +484,22 @@ export function Season({ career: c, world }: { career: Career; world: World }) {
               ['yellow', 'Cartões amarelos'],
               ['minutes', 'Minutos em campo'],
             ] as const
-          ).map(([key, title]) => (
-            <section className="panel" key={key}>
-              <p className="eyebrow">CLUBES DA SÉRIE {statsLeague} · TODAS AS COMPETIÇÕES</p>
-              <h2>{title}</h2>
-              {[...stats]
-                .sort((a, b) => c.players[b.id][key] - c.players[a.id][key])
-                .slice(0, 10)
-                .map((p, i) => (
-                  <div className="stat-leader" key={p.id}>
+          ).map(([key, title]) => {
+            const leaders = [...stats]
+              .sort((a, b) => c.players[b.id][key] - c.players[a.id][key])
+              .slice(0, 10);
+            const topValue = Math.max(1, ...leaders.map((p) => c.players[p.id][key]));
+            return (
+              <section className="panel" key={key}>
+                <p className="eyebrow">CLUBES DA SÉRIE {statsLeague} · TODAS AS COMPETIÇÕES</p>
+                <h2>{title}</h2>
+                {leaders.map((p, i) => (
+                  <div
+                    className="stat-leader"
+                    key={p.id}
+                    tabIndex={0}
+                    aria-label={`${i + 1}º, ${p.name}, ${c.players[p.id][key]} ${title.toLowerCase()}`}
+                  >
                     <span>{i + 1}</span>
                     <PlayerFace player={p} size="sm" />
                     <div>
@@ -461,10 +509,14 @@ export function Season({ career: c, world }: { career: Career; world: World }) {
                       </small>
                     </div>
                     <b>{c.players[p.id][key]}</b>
+                    <span className="stat-leader-track" aria-hidden="true">
+                      <i style={{ width: `${(c.players[p.id][key] / topValue) * 100}%` }} />
+                    </span>
                   </div>
                 ))}
-            </section>
-          ))}
+              </section>
+            );
+          })}
         </div>
       )}
       {view === 'trophies' && (
@@ -516,7 +568,7 @@ export function Season({ career: c, world }: { career: Career; world: World }) {
       )}
       {view === 'legacy' && <LegacyPanel career={c} world={world} />}
       {view === 'awards' && (
-        <div className="stats-grid">
+        <div className="awards-list">
           {c.awards.length === 0 ? (
             <section className="panel">
               <h2>Prêmios da temporada</h2>
@@ -536,20 +588,24 @@ export function Season({ career: c, world }: { career: Career; world: World }) {
                   )
                 : 'Temporada';
               return (
-                <section
-                  className="panel"
+                <article
+                  className="panel award-row"
                   key={`${award.season}-${award.month}-${award.category}-${index}`}
+                  tabIndex={0}
+                  aria-label={`${award.season}, ${monthName}, ${award.category}: ${athlete?.name || team?.name || 'Sem vencedor definido'}`}
                 >
-                  <p className="eyebrow">
-                    {award.season} · {monthName}
-                  </p>
-                  <h2>
-                    <Award size={20} /> {award.category}
-                  </h2>
                   {athlete && <PlayerFace player={athlete} size="lg" className="award-face" />}
-                  <strong>{athlete?.name || team?.name || 'Sem vencedor definido'}</strong>
-                  {team && athlete && <p className="muted">{team.name}</p>}
-                </section>
+                  <div>
+                    <p className="eyebrow">
+                      {award.season} · {monthName}
+                    </p>
+                    <h2>
+                      <Award size={20} /> {award.category}
+                    </h2>
+                    <strong>{athlete?.name || team?.name || 'Sem vencedor definido'}</strong>
+                    {team && athlete && <p className="muted">{team.name}</p>}
+                  </div>
+                </article>
               );
             })
           )}

@@ -154,6 +154,7 @@ export function ClubPanel({
   onUpdate: (patch: Partial<Living>) => void;
   onUpgradeAnalyst: () => void;
 }) {
+  const [activePanel, setActivePanel] = useState<'board' | 'preparation' | 'coaches'>('board');
   const l = career.living;
   const rivals = Object.entries(l.coaches)
     .filter(([id]) =>
@@ -164,8 +165,34 @@ export function ClubPanel({
     .slice(0, 20);
   const reporters = Object.entries(l.media);
   return (
-    <div className="staff-layout">
-      <section className="panel">
+    <div className="staff-layout club-living-layout">
+      <section className="panel club-focus-panel" aria-live="polite">
+        <p className="eyebrow">CLUBE VIVO / PAINEL EM FOCO</p>
+        {activePanel === 'board' ? (
+          <>
+            <h2>Diretoria e torcida</h2>
+            <p>
+              Resultados {Math.round(l.board.results)} · Finanças {Math.round(l.board.finances)} ·
+              Base {Math.round(l.board.youth)} · Estilo {Math.round(l.board.style)} · Clássicos{' '}
+              {Math.round(l.board.derbies)} · Torcida {Math.round(l.fans)}
+            </p>
+          </>
+        ) : activePanel === 'preparation' ? (
+          <>
+            <h2>Comissão e preparação</h2>
+            <p>
+              Treino {l.training} · Analista nível {l.analyst}/5 · {l.relations.length} relações
+              registradas no vestiário
+            </p>
+          </>
+        ) : (
+          <>
+            <h2>Técnicos rivais</h2>
+            <p>{rivals.length} perfis rivais acompanhados nesta divisão.</p>
+          </>
+        )}
+      </section>
+      <section className="panel" onFocusCapture={() => setActivePanel('board')}>
         <h2>Diretoria e torcida</h2>
         <Bar label="Resultados" value={l.board.results} />
         <Bar label="Finanças" value={l.board.finances} />
@@ -202,7 +229,7 @@ export function ClubPanel({
           <p className="living-headline">A CBF quer você no comando da Seleção!</p>
         )}
       </section>
-      <section className="panel">
+      <section className="panel" onFocusCapture={() => setActivePanel('preparation')}>
         <h2>Comissão e preparação</h2>
         <label className="living-row">
           Treino semanal
@@ -246,7 +273,7 @@ export function ClubPanel({
           <Bar key={name} label={name} value={v} />
         ))}
       </section>
-      <section className="panel">
+      <section className="panel" onFocusCapture={() => setActivePanel('coaches')}>
         <h2>Técnicos rivais</h2>
         {rivals.map(([id, coach]) => (
           <p key={id}>
@@ -325,7 +352,7 @@ export function LegacyPanel({ career, world }: { career: Career; world: World })
     .sort((a, b) => b.fee - a.fee)
     .slice(0, 5);
   return (
-    <div className="staff-layout">
+    <div className="staff-layout legacy-layout">
       <section className="panel">
         <h2>Linha do tempo</h2>
         {l.nationalInvite && (
@@ -336,7 +363,7 @@ export function LegacyPanel({ career, world }: { career: Career; world: World })
             .reverse()
             .slice(0, 40)
             .map((e, i) => (
-              <p key={i}>
+              <p key={i} tabIndex={0}>
                 {kindIcon[e.kind]} <span className="muted">{dateLabel(e.date)}</span> {e.text}
               </p>
             ))
@@ -347,7 +374,7 @@ export function LegacyPanel({ career, world }: { career: Career; world: World })
       <section className="panel">
         <h2>Hall da fama</h2>
         {hall.map(([id, s]) => (
-          <p key={id}>
+          <p key={id} tabIndex={0}>
             <strong>{playerName(career, world, id)}</strong>{' '}
             <span className="muted">
               {s.games} jogos · {s.goals} gols · {s.assists} assist.
@@ -360,13 +387,13 @@ export function LegacyPanel({ career, world }: { career: Career; world: World })
         <h2>Maiores negócios</h2>
         <h3>Vendas</h3>
         {sales.map((t, i) => (
-          <p key={i}>
+          <p key={i} tabIndex={0}>
             {playerName(career, world, t.playerId)} → {clubName(world, t.to)} · {money(t.fee)}
           </p>
         ))}
         <h3>Contratações</h3>
         {buys.map((t, i) => (
-          <p key={i}>
+          <p key={i} tabIndex={0}>
             {playerName(career, world, t.playerId)} ← {clubName(world, t.from)} · {money(t.fee)}
           </p>
         ))}

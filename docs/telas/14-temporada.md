@@ -428,3 +428,12 @@ Painel de memória da carreira vindo do sistema "mundo vivo" (`career.living`).
 12. Prêmios: card de "Time do mês" sem escudo (só texto); sem agrupamento por mês/temporada.
 13. Legado: textos simples sem hierarquia visual; emoji em vez de ícones; "Maiores negócios" sem estado vazio; Hall da fama sem foto/card.
 14. **100% FIFA-like**: usar cards com foto e fundo de tier (bronze/prata/ouro/ouro brilhante — classes `card-bronze`, `card-silver`, `card-gold`, `card-rare` já existem) nos rankings, prêmios e hall da fama; cabeçalho de competição com logo; barra de sub-abas com glifos LT/RT nas extremidades (como a nav principal já faz com LB/RB).
+
+## Ato 6 implementado
+
+- As seis sub-abas preservam a ordem, o rótulo dinâmico da primeira aba e navegação por clique/LT/RT; a barra horizontal mantém as seis acessíveis em telas estreitas.
+- Classificação, chaves, regulamentos, calendário, competições e resultados continuam usando os dados atuais da engine, agora em painéis grafite/ardósia com seleção ciano/petróleo e cores de zona mais sóbrias.
+- Os quatro rankings continuam limitados às mesmas categorias e top 10; cada linha é focável e tem uma barra proporcional ao maior valor daquele ranking, sem criar métricas.
+- Troféus preservam os sete itens e os anos/contagens existentes; conquistados recebem destaque ouro e os demais ficam em cinza.
+- Prêmios continuam em ordem cronológica inversa e agora aparecem em uma lista editorial compacta com foto/fallback e os dados reais do premiado.
+- Legado e painéis de contexto seguem os dados atuais, com a mesma hierarquia de superfícies. CSS em `src/styles/legacy/10-office-season.css`; em mobile, somente landscape.
