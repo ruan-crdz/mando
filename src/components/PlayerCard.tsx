@@ -2,6 +2,7 @@ import { type ReactNode } from 'react';
 import { stateOf } from '../game/matches';
 import { overall } from '../game/ratings';
 import { type Career, type Player, type Position } from '../game/types';
+import { cardTier } from './cardTier';
 import { PlayerFace } from './PlayerFace';
 
 const group = (pos: string) =>
@@ -62,7 +63,7 @@ export function PlayerCard({
   return (
     <button
       type="button"
-      className={`player-card ${group(player.position)} ${active ? 'active' : ''} ${status ? 'out' : ''}`}
+      className={`player-card ${group(player.position)} ${cardTier(ovr)} ${active ? 'active' : ''} ${status ? 'out' : ''}`}
       onClick={onClick}
       disabled={disabled}
       data-player={player.id}

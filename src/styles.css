@@ -6031,3 +6031,238 @@ button.danger {
     grid-template-columns: 1fr;
   }
 }
+
+/* ---------- Cards FIFA: foto ocupa o card, níveis por overall ---------- */
+.card-bronze {
+  --card-bg: linear-gradient(160deg, #e7b083 0%, #b06b35 50%, #5e3313 100%);
+  --card-name: rgba(70, 30, 5, 0.85);
+}
+.card-silver {
+  --card-bg: linear-gradient(160deg, #f1f5f8 0%, #a9b4bc 50%, #56636c 100%);
+  --card-name: rgba(40, 50, 60, 0.85);
+}
+.card-gold {
+  --card-bg: linear-gradient(160deg, #ffe590 0%, #d4a537 50%, #7a5512 100%);
+  --card-name: rgba(90, 60, 0, 0.85);
+}
+.card-rare {
+  --card-bg: linear-gradient(160deg, #fff6c4 0%, #ffcf2e 35%, #e09a00 65%, #6b3f00 100%);
+  --card-name: rgba(80, 40, 0, 0.88);
+}
+.player-card.card-bronze,
+.player-card.card-silver,
+.player-card.card-gold,
+.player-card.card-rare,
+.hub-card.card-bronze,
+.hub-card.card-silver,
+.hub-card.card-gold,
+.hub-card.card-rare {
+  background: var(--card-bg);
+  color: #fff;
+}
+.pitch-player.card-bronze,
+.pitch-player.card-silver,
+.pitch-player.card-gold,
+.pitch-player.card-rare,
+.pitch-player.card-bronze:hover:not(:disabled),
+.pitch-player.card-silver:hover:not(:disabled),
+.pitch-player.card-gold:hover:not(:disabled),
+.pitch-player.card-rare:hover:not(:disabled) {
+  background: var(--card-bg);
+}
+.card-rare::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+  background: linear-gradient(110deg, transparent 35%, rgba(255, 255, 255, 0.55) 50%, transparent 65%);
+  background-size: 250% 100%;
+  animation: card-shine 3.2s linear infinite;
+}
+.card-rare {
+  box-shadow:
+    0 0 0 1px rgba(255, 230, 120, 0.9),
+    0 0 14px rgba(255, 200, 40, 0.55);
+}
+@keyframes card-shine {
+  0% {
+    background-position: 150% 0;
+  }
+  100% {
+    background-position: -100% 0;
+  }
+}
+.player-card {
+  padding: 0;
+  justify-content: flex-start;
+}
+.player-card .player-face.pc-face,
+.player-card .player-face.pc-face.md {
+  position: absolute;
+  inset: 6% 0 0 0;
+  width: 100%;
+  height: auto;
+  border-radius: 0;
+  background: none;
+  overflow: hidden;
+  -webkit-mask-image: none;
+  mask-image: none;
+}
+.player-card .player-face.pc-face img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  object-position: 50% 100%;
+  transform: none;
+}
+.player-card .pc-top {
+  position: absolute;
+  top: 6px;
+  left: 8px;
+  z-index: 2;
+  color: #fff;
+}
+.player-card .pc-ovr,
+.player-card .pc-pos,
+.player-card .pc-name,
+.player-card .pc-badge {
+  color: #fff;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+}
+.player-card .pc-pos {
+  background: none;
+  padding: 0;
+}
+.player-card .pc-name {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 2;
+  margin: 0;
+  background: linear-gradient(180deg, transparent, var(--card-name, rgba(0, 4, 30, 0.75)) 45%);
+  padding: 14px 6px 6px;
+}
+.player-card .pc-badge {
+  z-index: 2;
+  bottom: auto;
+  top: 6px;
+  right: 8px;
+}
+.player-card .pc-meta {
+  z-index: 2;
+}
+.hub-card-top,
+.hub-card-name {
+  color: #fff;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+}
+.hub-card[class*='card-'] .hub-card-name {
+  background: linear-gradient(180deg, transparent, var(--card-name) 40%);
+}
+.player-face.hub-card-face {
+  left: 0;
+  width: 100%;
+  top: 8%;
+  height: auto;
+  bottom: 0;
+}
+
+/* Bonequinho neutro, sem fundo, para quem não tem foto. */
+.player-face.generated,
+.market-row .player-face.generated {
+  background: none !important;
+}
+.player-face.generated svg {
+  inset: 10% 0 0;
+  height: 90%;
+  fill: rgba(255, 255, 255, 0.6);
+}
+.player-card .player-face.pc-face.generated svg,
+.pitch-player .player-face.generated svg,
+.hub-card .player-face.generated svg {
+  inset: 14% 10% 0;
+  width: 80%;
+  height: 86%;
+  fill: rgba(255, 255, 255, 0.55);
+}
+
+/* ---------- Aba Jogadores: painel de stats + linha expansível ---------- */
+.player-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-height: 0;
+  overflow-y: auto;
+}
+.stats-head {
+  display: grid;
+  grid-template-columns: 180px minmax(0, 1fr);
+  gap: 14px;
+  align-items: start;
+}
+.stats-info {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+.stats-info h2 {
+  margin: 0;
+}
+.stats-info .hub-facts {
+  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+}
+.roster-item {
+  display: flex;
+  flex-direction: column;
+}
+.roster-row.focused {
+  outline: 2px solid rgba(198, 255, 0, 0.55);
+  outline-offset: -2px;
+}
+.roster-item.open .roster-row {
+  background: linear-gradient(90deg, #1f6fff, #0a2a8f);
+  color: #fff;
+}
+.roster-expand {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 10px 12px 14px;
+  background: rgba(10, 40, 120, 0.1);
+  border-left: 3px solid var(--lime);
+  animation: roster-open 0.18s ease-out;
+}
+.roster-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.roster-action {
+  padding: 6px 12px;
+  font-size: 13px;
+}
+.roster-action.active {
+  background: linear-gradient(90deg, #1f6fff, #0a2a8f);
+  color: #fff;
+}
+.roster-action.danger-text:not(.active) {
+  color: #c62828;
+}
+.roster-expand .hub-panel {
+  max-height: none;
+  overflow: visible;
+}
+@keyframes roster-open {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+@media (max-width: 900px) {
+  .stats-head {
+    grid-template-columns: 1fr;
+  }
+}

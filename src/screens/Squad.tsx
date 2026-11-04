@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ChevronLeft,
-  ChevronRight,
   Dumbbell,
   Hash,
   ClipboardList,
@@ -32,6 +31,7 @@ import {
 } from '../game/positions';
 import { HeatMap } from '../components/HeatMap';
 import { PlayerFace } from '../components/PlayerFace';
+import { cardTier } from '../components/cardTier';
 import {
   formations,
   positions,
@@ -43,7 +43,7 @@ import {
   type Tactic,
   type World,
 } from '../game/types';
-import { dateLabel, Modal, money, SectionTitle } from '../components/ui';
+import { dateLabel, money, SectionTitle } from '../components/ui';
 import {
   ChipGroup,
   NumberStepper,
@@ -106,7 +106,8 @@ const roleScore: Record<string, (p: Player, c: Career) => number> = {
 
 type Picking = { kind: 'slot'; index: number } | { kind: 'role'; role: string } | null;
 
-type PlayerAction = 'summary' | 'number' | 'sale' | 'loan' | 'renew' | 'talk' | 'develop' | 'release';
+type PlayerAction =
+  'summary' | 'number' | 'sale' | 'loan' | 'renew' | 'talk' | 'develop' | 'release';
 const playerActions: { id: PlayerAction; label: string }[] = [
   { id: 'summary', label: 'Visão geral' },
   { id: 'number', label: 'Número da camisa' },
@@ -159,6 +160,8 @@ export function Squad({
   const [months, setMonths] = useState(36);
   const [clauseValue, setClauseValue] = useState(0);
   const [action, setAction] = useState<PlayerAction>('summary');
+  const [focusId, setFocusId] = useState<string | null>(null);
+  const lastDetail = useRef<string | null>(null);
   const panel = useRef<HTMLElement>(null);
   const returnFocus = useRef<string | null>(null);
   const players = useMemo(() => squad(c, world), [c, world]);
@@ -194,6 +197,21 @@ export function Squad({
       }
     });
   }, [kitId]);
+  useEffect(() => {
+    const id = detail?.id ?? lastDetail.current;
+    lastDetail.current = detail?.id ?? null;
+    if (!id) return;
+    requestAnimationFrame(() => {
+      const row = document.querySelector<HTMLElement>(`.roster-row[data-player="${id}"]`);
+      if (!row) return;
+      if (
+        !row.contains(document.activeElement) &&
+        !row.parentElement?.contains(document.activeElement)
+      )
+        row.focus();
+      row.scrollIntoView({ block: 'nearest' });
+    });
+  }, [detail]);
 
   const updateTactic = (change: Partial<Tactic>) => {
     const next = { ...c, tactic: { ...c.tactic, ...change } };
@@ -241,6 +259,10 @@ export function Squad({
     setPicking(null);
   };
   const openDetail = (p: Player) => {
+    setView('kit');
+    setPicking(null);
+    setKitId(null);
+    setFocusId(p.id);
     setMonths(36);
     setClauseValue(c.players[p.id]?.clause || Math.round(p.value * 2.5));
     setSalePrice(c.players[p.id]?.listed || Math.round(marketValue(c, p) / 50000) * 50000);
@@ -266,11 +288,22 @@ export function Squad({
 
   const sortedRoster = [...players].sort(byPosition(c));
   const sortModes = [
-    { label: 'OVERALL', fn: (a: Player, b: Player) => overall(b, b.position, c.players[b.id]) - overall(a, a.position, c.players[a.id]) },
+    {
+      label: 'OVERALL',
+      fn: (a: Player, b: Player) =>
+        overall(b, b.position, c.players[b.id]) - overall(a, a.position, c.players[a.id]),
+    },
     { label: 'POSIÇÃO', fn: byPosition(c) },
-    { label: 'IDADE', fn: (a: Player, b: Player) => ageAt(a.birthDate, c.date) - ageAt(b.birthDate, c.date) },
+    {
+      label: 'IDADE',
+      fn: (a: Player, b: Player) => ageAt(a.birthDate, c.date) - ageAt(b.birthDate, c.date),
+    },
     { label: 'VALOR', fn: (a: Player, b: Player) => marketValue(c, b) - marketValue(c, a) },
-    { label: 'CONTRATO', fn: (a: Player, b: Player) => c.players[a.id].contractEnd.localeCompare(c.players[b.id].contractEnd) },
+    {
+      label: 'CONTRATO',
+      fn: (a: Player, b: Player) =>
+        c.players[a.id].contractEnd.localeCompare(c.players[b.id].contractEnd),
+    },
   ];
   const mode = sortModes[sortMode % sortModes.length];
   const listRoster = [...players].sort(mode.fn);
@@ -414,6 +447,282 @@ export function Squad({
     setKitPos(null);
   };
 
+  const actionPanel =
+    d && ds && terms ? (
+      <div className="hub-panel">
+        {action === 'number' && (
+          <>
+            <p className="eyebrow">NÚMERO DA CAMISA · ATUAL {numbers[d.id] ?? '—'}</p>
+            <p className="muted small">
+              Escolha um número livre ou um ocupado para trocar com o companheiro.
+            </p>
+            <div className="number-grid" role="listbox" aria-label="Números da camisa">
+              {Array.from({ length: 99 }, (_, i) => i + 1).map((n) => {
+                const holder = Object.keys(numbers).find((id) => numbers[id] === n);
+                const mine = holder === d.id;
+                const holderPlayer = holder && !mine ? byId(holder) : null;
+                return (
+                  <button
+                    key={n}
+                    role="option"
+                    aria-selected={mine}
+                    className={`number-cell ${mine ? 'mine' : holderPlayer ? 'taken' : ''}`}
+                    title={holderPlayer ? `Trocar com ${holderPlayer.name}` : `Usar a ${n}`}
+                    onClick={() => !mine && apply(() => setShirtNumber(c, world, d.id, n))}
+                  >
+                    <strong>{n}</strong>
+                    {holderPlayer && <small>{shortName(holderPlayer.name)}</small>}
+                  </button>
+                );
+              })}
+            </div>
+          </>
+        )}
+        {action === 'sale' && (
+          <>
+            <p className="eyebrow">
+              LISTA DE TRANSFERÊNCIAS{ds.listed ? ` · À VENDA POR ${money(ds.listed)}` : ''}
+            </p>
+            <p className="muted small">
+              Valor de mercado estimado: <strong>{money(marketValue(c, d))}</strong>. Com o atleta
+              listado, clubes da IA enviam propostas que você negocia em Transferências ›
+              Negociações.
+            </p>
+            <NumberStepper
+              label="Preço pedido"
+              value={salePrice}
+              min={50000}
+              step={250000}
+              onChange={(value) => setSalePrice(value ?? 0)}
+              format={money}
+            />
+            <div className="button-row">
+              <button className="primary" onClick={() => onListForSale(d.id, salePrice)}>
+                {ds.listed ? 'Atualizar preço' : 'Colocar à venda'}
+              </button>
+              {ds.listed ? (
+                <button onClick={() => onListForSale(d.id, null)}>Tirar da lista</button>
+              ) : null}
+            </div>
+            <p className="eyebrow">MULTA RESCISÓRIA</p>
+            <NumberStepper
+              label="Valor da multa"
+              value={clauseValue}
+              min={0}
+              step={100000}
+              onChange={(value) => setClauseValue(value ?? 0)}
+              format={money}
+            />
+            <button onClick={() => onSetClause(d.id, clauseValue)}>Definir multa</button>
+          </>
+        )}
+        {action === 'loan' && (
+          <>
+            <p className="eyebrow">LISTA DE EMPRÉSTIMOS · 6 MESES</p>
+            <p className="muted small">
+              O clube de destino paga o salário e o atleta ganha ritmo de jogo.
+            </p>
+            <div className="hub-list">
+              {loanDestinations.map(({ club }) => (
+                <button key={club.id} onClick={() => onLoanOut(d.id, club.id)}>
+                  <strong>{club.short}</strong> {club.name}
+                </button>
+              ))}
+            </div>
+          </>
+        )}
+        {action === 'renew' && (
+          <>
+            <p className="eyebrow">RENOVAR CONTRATO · ESTENDER POR</p>
+            <ChipGroup
+              value={String(months)}
+              options={renewalOptions.map((m) => ({
+                value: String(m),
+                label: m < 12 ? '6 meses' : m === 12 ? '1 ano' : `${m / 12} anos`,
+              }))}
+              onChange={(m) => setMonths(Number(m))}
+            />
+            <div className="renewal-terms">
+              <span>
+                Novo salário <strong>{money(terms.wage)}/mês</strong>
+              </span>
+              <span>
+                Luvas <strong>{money(terms.bonus)}</strong>
+              </span>
+              <span>
+                Até <strong>{dateLabel(terms.contractEnd)}</strong>
+              </span>
+            </div>
+            <button className="primary" onClick={() => onRenew(d.id, months)}>
+              Renovar contrato
+            </button>
+          </>
+        )}
+        {action === 'talk' && (
+          <>
+            <p className="eyebrow">
+              CONVERSA · {ds.personality.toUpperCase()} · RELAÇÃO {Math.round(ds.relationship)}
+            </p>
+            <div className="hub-list">
+              <button onClick={() => onConversation(d.id, 'praise')}>
+                <strong>Elogiar</strong> Reconhece o bom momento e aumenta a moral.
+              </button>
+              <button onClick={() => onConversation(d.id, 'challenge')}>
+                <strong>Cobrar</strong> Exige mais rendimento; a reação depende da personalidade.
+              </button>
+              <button onClick={() => onConversation(d.id, 'promise')}>
+                <strong>Prometer minutos</strong> Garante oportunidades nos próximos 30 dias.
+              </button>
+            </div>
+          </>
+        )}
+        {action === 'develop' && (
+          <>
+            <p className="eyebrow">PLANO DE EVOLUÇÃO</p>
+            <ChipGroup
+              value={ds.development}
+              options={(['Equilibrado', 'Ataque', 'Criação', 'Defesa', 'Físico'] as const).map(
+                (plan) => ({ value: plan, label: plan }),
+              )}
+              onChange={(plan) => onDevelopment(d.id, plan as typeof ds.development)}
+            />
+            <OptionCycler
+              label="Função em campo"
+              value={ds.role}
+              options={(
+                [
+                  'Padrão',
+                  'Finalizador',
+                  'Armador',
+                  'Pivô',
+                  'Volante',
+                  'Zagueiro construtor',
+                  'Lateral ofensivo',
+                ] as const
+              ).map((role) => ({ value: role, label: role }))}
+              onChange={(role) => onRole(d.id, role)}
+            />
+            <p className="muted small">
+              O plano acelera a evolução individual. Ritmo de jogo, moral e minutos também
+              influenciam o rendimento e o potencial.
+            </p>
+            <button
+              onClick={() => {
+                setDetail(null);
+                setView('kit');
+                setKitId(d.id);
+                setKitPos(d.position);
+              }}
+            >
+              <Dumbbell size={16} /> Posições e treino de posição
+            </button>
+          </>
+        )}
+        {action === 'release' && (
+          <>
+            <p className="eyebrow">DISPENSAR JOGADOR</p>
+            <p className="muted small">
+              A rescisão custa metade dos salários restantes do contrato (mínimo de 3 salários). O
+              atleta sai do elenco imediatamente.
+            </p>
+            {confirmRelease ? (
+              <div className="button-row">
+                <button className="danger" onClick={() => onRelease(d.id)}>
+                  Confirmar rescisão · {money(releaseCost(c, d.id))}
+                </button>
+                <button onClick={() => setConfirmRelease(false)}>Cancelar</button>
+              </div>
+            ) : (
+              <button className="danger" onClick={() => setConfirmRelease(true)}>
+                <UserX size={16} /> Dispensar · multa {money(releaseCost(c, d.id))}
+              </button>
+            )}
+          </>
+        )}
+      </div>
+    ) : null;
+  const fp =
+    kit ??
+    (focusId && c.players[focusId]?.clubId === c.clubId ? byId(focusId) : null) ??
+    d ??
+    listRoster[0];
+  const fs = fp ? c.players[fp.id] : null;
+  const statsPanel =
+    fp && fs ? (
+      <section className="panel player-stats">
+        <div className="stats-head">
+          <div className={`hub-card ${cardTier(overall(fp, fp.position, fs))}`}>
+            <span className="hub-card-top">
+              <strong>{overall(fp, fp.position, fs)}</strong>
+              <span>{fs.position ?? fp.position}</span>
+            </span>
+            <PlayerFace player={fp} className="hub-card-face" />
+            <strong className="hub-card-name">{shortName(fp.name)}</strong>
+          </div>
+          <div className="stats-info">
+            <h2>{fp.name}</h2>
+            <p className="eyebrow">
+              {positionsLine(fp) || fp.position} · {fs.role} · {fs.personality}
+            </p>
+            <div className="hub-facts">
+              <span>
+                Camisa <strong>{numbers[fp.id] ?? '—'}</strong>
+              </span>
+              <span>
+                Idade <strong>{ageAt(fp.birthDate, c.date)}</strong>
+              </span>
+              <span>
+                Overall <strong>{overall(fp, fp.position, fs)}</strong>
+              </span>
+              <span>
+                Potencial{' '}
+                <strong>
+                  {Math.max(1, Math.round(fp.potential + fs.potentialDelta - fp.uncertainty))}–
+                  {Math.min(99, Math.round(fp.potential + fs.potentialDelta + fp.uncertainty))}
+                </strong>
+              </span>
+              <span>
+                Moral <strong>{Math.round(fs.morale)}</strong>
+              </span>
+              <span>
+                Ritmo <strong>{Math.round(fs.sharpness)}%</strong>
+              </span>
+              <span>
+                Valor <strong>{money(marketValue(c, fp))}</strong>
+              </span>
+              <span>
+                Salário <strong>{money(fs.wage)}</strong>
+              </span>
+              <span>
+                Contrato <strong>{dateLabel(fs.contractEnd)}</strong>
+              </span>
+              <span>
+                Temporada{' '}
+                <strong>
+                  {fs.goals} gols · {fs.minutes} min
+                </strong>
+              </span>
+            </div>
+            {fs.listed ? <p className="pill hub-flag">À VENDA · {money(fs.listed)}</p> : null}
+          </div>
+        </div>
+        <div className="hub-summary">
+          <div className="attribute-grid">
+            {Object.entries(fp.attributes).map(([k, v]) => (
+              <div key={k} className={v >= 80 ? 'high' : v >= 65 ? 'mid' : 'low'}>
+                <span>
+                  {attributeLabels[k]}: <strong>{v}</strong>
+                </span>
+                <i className="attr-bar">
+                  <b style={{ width: `${v}%` }} />
+                </i>
+              </div>
+            ))}
+          </div>
+          <HeatMap player={fp} position={fs.position ?? fp.position} state={fs} compact />
+        </div>
+      </section>
+    ) : null;
   return (
     <div className="screen-enter">
       <SectionTitle kicker="TIME / GESTÃO DO ELENCO" title="Onze nomes. Uma ideia.">
@@ -467,65 +776,69 @@ export function Squad({
         </button>
       </div>
       <div className="squad-layout">
-        <section className="panel pitch-panel" data-focus-region="pitch">
-          <div className="panel-heading">
-            <h2>{c.tactic.formation}</h2>
-            <span className="pill">{c.tactic.mentality}</span>
-          </div>
-          <div className="football-pitch">
-            <div className="pitch-center" />
-            <div className="penalty top" />
-            <div className="penalty bottom" />
-            {c.lineup.map((id, i) => {
-              const p = byId(id);
-              const s = c.players[id];
-              const selected = picking?.kind === 'slot' && picking.index === i;
-              const fam = familiarity(p, rolePositions[i], s);
-              const swapping = picking?.kind === 'slot' && !selected;
-              return (
-                <button
-                  key={`${i}-${id}`}
-                  data-slot={i}
-                  className={`pitch-player ${!available(c, id) ? 'unavailable' : ''} ${selected ? 'selected' : ''} ${swapping ? 'swap-target' : ''} ${fam < LEARNED ? 'out-of-position' : ''}`}
-                  style={{ left: `${coordinates[i].x}%`, top: `${coordinates[i].y}%` }}
-                  onClick={() => {
-                    setView('lineup');
-                    if (picking?.kind === 'slot' && !selected) swapSlots(picking.index, i);
-                    else {
-                      returnFocus.current = `[data-slot="${i}"]`;
-                      setPicking(selected ? null : { kind: 'slot', index: i });
-                    }
-                  }}
-                  draggable
-                  onDragStart={(e) => e.dataTransfer.setData('text/plain', id)}
-                  onDragOver={(e) => e.preventDefault()}
-                  onDrop={(e) => {
-                    e.preventDefault();
-                    const dropped = e.dataTransfer.getData('text/plain');
-                    if (players.some((p) => p.id === dropped)) changeSlot(i, dropped);
-                  }}
-                  aria-label={`${rolePositions[i]} ${p.name}, camisa ${numbers[id]}, overall ${overall(p, rolePositions[i], s)}${fam < LEARNED ? `, improvisado (${familiarityLabel(fam).toLowerCase()})` : ''}. Trocar atleta`}
-                >
-                  <PlayerFace player={p} size="md" className="pitch-face" />
-                  <span className="pitch-ovr">
-                    <b>{overall(p, rolePositions[i], s)}</b>
-                    {rolePositions[i]}
-                  </span>
-                  <strong>
-                    {fam < LEARNED && <TriangleAlert size={11} className="oop-icon" />}
-                    {shortName(p.name)}
-                  </strong>
-                  <i className="pitch-fitness" style={{ width: `${Math.round(s.fitness)}%` }} />
-                </button>
-              );
-            })}
-          </div>
-          <p className="muted small">
-            {picking?.kind === 'slot'
-              ? `Escolha outro titular para trocar de posição com ${shortName(byId(c.lineup[picking.index]).name)}, ou vá → para as recomendações.`
-              : 'Selecione uma posição: o painel ao lado mostra as opções recomendadas.'}
-          </p>
-        </section>
+        {view === 'kit' && statsPanel ? (
+          statsPanel
+        ) : (
+          <section className="panel pitch-panel" data-focus-region="pitch">
+            <div className="panel-heading">
+              <h2>{c.tactic.formation}</h2>
+              <span className="pill">{c.tactic.mentality}</span>
+            </div>
+            <div className="football-pitch">
+              <div className="pitch-center" />
+              <div className="penalty top" />
+              <div className="penalty bottom" />
+              {c.lineup.map((id, i) => {
+                const p = byId(id);
+                const s = c.players[id];
+                const selected = picking?.kind === 'slot' && picking.index === i;
+                const fam = familiarity(p, rolePositions[i], s);
+                const swapping = picking?.kind === 'slot' && !selected;
+                return (
+                  <button
+                    key={`${i}-${id}`}
+                    data-slot={i}
+                    className={`pitch-player ${cardTier(overall(p, rolePositions[i], s))} ${!available(c, id) ? 'unavailable' : ''} ${selected ? 'selected' : ''} ${swapping ? 'swap-target' : ''} ${fam < LEARNED ? 'out-of-position' : ''}`}
+                    style={{ left: `${coordinates[i].x}%`, top: `${coordinates[i].y}%` }}
+                    onClick={() => {
+                      setView('lineup');
+                      if (picking?.kind === 'slot' && !selected) swapSlots(picking.index, i);
+                      else {
+                        returnFocus.current = `[data-slot="${i}"]`;
+                        setPicking(selected ? null : { kind: 'slot', index: i });
+                      }
+                    }}
+                    draggable
+                    onDragStart={(e) => e.dataTransfer.setData('text/plain', id)}
+                    onDragOver={(e) => e.preventDefault()}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      const dropped = e.dataTransfer.getData('text/plain');
+                      if (players.some((p) => p.id === dropped)) changeSlot(i, dropped);
+                    }}
+                    aria-label={`${rolePositions[i]} ${p.name}, camisa ${numbers[id]}, overall ${overall(p, rolePositions[i], s)}${fam < LEARNED ? `, improvisado (${familiarityLabel(fam).toLowerCase()})` : ''}. Trocar atleta`}
+                  >
+                    <PlayerFace player={p} size="md" className="pitch-face" />
+                    <span className="pitch-ovr">
+                      <b>{overall(p, rolePositions[i], s)}</b>
+                      {rolePositions[i]}
+                    </span>
+                    <strong>
+                      {fam < LEARNED && <TriangleAlert size={11} className="oop-icon" />}
+                      {shortName(p.name)}
+                    </strong>
+                    <i className="pitch-fitness" style={{ width: `${Math.round(s.fitness)}%` }} />
+                  </button>
+                );
+              })}
+            </div>
+            <p className="muted small">
+              {picking?.kind === 'slot'
+                ? `Escolha outro titular para trocar de posição com ${shortName(byId(c.lineup[picking.index]).name)}, ou vá → para as recomendações.`
+                : 'Selecione uma posição: o painel ao lado mostra as opções recomendadas.'}
+            </p>
+          </section>
+        )}
         <section ref={panel} className="panel squad-controls" data-focus-region="panel">
           {pickerContent ||
             (view === 'kit' ? (
@@ -637,31 +950,75 @@ export function Squad({
                     <div className="roster-list">
                       {listRoster.map((p) => {
                         const s = c.players[p.id];
+                        const open = d?.id === p.id;
                         return (
-                          <button
-                            type="button"
-                            key={p.id}
-                            data-player={p.id}
-                            className={`market-row roster-row ${c.lineup.includes(p.id) ? 'starter' : ''}`}
-                            onClick={() => openDetail(p)}
-                          >
-                            <span>
-                              <span className="position-tag">{s.position ?? p.position}</span>
-                              <PlayerFace player={p} size="md" />
+                          <div key={p.id} className={`roster-item ${open ? 'open' : ''}`}>
+                            <button
+                              type="button"
+                              data-player={p.id}
+                              aria-expanded={open}
+                              className={`market-row roster-row ${c.lineup.includes(p.id) ? 'starter' : ''} ${focusId === p.id ? 'focused' : ''}`}
+                              onFocus={() => setFocusId(p.id)}
+                              onMouseEnter={() => setFocusId(p.id)}
+                              onClick={() => (open ? setDetail(null) : openDetail(p))}
+                            >
                               <span>
-                                <strong>{p.name}</strong>
-                                <small>
-                                  {ageAt(p.birthDate, c.date)} anos · {money(s.wage)}/mês · até{' '}
-                                  {s.contractEnd.slice(0, 4)}
-                                  {s.listed ? ' · À VENDA' : ''}
-                                  {s.injuryDays ? ' · Lesionado' : ''}
-                                </small>
+                                <span className="position-tag">{s.position ?? p.position}</span>
+                                <PlayerFace player={p} size="md" />
+                                <span>
+                                  <strong>{p.name}</strong>
+                                  <small>
+                                    {ageAt(p.birthDate, c.date)} anos · {money(s.wage)}/mês · até{' '}
+                                    {s.contractEnd.slice(0, 4)}
+                                    {s.listed ? ' · À VENDA' : ''}
+                                    {s.injuryDays ? ' · Lesionado' : ''}
+                                  </small>
+                                </span>
                               </span>
-                            </span>
-                            <b className="roster-ovr">{overall(p, p.position, s)}</b>
-                            <strong>{money(marketValue(c, p))}</strong>
-                            <span>{c.lineup.includes(p.id) ? 'Titular' : 'Reserva'}</span>
-                          </button>
+                              <b className="roster-ovr">{overall(p, p.position, s)}</b>
+                              <strong>{money(marketValue(c, p))}</strong>
+                              <span>{c.lineup.includes(p.id) ? 'Titular' : 'Reserva'}</span>
+                            </button>
+                            {open && ds && (
+                              <div className="roster-expand">
+                                <div
+                                  className="roster-actions"
+                                  role="toolbar"
+                                  aria-label={`Ações de ${p.name}`}
+                                >
+                                  {playerActions
+                                    .filter((a) => a.id !== 'summary')
+                                    .map((a) => (
+                                      <button
+                                        key={a.id}
+                                        type="button"
+                                        className={`roster-action ${action === a.id ? 'active' : ''} ${a.id === 'release' ? 'danger-text' : ''}`}
+                                        aria-pressed={action === a.id}
+                                        onClick={() => {
+                                          setAction(action === a.id ? 'summary' : a.id);
+                                          setConfirmRelease(false);
+                                        }}
+                                      >
+                                        {a.label}
+                                      </button>
+                                    ))}
+                                  <button
+                                    type="button"
+                                    className="roster-action"
+                                    onClick={() => {
+                                      returnFocus.current = `[data-player="${p.id}"]`;
+                                      setDetail(null);
+                                      setKitId(p.id);
+                                      setKitPos(p.position);
+                                    }}
+                                  >
+                                    <Dumbbell size={14} /> Posições e treino
+                                  </button>
+                                </div>
+                                {action !== 'summary' && actionPanel}
+                              </div>
+                            )}
+                          </div>
                         );
                       })}
                     </div>
@@ -785,282 +1142,6 @@ export function Squad({
             ))}
         </section>
       </div>
-      {d && ds && terms && (
-        <Modal title={d.name} onClose={() => setDetail(null)} wide>
-          <div className="player-hub">
-            <div className="hub-card-col">
-              <div className="hub-card">
-                <span className="hub-card-top">
-                  <strong>{overall(d, d.position, ds)}</strong>
-                  <span>{d.position}</span>
-                </span>
-                <PlayerFace player={d} className="hub-card-face" />
-                <strong className="hub-card-name">{shortName(d.name)}</strong>
-              </div>
-              <div className="hub-facts">
-                <span>
-                  Idade <strong>{ageAt(d.birthDate, c.date)}</strong>
-                </span>
-                <span>
-                  Camisa <strong>{numbers[d.id] ?? '—'}</strong>
-                </span>
-                <span>
-                  Potencial{' '}
-                  <strong>
-                    {Math.max(1, Math.round(d.potential + ds.potentialDelta - d.uncertainty))}–
-                    {Math.min(99, Math.round(d.potential + ds.potentialDelta + d.uncertainty))}
-                  </strong>
-                </span>
-                <span>
-                  Moral <strong>{Math.round(ds.morale)}</strong>
-                </span>
-                <span>
-                  Salário <strong>{money(ds.wage)}</strong>
-                </span>
-                <span>
-                  Contrato <strong>{dateLabel(ds.contractEnd)}</strong>
-                </span>
-              </div>
-              {ds.listed ? <p className="pill hub-flag">À VENDA · {money(ds.listed)}</p> : null}
-            </div>
-            <nav className="hub-actions" aria-label="Ações do jogador">
-              {playerActions
-                .filter((a) => a.id === 'summary' || ds.clubId === c.clubId)
-                .map((a) => (
-                  <button
-                    key={a.id}
-                    className={`hub-action ${action === a.id ? 'active' : ''} ${a.id === 'release' ? 'danger-text' : ''}`}
-                    aria-pressed={action === a.id}
-                    data-autofocus={action === a.id || undefined}
-                    onClick={() => {
-                      setAction(a.id);
-                      setConfirmRelease(false);
-                    }}
-                  >
-                    {a.label}
-                    <ChevronRight size={16} />
-                  </button>
-                ))}
-            </nav>
-            <div className="hub-panel">
-              {action === 'summary' && (
-                <>
-                  <p className="eyebrow">
-                    {positionsLine(d) || d.position} · RITMO {Math.round(ds.sharpness)}% ·{' '}
-                    {ds.goals} GOLS · {ds.minutes} MIN
-                  </p>
-                  <div className="hub-summary">
-                    <div className="attribute-grid">
-                      {Object.entries(d.attributes).map(([k, v]) => (
-                        <div key={k} className={v >= 80 ? 'high' : v >= 65 ? 'mid' : 'low'}>
-                          <span>
-                            {attributeLabels[k]}: <strong>{v}</strong>
-                          </span>
-                          <i className="attr-bar">
-                            <b style={{ width: `${v}%` }} />
-                          </i>
-                        </div>
-                      ))}
-                    </div>
-                    <HeatMap player={d} position={d.position} state={ds} compact />
-                  </div>
-                </>
-              )}
-              {action === 'number' && (
-                <>
-                  <p className="eyebrow">
-                    NÚMERO DA CAMISA · ATUAL {numbers[d.id] ?? '—'}
-                  </p>
-                  <p className="muted small">
-                    Escolha um número livre ou um ocupado para trocar com o companheiro.
-                  </p>
-                  <div className="number-grid" role="listbox" aria-label="Números da camisa">
-                    {Array.from({ length: 99 }, (_, i) => i + 1).map((n) => {
-                      const holder = Object.keys(numbers).find((id) => numbers[id] === n);
-                      const mine = holder === d.id;
-                      const holderPlayer = holder && !mine ? byId(holder) : null;
-                      return (
-                        <button
-                          key={n}
-                          role="option"
-                          aria-selected={mine}
-                          className={`number-cell ${mine ? 'mine' : holderPlayer ? 'taken' : ''}`}
-                          title={holderPlayer ? `Trocar com ${holderPlayer.name}` : `Usar a ${n}`}
-                          onClick={() => !mine && apply(() => setShirtNumber(c, world, d.id, n))}
-                        >
-                          <strong>{n}</strong>
-                          {holderPlayer && <small>{shortName(holderPlayer.name)}</small>}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </>
-              )}
-              {action === 'sale' && (
-                <>
-                  <p className="eyebrow">
-                    LISTA DE TRANSFERÊNCIAS{ds.listed ? ` · À VENDA POR ${money(ds.listed)}` : ''}
-                  </p>
-                  <p className="muted small">
-                    Valor de mercado estimado: <strong>{money(marketValue(c, d))}</strong>. Com o
-                    atleta listado, clubes da IA enviam propostas que você negocia em Transferências ›
-                    Negociações.
-                  </p>
-                  <NumberStepper
-                    label="Preço pedido"
-                    value={salePrice}
-                    min={50000}
-                    step={250000}
-                    onChange={(value) => setSalePrice(value ?? 0)}
-                    format={money}
-                  />
-                  <div className="button-row">
-                    <button className="primary" onClick={() => onListForSale(d.id, salePrice)}>
-                      {ds.listed ? 'Atualizar preço' : 'Colocar à venda'}
-                    </button>
-                    {ds.listed ? (
-                      <button onClick={() => onListForSale(d.id, null)}>Tirar da lista</button>
-                    ) : null}
-                  </div>
-                  <p className="eyebrow">MULTA RESCISÓRIA</p>
-                  <NumberStepper
-                    label="Valor da multa"
-                    value={clauseValue}
-                    min={0}
-                    step={100000}
-                    onChange={(value) => setClauseValue(value ?? 0)}
-                    format={money}
-                  />
-                  <button onClick={() => onSetClause(d.id, clauseValue)}>Definir multa</button>
-                </>
-              )}
-              {action === 'loan' && (
-                <>
-                  <p className="eyebrow">LISTA DE EMPRÉSTIMOS · 6 MESES</p>
-                  <p className="muted small">
-                    O clube de destino paga o salário e o atleta ganha ritmo de jogo.
-                  </p>
-                  <div className="hub-list">
-                    {loanDestinations.map(({ club }) => (
-                      <button key={club.id} onClick={() => onLoanOut(d.id, club.id)}>
-                        <strong>{club.short}</strong> {club.name}
-                      </button>
-                    ))}
-                  </div>
-                </>
-              )}
-              {action === 'renew' && (
-                <>
-                  <p className="eyebrow">RENOVAR CONTRATO · ESTENDER POR</p>
-                  <ChipGroup
-                    value={String(months)}
-                    options={renewalOptions.map((m) => ({
-                      value: String(m),
-                      label: m < 12 ? '6 meses' : m === 12 ? '1 ano' : `${m / 12} anos`,
-                    }))}
-                    onChange={(m) => setMonths(Number(m))}
-                  />
-                  <div className="renewal-terms">
-                    <span>
-                      Novo salário <strong>{money(terms.wage)}/mês</strong>
-                    </span>
-                    <span>
-                      Luvas <strong>{money(terms.bonus)}</strong>
-                    </span>
-                    <span>
-                      Até <strong>{dateLabel(terms.contractEnd)}</strong>
-                    </span>
-                  </div>
-                  <button className="primary" onClick={() => onRenew(d.id, months)}>
-                    Renovar contrato
-                  </button>
-                </>
-              )}
-              {action === 'talk' && (
-                <>
-                  <p className="eyebrow">
-                    CONVERSA · {ds.personality.toUpperCase()} · RELAÇÃO {Math.round(ds.relationship)}
-                  </p>
-                  <div className="hub-list">
-                    <button onClick={() => onConversation(d.id, 'praise')}>
-                      <strong>Elogiar</strong> Reconhece o bom momento e aumenta a moral.
-                    </button>
-                    <button onClick={() => onConversation(d.id, 'challenge')}>
-                      <strong>Cobrar</strong> Exige mais rendimento; a reação depende da personalidade.
-                    </button>
-                    <button onClick={() => onConversation(d.id, 'promise')}>
-                      <strong>Prometer minutos</strong> Garante oportunidades nos próximos 30 dias.
-                    </button>
-                  </div>
-                </>
-              )}
-              {action === 'develop' && (
-                <>
-                  <p className="eyebrow">PLANO DE EVOLUÇÃO</p>
-                  <ChipGroup
-                    value={ds.development}
-                    options={(['Equilibrado', 'Ataque', 'Criação', 'Defesa', 'Físico'] as const).map(
-                      (plan) => ({ value: plan, label: plan }),
-                    )}
-                    onChange={(plan) => onDevelopment(d.id, plan as typeof ds.development)}
-                  />
-                  <OptionCycler
-                    label="Função em campo"
-                    value={ds.role}
-                    options={(
-                      [
-                        'Padrão',
-                        'Finalizador',
-                        'Armador',
-                        'Pivô',
-                        'Volante',
-                        'Zagueiro construtor',
-                        'Lateral ofensivo',
-                      ] as const
-                    ).map((role) => ({ value: role, label: role }))}
-                    onChange={(role) => onRole(d.id, role)}
-                  />
-                  <p className="muted small">
-                    O plano acelera a evolução individual. Ritmo de jogo, moral e minutos também
-                    influenciam o rendimento e o potencial.
-                  </p>
-                  <button
-                    onClick={() => {
-                      setDetail(null);
-                      setView('kit');
-                      setKitId(d.id);
-                      setKitPos(d.position);
-                    }}
-                  >
-                    <Dumbbell size={16} /> Posições e treino de posição
-                  </button>
-                </>
-              )}
-              {action === 'release' && (
-                <>
-                  <p className="eyebrow">DISPENSAR JOGADOR</p>
-                  <p className="muted small">
-                    A rescisão custa metade dos salários restantes do contrato (mínimo de 3
-                    salários). O atleta sai do elenco imediatamente.
-                  </p>
-                  {confirmRelease ? (
-                    <div className="button-row">
-                      <button className="danger" onClick={() => onRelease(d.id)}>
-                        Confirmar rescisão · {money(releaseCost(c, d.id))}
-                      </button>
-                      <button onClick={() => setConfirmRelease(false)}>Cancelar</button>
-                    </div>
-                  ) : (
-                    <button className="danger" onClick={() => setConfirmRelease(true)}>
-                      <UserX size={16} /> Dispensar · multa {money(releaseCost(c, d.id))}
-                    </button>
-                  )}
-                </>
-              )}
-            </div>
-          </div>
-        </Modal>
-      )}
     </div>
   );
 }
