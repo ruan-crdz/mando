@@ -429,3 +429,11 @@ Quando a engine abre um `MatchMoment` com `status: 'open'` (apenas para o clube 
 14. Campinho: atletas como bolinhas numeradas; oportunidade de aproximar do radar do FIFA (setas de ataque, nomes ao passar, cores de camisa reais/2º uniforme quando cores colidem — hoje dois clubes de cor parecida ficam indistinguíveis).
 15. **100% FIFA-like**: cards com foto e tier (bronze/prata/ouro/ouro brilhante) nos modais de substituição, capitão e momento (já existem); aplicar o mesmo nas notas pós-jogo e no MVP (card grande dourado "Craque do Jogo").
 16. Popups devem fechar sozinhos sem X (preferência do usuário): toasts/avisos já somem; aqui os modais usam `‹ Voltar` textual — manter acessível ao controle (B).
+
+## Entrega do Ato 7
+
+- Placar usa as cores dos dois clubes sobre uma base noturna; o painel de números, a análise e as notas continuam disponíveis em larguras de notebook e em landscape estreito.
+- A fase visual e o indicador ao vivo respeitam pausa, substituição, tática e momento aberto; o botão de confirmar recebe foco no apito final.
+- A linha do tempo identifica gols, cartões amarelos, lesões, substituições e momentos. xG é apresentado com formatação pt-BR.
+- Os cards de titulares e reservas mostram cansaço/fôlego no fluxo de substituição, e o texto de retorno B descreve que a janela fecha.
+- O campinho 2D permanece explicitamente ilustrativo. Engine, resultados, velocidade de tick, limites de substituição, áudio e vibrações existentes não foram alterados.

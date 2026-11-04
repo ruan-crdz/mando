@@ -341,7 +341,7 @@ export function applyPress(
     living: { ...career.living, media, ...(headline ? { headline } : {}) },
     messages: [
       {
-        id: `msg-${hash(`${career.id}:${session.fixtureId}:press`)}`,
+        id: `msg-${hash(`${career.id}:${session.fixtureId}:${session.mode || 'post'}:press`)}`,
         date: career.date,
         from: 'Imprensa',
         title,

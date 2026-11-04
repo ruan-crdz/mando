@@ -211,3 +211,10 @@ Cada pergunta mostra repórter + veículo + texto, é **lida em voz alta** (TTS 
 8. No pré-jogo, ao terminar a coletiva o usuário não volta ao Dia de jogo — fluxo quebrado (ver doc 16).
 9. Toast só aparece ao concluir; ao pular nada é dito, mesmo quando respostas parciais foram aplicadas.
 10. Notícia no Escritório usa id fixo por partida — fazer a coletiva pré-jogo e pós-jogo da mesma partida gera ids diferentes? (pré usa `fixture.id`, pós usa `match.fixtureId` = mesmo valor) → **a mensagem pós-jogo pode colidir com a do pré-jogo** (mesma id). O redesign não deve depender de ambas aparecerem.
+
+## Entrega do Ato 7
+
+- A sala ganhou cenário original MANDO em grafite/petróleo, identificação visual por iniciais do repórter e destaque com foto/posição do atleta citado quando houver.
+- O progresso informa “Pergunta N de M”; o foco retorna à primeira resposta a cada etapa. A leitura TTS pode ser repetida pelo botão “Ouvir pergunta”.
+- “Pular coletiva” e as dicas de confirmar/voltar deixam as ações explícitas para mouse, teclado e controles Xbox/PlayStation.
+- Respostas parciais continuam sendo aplicadas ao pular. Coletivas pré-jogo retornam ao Dia de jogo; mensagens de coletivas pré e pós usam identificadores distintos para a mesma partida.

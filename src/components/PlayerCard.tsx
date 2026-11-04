@@ -36,6 +36,7 @@ export function PlayerCard({
   player,
   career,
   role,
+  note,
   onClick,
   active = false,
   disabled = false,
@@ -80,6 +81,7 @@ export function PlayerCard({
       {badge && <span className="pc-badge">{badge}</span>}
       <strong className="pc-name">{shortName(player.name)}</strong>
       {status && <span className="pc-meta">{status}</span>}
+      {note && <span className="pc-meta pc-note">{note}</span>}
     </button>
   );
 }

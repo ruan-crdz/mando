@@ -3,13 +3,17 @@ import {
   ArrowLeft,
   ArrowRight,
   Award,
+  CalendarDays,
   CheckCircle2,
   Gamepad2,
+  HeartPulse,
   LoaderCircle,
   CalendarClock,
   Lock,
+  MapPin,
   Music,
   Radio,
+  ShieldAlert,
   SkipForward,
   Smartphone,
   Square,
@@ -26,6 +30,7 @@ import { z } from 'zod';
 import { GamepadProvider, useControllerActions, useGamepad } from './controller/GamepadProvider';
 import { ControllerButtonHint } from './controller/ControllerButtonHint';
 import { Badge, dateLabel, Modal, money } from './components/ui';
+import { PlayerFace } from './components/PlayerFace';
 import { MainMenu } from './screens/MainMenu';
 import { CreateManager } from './screens/CreateManager';
 import { CareerCentral } from './screens/CareerCentral';
@@ -56,7 +61,8 @@ import {
 } from './game/engine';
 import { bestLineup, beginMatch, resolveMoment, substitute } from './game/matches';
 import { careerWorld } from './game/live';
-import { nextFixture } from './game/calendar';
+import { fixtureLabel, nextFixture } from './game/calendar';
+import { clubById } from './game/npc';
 import {
   answerIncoming,
   counterIncoming,
@@ -127,6 +133,27 @@ function Game() {
     () => (world && career ? careerWorld(world, career) : world),
     [world, career],
   );
+  const matchdayFixture = career ? nextFixture(career) : null;
+  const matchdayHome = matchdayFixture && live ? clubById(live, matchdayFixture.homeId) : null;
+  const matchdayAway = matchdayFixture && live ? clubById(live, matchdayFixture.awayId) : null;
+  const matchdayLabel = matchdayFixture ? fixtureLabel(matchdayFixture) : null;
+  const matchdayLineupComplete = Boolean(
+    career &&
+      career.lineup.length === 11 &&
+      career.lineup.every((id) => {
+        const state = career.players[id];
+        if (!state || state.clubId !== career.clubId) return false;
+        return !state.injuryDays && !state.suspension;
+      }),
+  );
+  const matchdayUnavailable =
+    career && live
+      ? live.players.filter((player) => {
+          const state = career.players[player.id];
+          if (!state || state.clubId !== career.clubId) return false;
+          return state.injuryDays > 0 || state.suspension > 0;
+        })
+      : [];
   const [saves, setSaves] = useState<SavedCareer[]>([]);
   const [user, setUser] = useState<User | null>(null);
   const [tab, setTab] = useState(0);
@@ -1038,6 +1065,7 @@ function Game() {
       {press && career && live && (
         <PressConference
           session={press}
+          world={live}
           step={pressStep}
           answers={pressAnswers}
           onAnswer={(questionId, index) => {
@@ -1049,14 +1077,23 @@ function Game() {
               stopVoice();
               act(() => setCareer(applyPress(career, live, press, answers)));
               setPress(null);
-              setNotice('Coletiva encerrada. A repercussão está no Escritório.');
+              if (press.mode === 'pre') setPopup('prematch');
+              else setNotice('Coletiva encerrada. A repercussão está no Escritório.');
             }
           }}
           onSkip={() => {
             stopVoice();
-            if (Object.keys(pressAnswers).length)
+            const answered = Object.keys(pressAnswers).length > 0;
+            if (answered)
               act(() => setCareer(applyPress(career, live, press, pressAnswers)));
             setPress(null);
+            if (press.mode === 'pre') setPopup('prematch');
+            else
+              setNotice(
+                answered
+                  ? 'Coletiva encerrada. A repercussão está no Escritório.'
+                  : 'Coletiva encerrada sem respostas.',
+              );
           }}
         />
       )}
@@ -1149,19 +1186,106 @@ function Game() {
         </Modal>
       )}
       {popup === 'prematch' && career && world && (
-        <Modal title="Dia de jogo" onClose={() => setPopup(null)}>
-          <div className="prematch-info">
-            <p className="eyebrow">{dateLabel(career.date, true)}</p>
-            <h2>
-              {career.tactic.formation} · {career.tactic.mentality}
-            </h2>
-            <p>Confira lesões, suspensões e condição física antes de entrar em campo.</p>
-            {(() => {
-              const f = nextFixture(career);
-              return f ? <MatchOdds career={career} world={live!} fixture={f} /> : null;
-            })()}
+        <Modal
+          title="Dia de jogo"
+          onClose={() => setPopup(null)}
+          className="prematch-modal"
+          wide
+        >
+          <div className="matchday-overview">
+            <div className="matchday-kicker">
+              <p className="eyebrow">
+                <CalendarDays size={15} /> {dateLabel(career.date, true)}
+              </p>
+              {matchdayLabel && (
+                <span>
+                  {matchdayLabel.name} · {matchdayLabel.stage}
+                </span>
+              )}
+            </div>
+            {matchdayFixture && matchdayHome && matchdayAway ? (
+              <section
+                className="matchday-fixture"
+                aria-label={`${matchdayHome.name} contra ${matchdayAway.name}`}
+              >
+                <div className="matchday-team home">
+                  <Badge club={matchdayHome} size="large" />
+                  <div>
+                    <small>{matchdayFixture.homeId === career.clubId ? 'MANDANTE' : 'VISITANTE'}</small>
+                    <strong>{matchdayHome.name}</strong>
+                  </div>
+                </div>
+                <div className="matchday-versus">
+                  <span>VS</span>
+                  <small>{matchdayLabel?.stage}</small>
+                </div>
+                <div className="matchday-team away">
+                  <div>
+                    <small>{matchdayFixture.awayId === career.clubId ? 'MANDANTE' : 'VISITANTE'}</small>
+                    <strong>{matchdayAway.name}</strong>
+                  </div>
+                  <Badge club={matchdayAway} size="large" />
+                </div>
+                <p className="matchday-venue">
+                  <MapPin size={15} /> {matchdayHome.stadium}
+                </p>
+              </section>
+            ) : (
+              <p className="muted">Não há partida disponível para exibir agora.</p>
+            )}
+            <div className="matchday-details">
+              <div className="matchday-plan">
+                <span>PLANO DE JOGO</span>
+                <strong>{career.tactic.formation}</strong>
+                <small>{career.tactic.mentality}</small>
+              </div>
+              <section className="matchday-absences" aria-label="Desfalques do elenco">
+                <h3>
+                  <ShieldAlert size={16} /> Desfalques confirmados
+                </h3>
+                {matchdayUnavailable.length ? (
+                  <ul>
+                    {matchdayUnavailable.slice(0, 5).map((player) => {
+                      const state = career.players[player.id];
+                      if (!state) return null;
+                      return (
+                        <li key={player.id}>
+                          <PlayerFace player={player} size="sm" />
+                          <span>
+                            <strong>{player.name}</strong>
+                            <small>
+                              {state.injuryDays
+                                ? `Lesão · ${state.injuryDays} dia${state.injuryDays === 1 ? '' : 's'}`
+                                : `Suspensão · ${state.suspension} jogo${state.suspension === 1 ? '' : 's'}`}
+                            </small>
+                          </span>
+                        </li>
+                      );
+                    })}
+                    {matchdayUnavailable.length > 5 && (
+                      <li className="matchday-more">
+                        +{matchdayUnavailable.length - 5} outros desfalques
+                      </li>
+                    )}
+                  </ul>
+                ) : (
+                  <p>
+                    <HeartPulse size={15} /> Nenhuma lesão ou suspensão registrada.
+                  </p>
+                )}
+              </section>
+            </div>
           </div>
-          <div className="button-row">
+          <div className="matchday-forecast">
+            {matchdayFixture && <MatchOdds career={career} world={live!} fixture={matchdayFixture} />}
+            {!matchdayLineupComplete && (
+              <p className="matchday-lineup-warning">
+                A previsão depende de uma escalação completa. Revise o Time para liberar as
+                probabilidades.
+              </p>
+            )}
+          </div>
+          <div className="button-row matchday-actions">
             <button
               onClick={() => {
                 const session = buildPreMatchPress(career, live!);
@@ -1184,6 +1308,7 @@ function Game() {
             </button>
             <button
               className="primary"
+              data-autofocus=""
               onClick={() =>
                 act(() => {
                   const fixture = nextFixture(career);
@@ -1261,49 +1386,88 @@ export default function App() {
 
 function PressConference({
   session,
+  world,
   step,
   answers,
   onAnswer,
   onSkip,
 }: {
   session: PressSession;
+  world: World;
   step: number;
   answers: Record<string, number>;
   onAnswer: (questionId: string, index: number) => void;
   onSkip: () => void;
 }) {
   const q = session.questions[step];
+  const firstAnswer = useRef<HTMLButtonElement>(null);
+  const player = q.playerId ? world.players.find((item) => item.id === q.playerId) : undefined;
+  const initials = q.reporter
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((part) => part[0])
+    .join('')
+    .toUpperCase();
+  const readQuestion = useCallback(
+    () =>
+      playVoice([
+        {
+          id: `press-${session.fixtureId}-${q.id}`,
+          title: q.reporter,
+          text: q.text,
+          voice: 'reporter',
+        },
+      ]),
+    [session.fixtureId, q],
+  );
   useEffect(() => {
-    playVoice([
-      {
-        id: `press-${session.fixtureId}-${q.id}`,
-        title: q.reporter,
-        text: q.text,
-        voice: 'reporter',
-      },
-    ]);
-  }, [session.fixtureId, q]);
+    firstAnswer.current?.focus();
+    readQuestion();
+  }, [readQuestion]);
   return (
-    <Modal title="Sala de imprensa" onClose={onSkip} wide>
+    <Modal title="Sala de imprensa" onClose={onSkip} className="press-modal" wide>
       <div className="press-room">
         <p className="eyebrow">{session.headline}</p>
         <div
           className="press-progress"
+          role="group"
           aria-label={`Pergunta ${step + 1} de ${session.questions.length}`}
         >
           {session.questions.map((item, i) => (
-            <i key={item.id} className={i < step ? 'done' : i === step ? 'active' : ''} />
+            <i
+              key={item.id}
+              className={i < step ? 'done' : i === step ? 'active' : ''}
+              aria-current={i === step ? 'step' : undefined}
+            />
           ))}
+          <strong>
+            Pergunta {step + 1} <span>de {session.questions.length}</span>
+          </strong>
         </div>
-        <div className="press-question">
-          <span className="press-mic" aria-hidden="true">
-            🎙
-          </span>
-          <div>
-            <strong>{q.reporter}</strong>
-            <small>{q.outlet}</small>
-            <p>{q.text}</p>
+        <div className="press-stage">
+          <div className="press-question">
+            <span className="press-reporter-mark" aria-hidden="true">
+              {initials}
+            </span>
+            <div className="press-question-copy">
+              <strong>{q.reporter}</strong>
+              <small>{q.outlet}</small>
+              <p>{q.text}</p>
+              <button type="button" className="press-replay" onClick={readQuestion}>
+                <Volume2 size={15} /> Ouvir pergunta
+              </button>
+            </div>
           </div>
+          {player && (
+            <aside className="press-athlete-card" aria-label={`Atleta citado: ${player.name}`}>
+              <PlayerFace player={player} size="md" />
+              <span>
+                <small>ATLETA EM FOCO</small>
+                <strong>{player.name}</strong>
+                <em>{player.position}</em>
+              </span>
+            </aside>
+          )}
         </div>
         <div className="press-answers">
           {q.answers.map((a, i) => (
@@ -1311,6 +1475,7 @@ function PressConference({
               key={`${q.id}-${i}`}
               className={`press-answer${answers[q.id] === i ? ' active' : ''}`}
               data-autofocus={i === 0 || undefined}
+              ref={i === 0 ? firstAnswer : undefined}
               onClick={() => onAnswer(q.id, i)}
             >
               <b>{a.tone}</b>
@@ -1318,9 +1483,18 @@ function PressConference({
             </button>
           ))}
         </div>
-        <p className="muted small">
-          Suas respostas mexem com a confiança da diretoria e o moral do elenco.
-        </p>
+        <div className="press-footer">
+          <p className="muted small">
+            Suas respostas influenciam a diretoria, o elenco e a repercussão na imprensa.
+          </p>
+          <div className="press-controller-hints">
+            <ControllerButtonHint action="confirm" label="Responder" />
+            <ControllerButtonHint action="back" label="Pular" />
+          </div>
+          <button type="button" className="press-skip" onClick={onSkip}>
+            <SkipForward size={15} /> Pular coletiva
+          </button>
+        </div>
       </div>
     </Modal>
   );

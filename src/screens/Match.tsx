@@ -40,6 +40,10 @@ import { useGamepad } from '../controller/GamepadProvider';
 import { crowdChance, crowdGoal, crowdWhistle } from '../audio/crowd';
 
 const fits = (p: Player, role: string) => (roleFits[role] || [role]).includes(p.position);
+const matchNumber = new Intl.NumberFormat('pt-BR', {
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
 
 export function MatchScreen({
   career: c,
@@ -68,6 +72,7 @@ export function MatchScreen({
   const [incoming, setIn] = useState('');
   const { rumble } = useGamepad();
   const latest = useRef(c);
+  const finishButton = useRef<HTMLButtonElement>(null);
   latest.current = c;
   const match = c.activeMatch!;
   const moment = match.moments?.find((m) => m.status === 'open');
@@ -123,9 +128,18 @@ export function MatchScreen({
       ? 'FIM DE JOGO'
       : match.minute === 45
         ? 'INTERVALO'
-        : playing
+        : playing && !sub && !tactic && !paused && !momentKey
           ? 'AO VIVO'
           : 'PAUSADO';
+  const isLive = playing && !sub && !tactic && !paused && !momentKey && match.minute < 90;
+  const timelineEvents = match.events.filter((event) =>
+    ['goal', 'yellow', 'injury', 'sub', 'moment'].includes(event.type),
+  );
+  useEffect(() => {
+    if (match.minute !== 90) return;
+    setPlaying(false);
+    requestAnimationFrame(() => finishButton.current?.focus());
+  }, [match.minute]);
   useEffect(() => {
     const before = scoreRef.current;
     const ownHome = fixture.homeId === c.clubId;
@@ -173,14 +187,19 @@ export function MatchScreen({
         </span>
         <span>{home.stadium}</span>
       </div>
-      <section className="scoreboard">
+      <section
+        className="scoreboard"
+        style={{
+          background: `linear-gradient(90deg, ${home.color}, rgba(8, 12, 24, 0.96) 36%, rgba(8, 12, 24, 0.96) 64%, ${away.color})`,
+        }}
+      >
         <div>
           <Badge club={home} size="large" />
           <h2>{home.name}</h2>
         </div>
         <div className="score-center">
           <p className="eyebrow">
-            <span className={`live-dot ${playing ? '' : 'paused'}`} /> {phase}
+            <span className={`live-dot ${isLive ? '' : 'paused'}`} /> {phase}
           </p>
           <strong>
             {match.homeGoals}
@@ -199,7 +218,7 @@ export function MatchScreen({
           <LivePitch
             home={teamFor(fixture.homeId, match.homeLineup, home.color)}
             away={teamFor(fixture.awayId, match.awayLineup, away.color)}
-            playing={playing && !sub && !tactic && !paused && !momentKey && match.minute < 90}
+            playing={isLive}
             speed={speed}
             homePossession={match.home.possession || 50}
             goal={lastGoal}
@@ -207,17 +226,25 @@ export function MatchScreen({
           <div className="match-timeline">
             <div className="timeline-track">
               <i style={{ width: `${(match.minute / 90) * 100}%` }} />
-              {match.events
-                .filter((e) => e.type === 'goal')
-                .map((e, i) => (
-                  <span
-                    key={i}
-                    style={{ left: `${(e.minute / 90) * 100}%` }}
-                    title={`${e.minute}' ${e.text}`}
-                  >
-                    ●
-                  </span>
-                ))}
+              {timelineEvents.map((e, i) => (
+                <span
+                  key={i}
+                  className={`timeline-marker type-${e.type}`}
+                  style={{ left: `${(e.minute / 90) * 100}%` }}
+                  title={`${e.minute}' ${e.text}`}
+                  aria-label={`${e.minute} minutos: ${e.text}`}
+                >
+                  {e.type === 'goal'
+                    ? '⚽'
+                    : e.type === 'yellow'
+                      ? '▰'
+                      : e.type === 'injury'
+                        ? '+'
+                        : e.type === 'sub'
+                          ? '↔'
+                          : '•'}
+                </span>
+              ))}
             </div>
             <span>0'</span>
             <span>45'</span>
@@ -262,7 +289,12 @@ export function MatchScreen({
             </button>
           </div>
           {match.minute === 90 && (
-            <button className="primary finish-match" onClick={onFinish}>
+            <button
+              ref={finishButton}
+              className="primary finish-match"
+              data-autofocus=""
+              onClick={onFinish}
+            >
               <Check size={18} /> Confirmar resultado e voltar à central
             </button>
           )}
@@ -281,12 +313,12 @@ export function MatchScreen({
           ).map(([key, label, suffix]) => (
             <div className="match-stat" key={key}>
               <span>
-                {match.home[key]}
+                {key === 'xg' ? matchNumber.format(match.home[key]) : match.home[key]}
                 {suffix}
               </span>
               <span>{label}</span>
               <strong>
-                {match.away[key]}
+                {key === 'xg' ? matchNumber.format(match.away[key]) : match.away[key]}
                 {suffix}
               </strong>
               <meter min={0} max={match.home[key] + match.away[key] || 1} value={match.home[key]} />
@@ -403,11 +435,12 @@ export function MatchScreen({
             setOut('');
             setIn('');
           }}
+          className="match-subs-modal"
           wide
         >
           <p className="muted">
             {match.usedSubs} de 5 substituições utilizadas ·{' '}
-            {outgoing ? 'Escolha o reserva. B volta.' : 'Escolha o titular que deixa o campo.'}
+            {outgoing ? 'Escolha o reserva. B fecha esta janela.' : 'Escolha o titular que deixa o campo.'}
           </p>
           {!outgoing ? (
             <div className="card-scroll">
@@ -422,6 +455,7 @@ export function MatchScreen({
                       role={formations[c.tactic.formation][i]}
                       number={ownNumbers[id]}
                       note={`Cansaço ${Math.round(match.energySpent[id] || 0)}`}
+                      accessibilityNote={`Cansaço ${Math.round(match.energySpent[id] || 0)}`}
                       autoFocus={i === 0}
                       onClick={() => {
                         if (!incoming) return setOut(id);
@@ -458,6 +492,8 @@ export function MatchScreen({
                   career={c}
                   role={outgoingRole}
                   number={ownNumbers[p.id]}
+                  note={`Fôlego ${Math.max(0, Math.round((c.players[p.id]?.fitness || 0) - (match.energySpent[p.id] || 0)))}%`}
+                  accessibilityNote={`Fôlego ${Math.max(0, Math.round((c.players[p.id]?.fitness || 0) - (match.energySpent[p.id] || 0)))}%`}
                   disabled={match.usedSubs >= 5}
                   onClick={() => {
                     onSubstitute(outgoing, p.id);
@@ -489,7 +525,12 @@ export function MatchScreen({
         />
       )}
       {tactic && (
-        <Modal title="Ajustar o plano de jogo" onClose={() => setTactic(false)} wide>
+        <Modal
+          title="Ajustar o plano de jogo"
+          onClose={() => setTactic(false)}
+          className="match-tactic-modal"
+          wide
+        >
           <p className="muted">As mudanças afetam os próximos minutos. O jogo permanece pausado.</p>
           <div className="match-tactic">
             <div>
@@ -677,6 +718,7 @@ function MomentDialog({
       onClose={() =>
         onAction(moment.kind === 'injury' || moment.kind === 'tired' ? 'insist' : 'ignore')
       }
+      className="match-moment-modal"
       wide
     >
       <div className={`moment-dialog tone-${meta.tone}`}>

@@ -145,3 +145,10 @@ Modal curto exibido quando há partida do clube do usuário **na data atual**. �
 6. Formação/mentalidade só como texto; poderia mostrar um mini-campinho com a escalação e permitir trocar formação rápido.
 7. Preferência do usuário: popups sem X / que se resolvam sozinhos — aqui o modal depende de `‹ Voltar`; manter B como fechamento e considerar visual de "tela cheia" de pré-jogo em vez de modal pequeno de 600px.
 8. Sem som/ambiente de entrada (hino, torcida chegando) — oportunidade de ambientação FIFA.
+
+## Entrega do Ato 7
+
+- O Dia de jogo apresenta mandante e visitante com escudos, competição/etapa, estádio, data, plano tático e desfalques reais por lesão ou suspensão.
+- O painel continua exibindo a previsão e as condições da engine; se a escalação não tiver onze titulares válidos, explica por que as probabilidades não aparecem.
+- `Começar partida` recebe o foco inicial. Após responder ou pular a coletiva pré-jogo, o fluxo retorna a este Dia de jogo para revisar o time ou iniciar a partida.
+- Revisar escalação, revalidar a data, vibração ao iniciar e fechamento pelo botão B continuam preservados.
