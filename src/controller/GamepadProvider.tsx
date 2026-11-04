@@ -281,6 +281,14 @@ export function GamepadProvider({ children }: { children: ReactNode }) {
     };
     const activate = (action: Action) => {
       if (keyboardAction(action)) return;
+      // Simulação em andamento: □, X, ○ ou START param o avanço, em qualquer tela.
+      const stopRun = document.querySelector<HTMLButtonElement>('[data-stop-run]');
+      if (stopRun && ['secondary', 'confirm', 'back', 'menu'].includes(action)) {
+        stopRun.click();
+        rumble('back');
+        beep();
+        return;
+      }
       const active = document.activeElement;
       // Controles editáveis (ex.: sliders de tática) aceitam X para editar/salvar e B para sair da edição.
       if (

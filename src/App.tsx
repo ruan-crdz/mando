@@ -396,6 +396,7 @@ function Game() {
           previousTab: () => switchTab(-1),
           nextTab: () => switchTab(1),
           secondary: () => {
+            if (running) return setRunning(false);
             if (career && screen === 'career' && !career.activeMatch && !popup && !running)
               advance();
           },
@@ -1032,8 +1033,8 @@ function Game() {
               ? ` · ${played} jogo${played > 1 ? 's' : ''} simulado${played > 1 ? 's' : ''}`
               : ''}
           </span>
-          <button className="primary" data-autofocus onClick={stopRunning}>
-            <Square size={16} /> Parar (B)
+          <button className="primary" data-autofocus data-stop-run onClick={stopRunning}>
+            <Square size={16} /> Parar
           </button>
         </div>
       )}
