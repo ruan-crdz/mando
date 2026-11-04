@@ -4,6 +4,7 @@ import { reconcileSquad, squad } from './matches';
 import { transferWindow } from './calendar';
 import { clubById, foreignClubs, isForeign } from './npc';
 import { recordMove } from './chronicle';
+import { directorEffect, staffLevel } from './staff';
 import { type Career, type NegotiationMessage, type Offer, type Player, type World } from './types';
 
 /** Finanças de um clube; estrangeiros usam um caixa temporário pela reputação (não é salvo). */
@@ -89,7 +90,8 @@ export function negotiationOutlook(
 
 const roundUp = (value: number, step: number) => Math.ceil(value / step) * step;
 const startPatience = (c: Career) =>
-  c.difficulty === 'Iniciante' ? 5 : c.difficulty === 'Profissional' ? 3 : 4;
+  (c.difficulty === 'Iniciante' ? 5 : c.difficulty === 'Profissional' ? 3 : 4) +
+  directorEffect(staffLevel(c, 'director')).patience;
 const exchangeValue = (c: Career, world: World, id?: string) => {
   const p = id && world.players.find((p) => p.id === id);
   return p ? marketValue(c, p) * 0.8 : 0;
@@ -430,7 +432,9 @@ function clubDecision(c: Career, world: World, offer: Offer) {
     });
     return;
   }
-  const midpoint = offer.minimum - (offer.minimum - amount) * 0.35;
+  const midpoint =
+    offer.minimum -
+    (offer.minimum - amount) * directorEffect(staffLevel(c, 'director')).concession;
   const ask = Math.min(offer.ask ?? Infinity, roundUp(Math.max(amount * 1.04, midpoint), 100000));
   const fee = Math.max(offer.fee + 50000, roundUp(ask - exVal, 50000));
   offer.ask = ask;

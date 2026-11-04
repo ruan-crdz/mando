@@ -24,6 +24,7 @@ import { type Career, type FacilityKind, type Living, type Message, type World }
 import { ClubPanel } from '../components/LivingPanels';
 import { FacilitiesPanel, SponsorPanel, StadiumPanel } from '../components/FinancePanels';
 import { economyOf, upkeep } from '../game/economy';
+import { staffLevel, staffName, staffPayroll, type StaffRole } from '../game/staff';
 import {
   playVoice,
   stopVoice,
@@ -73,6 +74,9 @@ export function Office({
   onDeclineJob,
   onLiving,
   onUpgradeAnalyst,
+  onHireStaff,
+  onMentor,
+  onEndMentor,
   onPrices,
   onSponsor,
   onWork,
@@ -93,6 +97,9 @@ export function Office({
   onDeclineJob: (id: string) => void;
   onLiving: (patch: Partial<Living>) => void;
   onUpgradeAnalyst: () => void;
+  onHireStaff: (role: StaffRole, level: number) => void;
+  onMentor: (mentorId: string, pupilId: string) => void;
+  onEndMentor: (pupilId: string) => void;
   onPrices: (patch: { ticket?: number; fee?: number }) => void;
   onSponsor: (index: number) => void;
   onWork: (kind: FacilityKind) => void;
@@ -100,6 +107,7 @@ export function Office({
   busy: boolean;
 }) {
   const [camera, setCamera] = useState(false);
+  const [clubStart, setClubStart] = useState<'board' | 'staff'>('board');
   const [financeView, setFinanceView] = useState<'overview' | 'stadium' | 'sponsor' | 'facilities'>(
     'overview',
   );
@@ -444,7 +452,10 @@ export function Office({
           <button
             key={id}
             className={view === id ? 'active' : ''}
-            onClick={() => setView(id)}
+            onClick={() => {
+              setClubStart('board');
+              setView(id);
+            }}
             aria-pressed={view === id}
           >
             <Icon size={16} />
@@ -900,7 +911,9 @@ export function Office({
               </p>
             </div>
             <div>
-              <span>PREPARADOR FÍSICO</span>
+              <span>
+                PREPARADOR FÍSICO · {staffName(c, 'fitness')} · NÍVEL {staffLevel(c, 'fitness')}
+              </span>
               <strong>
                 {players.filter((p) => c.players[p.id].fitness < 70).length} atletas precisam de
                 descanso
@@ -914,7 +927,9 @@ export function Office({
               </p>
             </div>
             <div>
-              <span>DEPARTAMENTO MÉDICO</span>
+              <span>
+                DEPARTAMENTO MÉDICO · {staffName(c, 'medical')} · NÍVEL {staffLevel(c, 'medical')}
+              </span>
               <strong>
                 {players.filter((p) => c.players[p.id].injuryDays > 0).length} atletas em
                 recuperação
@@ -925,6 +940,25 @@ export function Office({
                   .map((p) => `${p.name}: ${c.players[p.id].injuryDays} dias`)
                   .join(' · ') || 'Todos os atletas estão liberados clinicamente.'}
               </p>
+            </div>
+            <div>
+              <span>COMISSÃO COMPLETA</span>
+              <strong>
+                Goleiros {staffLevel(c, 'goalkeeping')} · Diretor {staffLevel(c, 'director')} ·
+                Base {staffLevel(c, 'youth')} · Analista {c.living.analyst}
+              </strong>
+              <p>
+                Folha da comissão: {money(staffPayroll(c))}/mês. Contrate e troque profissionais em
+                Clube vivo → Comissão.
+              </p>
+              <button
+                onClick={() => {
+                  setClubStart('staff');
+                  setView('club');
+                }}
+              >
+                Abrir Comissão <ChevronRight size={14} />
+              </button>
             </div>
             <div>
               <span>SCOUT</span>
@@ -944,6 +978,11 @@ export function Office({
           world={world}
           onUpdate={onLiving}
           onUpgradeAnalyst={onUpgradeAnalyst}
+          onHireStaff={onHireStaff}
+          onMentor={onMentor}
+          onEndMentor={onEndMentor}
+          onOpenScouts={() => setView('scouts')}
+          initialView={clubStart}
         />
       )}
     </div>

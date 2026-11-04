@@ -11,6 +11,15 @@ import { livingAfterMatch, livingDay, livingSeasonEnd } from './living';
 import { regionOf, rivalry } from './context';
 import { remember } from './chronicle';
 import {
+  fitnessEffect,
+  goalkeepingEffect,
+  medicalEffect,
+  staffLevel,
+  staffPayroll,
+  youthCoachEffect,
+} from './staff';
+import { lockerFallout, mentorGrowth, mentorOf } from './dressing';
+import {
   economyDay,
   economyMonth,
   economySeasonEnd,
@@ -347,7 +356,11 @@ function applyMatch(c: Career, world: World, result: Match) {
       if (s.clubId === c.clubId)
         s.injuryDays = Math.max(
           1,
-          Math.round(s.injuryDays * (1 - trainingEffect(trainingLevel(c)).injury)),
+          Math.round(
+            s.injuryDays *
+              (1 - trainingEffect(trainingLevel(c)).injury) *
+              (1 - medicalEffect(staffLevel(c, 'medical')).days),
+          ),
         );
       if (
         result.moments?.some(
@@ -848,6 +861,9 @@ export function advanceDay(career: Career, world: World): Career {
   c.date = addDays(c.date, 1);
   c.jobOffers = c.jobOffers.filter((offer) => c.sacked || offer.expires >= c.date);
   const ct = trainingEffect(trainingLevel(c));
+  const physio = fitnessEffect(staffLevel(c, 'fitness'));
+  const medical = medicalEffect(staffLevel(c, 'medical'));
+  const keeperCoach = goalkeepingEffect(staffLevel(c, 'goalkeeping'));
   for (const player of live.players) {
     const s = c.players[player.id];
     if (!s || s.retired) continue;
@@ -865,8 +881,25 @@ export function advanceDay(career: Career, world: World): Career {
           playerId: player.id,
         });
     }
+    const own = s.clubId === c.clubId;
+    const returning = s.injuryDays === 1;
     s.injuryDays = Math.max(0, s.injuryDays - 1);
-    s.fitness = clamp(s.fitness + (s.injuryDays ? 1 : 4));
+    // Recaída ao voltar de lesão: o departamento médico reduz o risco.
+    if (
+      own &&
+      returning &&
+      (hash(`${c.seed}:${c.date}:${player.id}:recaida`) % 1000) / 1000 < medical.relapse
+    ) {
+      s.injuryDays = 3 + (hash(`${player.id}:${c.date}:recaida`) % 5);
+      message(c, {
+        kind: 'staff',
+        from: 'Departamento médico',
+        title: `Recaída de ${player.name}`,
+        body: `${player.name} sentiu de novo no retorno aos treinos e ficará mais ${s.injuryDays} dias fora. Um departamento médico melhor reduz esse risco.`,
+        playerId: player.id,
+      });
+    }
+    s.fitness = clamp(s.fitness + (s.injuryDays ? 1 : 4) + (own ? physio.recovery : 0));
     s.sharpness = clamp(s.sharpness - (s.clubId === c.clubId ? ct.decay : 0.15));
     if (s.training && s.clubId === c.clubId) trainPosition(c, player, s);
     if (s.clubId && ageAt(player.birthDate, c.date) <= 27 && s.injuryDays === 0 && rng() < 0.035) {
@@ -898,7 +931,11 @@ export function advanceDay(career: Career, world: World): Career {
               (s.morale / 100) *
               personalityBoost *
               planBoost *
-              (s.clubId === c.clubId ? 1 + ct.growth : 1),
+              (s.clubId === c.clubId ? 1 + ct.growth : 1) *
+              (own && player.position === 'GK' ? 1 + keeperCoach.growth : 1) *
+              (own && mentorOf(c, player.id)
+                ? mentorGrowth(c.players[mentorOf(c, player.id)!.mentor])
+                : 1),
         );
     }
     if (s.promiseUntil && s.promiseUntil < c.date) {
@@ -911,6 +948,7 @@ export function advanceDay(career: Career, world: World): Career {
           body: 'Eu aceitei ficar porque você prometeu minutos. Ainda espero uma oportunidade real.',
           playerId: player.id,
         });
+        if (own) lockerFallout(c, live, player.id);
       }
       delete s.promiseUntil;
     }
@@ -962,7 +1000,10 @@ export function advanceDay(career: Career, world: World): Career {
     if (s.clubId === c.clubId && rng() < 0.00045) {
       const event = hash(`${c.seed}:${c.date}:${player.id}:event`) % 3;
       if (event === 0 && s.fitness > 45) {
-        s.injuryDays = 2 + (hash(`${player.id}:${c.date}:injury`) % 10);
+        s.injuryDays = Math.max(
+          1,
+          Math.round((2 + (hash(`${player.id}:${c.date}:injury`) % 10)) * (1 - medical.days)),
+        );
         s.fitness = clamp(s.fitness - 8);
         message(c, {
           kind: 'player',
@@ -1042,7 +1083,7 @@ export function advanceDay(career: Career, world: World): Career {
         ? Math.round(own.tv * factor) + own.sponsor + own.membership
         : Math.round(club.reputation * 140000 * factor);
       const expense =
-        wage + club.reputation * 30000 + f.debt * 0.002 + (own ? own.upkeep : 0);
+        wage + club.reputation * 30000 + f.debt * 0.002 + (own ? own.upkeep + staffPayroll(c) : 0);
       f.cash += income - expense;
       f.history.push({ date: c.date, income, expenses: expense, balance: f.cash });
       f.transferBudget = Math.max(0, Math.min(f.transferBudget, f.cash));
@@ -1051,7 +1092,7 @@ export function advanceDay(career: Career, world: World): Career {
       from: 'Departamento financeiro',
       kind: 'finance',
       title: 'Fechamento mensal disponível',
-      body: 'Receitas de patrocínio, salários, operação e juros foram contabilizados. Acompanhe os gráficos no escritório.',
+      body: 'Receitas de patrocínio, salários (elenco e comissão técnica), operação e juros foram contabilizados. Acompanhe os gráficos no escritório.',
     });
   }
   livingDay(c, live);
@@ -1382,10 +1423,13 @@ export function startNextSeason(career: Career, world: World): Career {
   // Categorias de base: três atletas por clube principal.
   const revealed: Player[] = [];
   const baseBonus = youthBonus(youthLevel(c));
+  const coordinator = youthCoachEffect(staffLevel(c, 'youth'));
   for (const club of live.clubs) {
-    for (let i = 0; i < 3; i++) {
+    const count = club.id === c.clubId ? 3 + coordinator.extra : 3;
+    for (let i = 0; i < count; i++) {
       const p = youthPlayer(c, club.id, club.reputation, i, undefined, club.state);
-      if (club.id === c.clubId) p.potential = Math.min(94, p.potential + baseBonus);
+      if (club.id === c.clubId)
+        p.potential = Math.min(94, p.potential + baseBonus + coordinator.potential);
       c.youth.push(p);
       c.players[p.id] = freshState(p);
       if (club.id === c.clubId) revealed.push(p);
@@ -1426,7 +1470,7 @@ export function startNextSeason(career: Career, world: World): Career {
       youthPlayer(c, c.clubId, 60, 10 + i, i < needGk ? 'GK' : undefined),
     );
     for (const p of extra) {
-      p.potential = Math.min(94, p.potential + baseBonus);
+      p.potential = Math.min(94, p.potential + baseBonus + coordinator.potential);
       c.youth.push(p);
       c.players[p.id] = freshState(p);
     }

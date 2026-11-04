@@ -467,6 +467,100 @@
   margin: 14px 0 4px;
 }
 
+/* Fase 2: comissão técnica, hierarquia do vestiário e mentoria. */
+.office-screen .club-living > .club-grid {
+  overflow-y: auto;
+}
+
+.office-screen .staff-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-content: start;
+}
+
+.office-screen .staff-summary {
+  grid-column: 1 / -1;
+}
+
+.office-screen .staff-card {
+  display: grid;
+  align-content: start;
+  gap: 6px;
+}
+
+.office-screen .staff-role {
+  color: var(--mando-cyan);
+  font: 700 10px var(--display);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.office-screen .staff-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.office-screen .staff-step {
+  margin: 4px 0 0;
+  color: var(--mando-text-muted);
+  font: 700 10px var(--display);
+  letter-spacing: 0.08em;
+}
+
+.office-screen .staff-step.next {
+  color: var(--mando-cyan);
+}
+
+.office-screen .locker-grid {
+  align-content: start;
+}
+
+.office-screen .locker-tier {
+  margin-bottom: 8px;
+  padding-left: 8px;
+  border-left: 3px solid var(--mando-border);
+}
+
+.office-screen .locker-tier.tier-lead {
+  border-left-color: var(--mando-cyan);
+}
+
+.office-screen .locker-tier.tier-influent {
+  border-left-color: var(--mando-violet);
+}
+
+.office-screen .locker-tier.tier-fringe {
+  opacity: 0.8;
+}
+
+.office-screen .locker-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 2px 0;
+  font-size: 13px;
+}
+
+.office-screen .mentor-pair {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--mando-border);
+}
+
+.squad-screen .mentor-box,
+.mentor-box {
+  display: grid;
+  gap: 6px;
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid var(--mando-border);
+}
+
 .office-screen .club-axis {
   display: grid;
   gap: 1px;
@@ -1119,6 +1213,7 @@
   .office-screen .staff-layout,
   .office-screen .scout-layout,
   .office-screen .club-grid,
+  .office-screen .staff-grid,
   .season-screen .season-layout,
   .season-screen .calendar-layout {
     grid-template-columns: minmax(0, 1fr);

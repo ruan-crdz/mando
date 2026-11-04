@@ -4,6 +4,29 @@ import { useStickX } from '../controller/GamepadProvider';
 import { ControllerButtonHint } from '../controller/ControllerButtonHint';
 import { clubById, findPlayer } from '../game/npc';
 import { analystCost } from '../game/living';
+import {
+  staffEffectText,
+  staffHireCost,
+  staffLevel,
+  staffName,
+  staffPayroll,
+  staffRoles,
+  staffTitles,
+  staffWage,
+  type StaffRole,
+} from '../game/staff';
+import {
+  MENTOR_MIN_AGE,
+  MENTOR_SLOTS,
+  PUPIL_MAX_AGE,
+  cliques,
+  hierarchy,
+  inheritChance,
+  mentorGrowth,
+  mentorSuggestions,
+  tiers,
+  type Tier,
+} from '../game/dressing';
 import { winProbability } from '../game/tactics';
 import { dateLabel, money } from './ui';
 import { nextFixture } from '../game/calendar';
@@ -186,20 +209,45 @@ const boardAxes = [
 const mood = (v: number) =>
   v >= 80 ? 'Em festa' : v >= 60 ? 'Confiante' : v >= 40 ? 'Desconfiada' : v >= 25 ? 'Irritada' : 'Em protesto';
 
-type ClubView = 'board' | 'preparation' | 'analyst' | 'locker' | 'rivals';
+type ClubView = 'board' | 'preparation' | 'staff' | 'analyst' | 'locker' | 'rivals';
+
+const Pips = ({ level }: { level: number }) => (
+  <span className="scout-pips" aria-label={`Nível ${level} de 5`}>
+    {[1, 2, 3, 4, 5].map((n) => (
+      <i key={n} className={n <= level ? 'on' : ''} />
+    ))}
+  </span>
+);
+
+const tierInfo: Record<Tier, string> = {
+  Líderes: 'Ditam o clima. Felizes, levantam o grupo; contrariados, levam a turma junto.',
+  Influentes: 'Têm voz no vestiário e puxam a opinião dos mais novos.',
+  Elenco: 'Seguem as lideranças.',
+  Periféricos: 'Pouco espaço e pouca voz. Somem do grupo se ficarem esquecidos.',
+};
 
 export function ClubPanel({
   career,
   world,
   onUpdate,
   onUpgradeAnalyst,
+  onHireStaff,
+  onMentor,
+  onEndMentor,
+  onOpenScouts,
+  initialView,
 }: {
   career: Career;
   world: World;
   onUpdate: (patch: Partial<Living>) => void;
   onUpgradeAnalyst: () => void;
+  onHireStaff: (role: StaffRole, level: number) => void;
+  onMentor: (mentorId: string, pupilId: string) => void;
+  onEndMentor: (pupilId: string) => void;
+  onOpenScouts?: () => void;
+  initialView?: ClubView;
 }) {
-  const [view, setView] = useState<ClubView>('board');
+  const [view, setView] = useState<ClubView>(initialView ?? 'board');
   const l = career.living;
   const league = world.clubs.find((x) => x.id === career.clubId)?.league;
   const rivals = Object.entries(l.coaches)
@@ -217,9 +265,23 @@ export function ClubPanel({
     ? clubName(world, next.homeId === career.clubId ? next.awayId : next.homeId)
     : null;
   const nextCost = l.analyst < 5 ? analystCost(l.analyst + 1) : 0;
+  const staffAvg =
+    Math.round(
+      ([...staffRoles.map((r) => staffLevel(career, r)), l.analyst].reduce((n, v) => n + v, 0) /
+        (staffRoles.length + 1)) *
+        10,
+    ) / 10;
+  const payroll = staffPayroll(career);
+  const ranks = view === 'locker' ? hierarchy(career, world) : [];
+  const groups = view === 'locker' ? cliques(career, world) : [];
+  const suggestions =
+    view === 'locker' && l.mentors.length < MENTOR_SLOTS
+      ? mentorSuggestions(career, world, MENTOR_SLOTS - l.mentors.length)
+      : [];
   const tabs: [ClubView, string][] = [
     ['board', 'Diretoria'],
     ['preparation', 'Preparação'],
+    ['staff', 'Comissão'],
     ['analyst', 'Analista'],
     ['locker', 'Vestiário e imprensa'],
     ['rivals', 'Técnicos rivais'],
@@ -242,11 +304,11 @@ export function ClubPanel({
           <strong>{l.training}</strong>
           <small>{l.marking ? 'Marcação individual ligada' : 'Sem marcação individual'}</small>
         </button>
-        <button className="club-kpi" onClick={() => setView('analyst')}>
-          <span>Analista</span>
-          <strong>Nível {l.analyst}/5</strong>
+        <button className="club-kpi" onClick={() => setView('staff')}>
+          <span>Comissão técnica</span>
+          <strong>Média {String(staffAvg).replace('.', ',')}/5</strong>
           <small>
-            {analystLevels[l.analyst - 1].odds ? 'Com previsão de resultado' : 'Sem previsão de resultado'}
+            Analista {l.analyst}/5 · folha {money(payroll)}/mês
           </small>
         </button>
       </div>
@@ -363,6 +425,129 @@ export function ClubPanel({
         </div>
       )}
 
+      {view === 'staff' && (
+        <div className="club-grid staff-grid">
+          <section className="panel staff-summary">
+            <h2>Comissão técnica</h2>
+            <p className="muted">
+              Cada profissional tem nível de 1 a 5. Subir de nível troca o profissional por um
+              melhor: pagamento único na contratação e salário mensal debitado no fechamento do mês.
+              Rebaixar é grátis e alivia a folha.
+            </p>
+            <p>
+              Folha da comissão: <strong>{money(payroll)}/mês</strong> · Caixa:{' '}
+              <strong>{money(cash)}</strong>
+            </p>
+          </section>
+          {staffRoles.map((role) => {
+            const level = staffLevel(career, role);
+            const hire = level < 5 ? staffHireCost(level + 1) : 0;
+            return (
+              <section key={role} className="panel staff-card" aria-label={staffTitles[role]}>
+                <span className="staff-role">{staffTitles[role]}</span>
+                <div className="staff-head">
+                  <strong>{staffName(career, role)}</strong>
+                  <Pips level={level} />
+                </div>
+                <p className="staff-step">AGORA · NÍVEL {level}</p>
+                <ul className="club-rules">
+                  {staffEffectText(role, level).map((t) => (
+                    <li key={t} className="good">
+                      {t}
+                    </li>
+                  ))}
+                </ul>
+                {level < 5 ? (
+                  <>
+                    <p className="staff-step next">NÍVEL {level + 1}</p>
+                    <ul className="club-rules">
+                      {staffEffectText(role, level + 1).map((t) => (
+                        <li key={t}>{t}</li>
+                      ))}
+                    </ul>
+                  </>
+                ) : (
+                  <p className="muted small">O melhor profissional do mercado já está no cargo.</p>
+                )}
+                <small className="muted">
+                  Salário {money(staffWage(level))}/mês
+                  {level < 5 ? ` · nível ${level + 1}: ${money(staffWage(level + 1))}/mês` : ''}
+                </small>
+                <div className="button-row">
+                  {level < 5 && (
+                    <button
+                      className="primary"
+                      disabled={cash < hire}
+                      title={cash < hire ? 'Caixa insuficiente' : undefined}
+                      onClick={() => onHireStaff(role, level + 1)}
+                    >
+                      Contratar nível {level + 1} · {money(hire)}
+                    </button>
+                  )}
+                  {level > 1 && (
+                    <button onClick={() => onHireStaff(role, level - 1)}>
+                      Trocar por nível {level - 1}
+                    </button>
+                  )}
+                </div>
+              </section>
+            );
+          })}
+          <section className="panel staff-card" aria-label="Analista de desempenho">
+            <span className="staff-role">Analista de desempenho</span>
+            <div className="staff-head">
+              <strong>Nível {l.analyst}</strong>
+              <Pips level={l.analyst} />
+            </div>
+            <ul className="club-rules">
+              <li className="good">
+                Força do rival{' '}
+                {analystLevels[l.analyst - 1].error === 'exato'
+                  ? 'exata'
+                  : `com erro de ${analystLevels[l.analyst - 1].error}`}
+              </li>
+              <li className="good">
+                {analystLevels[l.analyst - 1].traits} ponto(s) fraco(s) por relatório
+              </li>
+              <li className={analystLevels[l.analyst - 1].odds ? 'good' : ''}>
+                {analystLevels[l.analyst - 1].odds
+                  ? 'Previsão de resultado ligada'
+                  : 'Previsão de resultado a partir do nível 3'}
+              </li>
+            </ul>
+            <small className="muted">Pagamento único, sem salário.</small>
+            <div className="button-row">
+              <button onClick={() => setView('analyst')}>Ver escada do analista</button>
+            </div>
+          </section>
+          <section className="panel staff-card" aria-label="Olheiros">
+            <span className="staff-role">Rede de olheiros</span>
+            <div className="staff-head">
+              <strong>{career.scouts.length}/3 olheiros</strong>
+            </div>
+            {career.scouts.length ? (
+              <ul className="club-rules">
+                {career.scouts.map((s) => (
+                  <li key={s.id}>
+                    {s.name} · {s.region} <Pips level={s.skill} />
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="muted small">Nenhum olheiro contratado.</p>
+            )}
+            <small className="muted">
+              Cada nível soma +1 de potencial e −1 de incerteza nos jovens encontrados.
+            </small>
+            {onOpenScouts && (
+              <div className="button-row">
+                <button onClick={onOpenScouts}>Gerenciar olheiros</button>
+              </div>
+            )}
+          </section>
+        </div>
+      )}
+
       {view === 'analyst' && (
         <div className="club-grid">
           <section className="panel">
@@ -429,9 +614,57 @@ export function ClubPanel({
       )}
 
       {view === 'locker' && (
-        <div className="club-grid">
+        <div className="club-grid locker-grid">
           <section className="panel">
-            <h2>Vestiário</h2>
+            <h2>Hierarquia do vestiário</h2>
+            <p className="muted small">
+              Influência por idade, tempo de clube, braçadeira, personalidade, nível e jogos.
+            </p>
+            <ul className="club-rules">
+              <li className="good">Cada líder feliz (moral 75+) dá +1 de moral ao elenco no fim do mês (máx. +3).</li>
+              <li className="bad">Líder 4+ jogos fora: −3 de moral para ele e para o grupo dele.</li>
+              <li className="bad">Promessa quebrada: −2 de moral no grupo do atleta (−4 se for líder).</li>
+            </ul>
+            {tiers.map((tier) => {
+              const rows = ranks.filter((r) => r.tier === tier);
+              if (!rows.length) return null;
+              const detailed = tier === 'Líderes' || tier === 'Influentes';
+              return (
+                <div key={tier} className={`locker-tier tier-${tier === 'Líderes' ? 'lead' : tier === 'Influentes' ? 'influent' : tier === 'Elenco' ? 'squad' : 'fringe'}`}>
+                  <h3>
+                    {tier} <small className="muted">{tierInfo[tier]}</small>
+                  </h3>
+                  {detailed ? (
+                    rows.map((r) => (
+                      <p key={r.player.id} className="locker-row">
+                        <strong>{r.player.name}</strong>
+                        <span className="muted small">{r.reasons.join(' · ') || 'respeitado pelo grupo'}</span>
+                        <em>Moral {Math.round(career.players[r.player.id].morale)}</em>
+                      </p>
+                    ))
+                  ) : (
+                    <p className="small">{rows.map((r) => r.player.name).join(' · ')}</p>
+                  )}
+                </div>
+              );
+            })}
+          </section>
+          <section className="panel">
+            <h2>Panelinhas e relações</h2>
+            {groups.length ? (
+              groups.map((g) => (
+                <p key={g.name} className="club-relation amizade">
+                  <span>{g.kind.toUpperCase()}</span>
+                  <strong>{g.name}</strong>
+                  <small className="muted">
+                    {g.ids.map((id) => playerName(career, world, id).split(' ')[0]).join(', ')}
+                  </small>
+                </p>
+              ))
+            ) : (
+              <p className="muted">Sem panelinhas marcantes no elenco.</p>
+            )}
+            <h3>Relações</h3>
             <ul className="club-rules">
               <li className="good">Amizade: +0,6% de rendimento quando os dois jogam juntos.</li>
               <li className="bad">
@@ -447,8 +680,56 @@ export function ClubPanel({
                 </p>
               ))
             ) : (
-              <p className="muted">Sem grupos marcantes no elenco.</p>
+              <p className="muted">Sem amizades ou rixas registradas.</p>
             )}
+          </section>
+          <section className="panel">
+            <h2>
+              Mentoria · {l.mentors.length}/{MENTOR_SLOTS}
+            </h2>
+            <p className="muted small">
+              Veterano ({MENTOR_MIN_AGE}+ anos) guia um jovem (até {PUPIL_MAX_AGE}). O jovem evolui
+              20% mais rápido (30% com mentor Líder, Profissional ou Disciplinado), os dois ganham +2
+              de moral por mês e o jovem pode herdar a personalidade do mentor (8% ao mês, 15% com
+              os perfis acima). Termina sozinha quando o jovem passa dos 23.
+            </p>
+            {l.mentors.map((m) => {
+              const ms = career.players[m.mentor];
+              return (
+                <div key={m.pupil} className="mentor-pair">
+                  <p>
+                    <strong>{playerName(career, world, m.mentor)}</strong> →{' '}
+                    <strong>{playerName(career, world, m.pupil)}</strong>
+                    <small className="muted">
+                      {' '}
+                      desde {dateLabel(m.since)} · +{Math.round((mentorGrowth(ms) - 1) * 100)}%
+                      evolução · {Math.round(inheritChance(ms) * 100)}% de herdar “{ms.personality}”
+                    </small>
+                  </p>
+                  <button onClick={() => onEndMentor(m.pupil)}>Encerrar</button>
+                </div>
+              );
+            })}
+            {!l.mentors.length && <p className="muted">Nenhuma dupla formada.</p>}
+            {suggestions.length > 0 && (
+              <>
+                <h3>Sugestões do auxiliar</h3>
+                {suggestions.map((s) => (
+                  <div key={s.pupil.id} className="mentor-pair">
+                    <p>
+                      {s.mentor.name}{' '}
+                      <small className="muted">({career.players[s.mentor.id].personality})</small>{' '}
+                      → {s.pupil.name}{' '}
+                      <small className="muted">({s.pupil.position})</small>
+                    </p>
+                    <button className="primary" onClick={() => onMentor(s.mentor.id, s.pupil.id)}>
+                      Formar dupla
+                    </button>
+                  </div>
+                ))}
+              </>
+            )}
+            <p className="muted small">Também dá para escolher na ficha do jogador (Time → Evolução e função).</p>
           </section>
           <section className="panel">
             <h2>Imprensa</h2>

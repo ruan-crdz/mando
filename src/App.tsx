@@ -92,6 +92,8 @@ import {
 import { startCrowd, stopCrowd } from './audio/crowd';
 import { applyPress, buildPress, buildPreMatchPress, type PressSession } from './game/press';
 import { upgradeAnalyst } from './game/living';
+import { hireStaff, staffLevel, staffName, staffTitles } from './game/staff';
+import { assignMentor, endMentorship } from './game/dressing';
 import { chooseSponsor, setPrices, startWork } from './game/economy';
 import { MatchOdds } from './components/LivingPanels';
 import { AdvanceOverlay } from './components/CareerCalendar';
@@ -660,6 +662,18 @@ function Game() {
                     })
                   }
                   onDevelopment={(id, plan) => setCareer(setDevelopmentPlan(career, id, plan))}
+                  onMentor={(mentorId, pupilId) =>
+                    act(() => {
+                      setCareer(assignMentor(career, live!, mentorId, pupilId));
+                      setNotice('Dupla de mentoria formada.');
+                    })
+                  }
+                  onEndMentor={(pupilId) =>
+                    act(() => {
+                      setCareer(endMentorship(career, pupilId));
+                      setNotice('Mentoria encerrada. A vaga está livre.');
+                    })
+                  }
                   onRole={(id, role) => setCareer(setPlayerRole(career, id, role))}
                   onSetClause={(id, amount) =>
                     act(() => {
@@ -817,6 +831,28 @@ function Game() {
                     act(() => {
                       setCareer(upgradeAnalyst(career));
                       setNotice('Novo analista de desempenho contratado.');
+                    })
+                  }
+                  onHireStaff={(role, level) =>
+                    act(() => {
+                      const up = level > staffLevel(career, role);
+                      const updated = hireStaff(career, role, level);
+                      setCareer(updated);
+                      setNotice(
+                        `${staffTitles[role]}: ${staffName(updated, role)} (nível ${level}) ${up ? 'contratado' : 'assumiu o cargo; a folha ficou mais leve'}.`,
+                      );
+                    })
+                  }
+                  onMentor={(mentorId, pupilId) =>
+                    act(() => {
+                      setCareer(assignMentor(career, live!, mentorId, pupilId));
+                      setNotice('Dupla de mentoria formada.');
+                    })
+                  }
+                  onEndMentor={(pupilId) =>
+                    act(() => {
+                      setCareer(endMentorship(career, pupilId));
+                      setNotice('Mentoria encerrada. A vaga está livre.');
                     })
                   }
                   onPrices={(patch) => act(() => setCareer(setPrices(career, live!, patch)))}

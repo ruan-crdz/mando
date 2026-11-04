@@ -473,6 +473,7 @@ export const economySchema = z.object({
     .default([]),
 });
 export type Economy = z.infer<typeof economySchema>;
+const staffLevelSchema = z.number().int().min(1).max(5).default(2);
 export const livingSchema = z.object({
   /** Técnicos dos clubes da IA. */
   coaches: z
@@ -584,6 +585,20 @@ export const livingSchema = z.object({
   /** Última vez que a diretoria deu ultimato (evita ultimatos em sequência). */
   lastUltimatum: isoDate.optional(),
   economy: economySchema.optional(),
+  /** Comissão técnica contratada (nível 1–5 de cada cargo). */
+  staff: z
+    .object({
+      fitness: staffLevelSchema,
+      medical: staffLevelSchema,
+      goalkeeping: staffLevelSchema,
+      director: staffLevelSchema,
+      youth: staffLevelSchema,
+    })
+    .prefault({}),
+  /** Duplas de mentoria: veterano → jovem. */
+  mentors: z
+    .array(z.object({ mentor: z.string(), pupil: z.string(), since: isoDate }))
+    .default([]),
 });
 export type Living = z.infer<typeof livingSchema>;
 export const careerSchema = z.object({

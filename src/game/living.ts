@@ -4,9 +4,12 @@ import { squad } from './matches';
 import { competitionName, transferWindow } from './calendar';
 import { table } from './competitions';
 import { clubById, foreignClubs, isForeign } from './npc';
-import { marketValue } from './transfers';
+import { askingPrice, marketValue } from './transfers';
 import { notify, recordMove, remember } from './chronicle';
 import { rivalry } from './context';
+import { positionNames } from './positions';
+import { directorEffect, staffLevel, staffName } from './staff';
+import { lockerMonthly } from './dressing';
 import {
   clubPhilosophies,
   coachStyles,
@@ -580,7 +583,59 @@ function monthly(c: Career, world: World) {
     });
   }
   refreshRelations(c, world);
+  lockerMonthly(c, world);
+  directorReport(c, world);
   createDemand(c, world);
+}
+
+/** Relatório mensal do diretor de futebol: alvos para a posição mais carente que cabem no orçamento. */
+function directorReport(c: Career, world: World) {
+  const fx = directorEffect(staffLevel(c, 'director'));
+  const roster = squad(c, world);
+  if (!roster.length) return;
+  const need = (Object.keys(ideal) as Position[])
+    .map((pos) => {
+      const at = roster.filter((p) => p.position === pos);
+      const best = Math.max(0, ...at.map((p) => overall(p, pos, c.players[p.id])));
+      return { pos, gap: ideal[pos]! - at.length, best };
+    })
+    .sort((a, b) => b.gap - a.gap || a.best - b.best || a.pos.localeCompare(b.pos))[0];
+  const budget = c.finances[c.clubId]?.transferBudget ?? 0;
+  const ovr = (p: Player) => overall(p, p.position, c.players[p.id]);
+  const targets = world.players
+    .filter((p) => {
+      const s = c.players[p.id];
+      return (
+        s &&
+        !s.retired &&
+        s.clubId &&
+        s.clubId !== c.clubId &&
+        !s.loanFrom &&
+        !isForeign(s.clubId) &&
+        !s.clubId.startsWith('npc-') &&
+        p.position === need.pos &&
+        ovr(p) >= need.best - 2
+      );
+    })
+    .map((p) => ({ p, price: askingPrice(c, world, p) }))
+    .filter((x) => x.price <= budget)
+    .sort((a, b) => ovr(b.p) - ovr(a.p) || a.price - b.price)
+    .slice(0, fx.targets);
+  const pos = positionNames[need.pos].toLowerCase();
+  notify(c, {
+    kind: 'market',
+    from: `${staffName(c, 'director')} · Diretor de futebol`,
+    title: 'Alvos do mês',
+    body: targets.length
+      ? `A carência maior é de ${pos}. Dentro do orçamento (${money(budget)}): ${targets
+          .map(
+            (x) =>
+              `${x.p.name} (${clubById(world, c.players[x.p.id].clubId!).name}, geral ${ovr(x.p)}, pedida ~${money(x.price)})`,
+          )
+          .join('; ')}.${transferWindow(c.date) ? '' : ' Prepare as propostas para a próxima janela.'}`
+      : `A carência maior é de ${pos}, mas nenhum nome que melhore o elenco cabe no orçamento atual (${money(budget)}).`,
+    ...(targets[0] ? { playerId: targets[0].p.id } : {}),
+  });
 }
 
 function electionDay(c: Career) {

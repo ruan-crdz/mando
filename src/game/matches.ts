@@ -15,6 +15,7 @@ import {
 } from './tactics';
 import { matchConditions } from './context';
 import { trainingEffect, trainingLevel } from './economy';
+import { fitnessEffect, goalkeepingEffect, staffLevel } from './staff';
 import { manOfTheMatch, matchRatings } from './matchRatings';
 import {
   formations,
@@ -214,9 +215,11 @@ export function stepMatch(
   const at =
     fixture.awayId === career.clubId ? career.tactic : ours ? npc : match.awayTactic || legacy;
   const cond = match.conditions;
+  const physio = fitnessEffect(staffLevel(career, 'fitness'));
+  const ownTire = 1 - physio.energy;
   for (const [ids, tactic, tire] of [
-    [match.homeLineup, ht, cond?.homeTire ?? 1],
-    [match.awayLineup, at, cond?.awayTire ?? 1],
+    [match.homeLineup, ht, (cond?.homeTire ?? 1) * (ownHome ? ownTire : 1)],
+    [match.awayLineup, at, (cond?.awayTire ?? 1) * (fixture.awayId === career.clubId ? ownTire : 1)],
   ] as const) {
     for (const id of ids) {
       match.minutesPlayed[id] = (match.minutesPlayed[id] || 0) + 1;
@@ -309,7 +312,12 @@ export function stepMatch(
     const xg = clamp(0.06 + rng() * 0.23 + (scorer.attributes.finishing - 65) * 0.001, 0.03, 0.4);
     stats.shots++;
     stats.xg = Math.round((stats.xg + xg) * 100) / 100;
-    const goal = rng() < xg;
+    // O treinador de goleiros do usuário transforma algumas finalizações em defesas.
+    const keeper =
+      ours && clubId !== career.clubId
+        ? 1 - goalkeepingEffect(staffLevel(career, 'goalkeeping')).save
+        : 1;
+    const goal = rng() < xg * keeper;
     if (goal) {
       if (isHome) match.homeGoals++;
       else match.awayGoals++;
@@ -353,7 +361,9 @@ export function stepMatch(
     !match.injured.includes(athlete.id) &&
     rng() <
       (0.0015 + Math.max(0, 65 - stateOf(career, athlete.id)!.fitness) * 0.0002) *
-        (clubId === career.clubId ? 1 - trainingEffect(trainingLevel(career)).injury : 1)
+        (clubId === career.clubId
+          ? (1 - trainingEffect(trainingLevel(career)).injury) * (1 - physio.injury)
+          : 1)
   ) {
     match.injured.push(athlete.id);
     match.events.push({
