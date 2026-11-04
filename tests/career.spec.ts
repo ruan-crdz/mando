@@ -186,8 +186,8 @@ test('partida completa registra placar e volta à tabela sem duplicar resultado'
   await expect(row.locator('td').nth(3)).toHaveText('1');
 });
 
-test('layout móvel não cria rolagem horizontal', async ({ page }) => {
-  await page.setViewportSize({ width: 390, height: 844 });
+test('layout móvel deitado não cria rolagem horizontal e retrato pede rotação', async ({ page }) => {
+  await page.setViewportSize({ width: 844, height: 390 });
   await createCareer(page);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.getByRole('navigation').getByRole('button', { name: /TIME/ }).click();
@@ -199,6 +199,13 @@ test('layout móvel não cria rolagem horizontal', async ({ page }) => {
   await pickCompetition(page, /Libertadores/);
   await expect(page.getByText('GRUPO A', { exact: true })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  const orientationWarning = page.locator('.orientation-warning');
+  await expect(orientationWarning).toBeVisible();
+  await expect(orientationWarning).toContainText('Vire o celular');
+  await page.setViewportSize({ width: 844, height: 390 });
+  await expect(orientationWarning).toBeHidden();
 });
 
 test('PWA mantém o jogo e o save acessíveis após ficar offline', async ({ page, context }) => {
