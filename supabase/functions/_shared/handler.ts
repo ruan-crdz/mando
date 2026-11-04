@@ -294,7 +294,8 @@ export async function handle(req: Request, kind: Kind): Promise<Response> {
     const { data: identity, error: authError } = await auth.auth.getUser(bearer.slice(7));
     if (authError || !identity.user) throw new HttpError(401, 'Sessão inválida ou expirada.');
     const text = await req.text();
-    if (new TextEncoder().encode(text).length > 4096)
+    // O retrato pode levar a foto da webcam; os demais pedidos são pequenos.
+    if (new TextEncoder().encode(text).length > (kind === 'avatar' ? 1_600_000 : 4096))
       throw new HttpError(413, 'Pedido acima do limite.');
     admin = auth;
     if (kind === 'avatar') {

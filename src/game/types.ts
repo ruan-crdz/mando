@@ -188,6 +188,8 @@ export const playerStateSchema = z.object({
   training: positionSchema.optional(),
   /** Familiaridade conquistada em treino por posição (0–100). */
   trained: z.record(z.string(), z.number().min(0).max(100)).optional(),
+  ratingTotal: z.number().optional(),
+  rated: z.number().int().optional(),
 });
 export type PlayerState = z.infer<typeof playerStateSchema>;
 export const tacticSchema = z.object({
@@ -217,6 +219,8 @@ const eventSchema = z.object({
   ]),
   clubId: z.string(),
   playerId: z.string().optional(),
+  /** Quem deu o passe para o gol. */
+  assistId: z.string().optional(),
   text: z.string(),
 });
 export type MatchEvent = z.infer<typeof eventSchema>;
@@ -260,6 +264,13 @@ export const matchSchema = z.object({
   injured: z.array(z.string()).default([]),
   /** Momentos humanos do jogo que pedem uma decisão do técnico. */
   moments: z.array(momentSchema).default([]),
+  /** Plano de jogo dos clubes da engine nesta partida. */
+  homeTactic: tacticSchema.optional(),
+  awayTactic: tacticSchema.optional(),
+  /** Ajustes de nota vindos das conversas em campo. */
+  bonus: z.record(z.string(), z.number()).optional(),
+  /** Craque do jogo, definido no apito final. */
+  mvp: z.string().optional(),
 });
 export type Match = z.infer<typeof matchSchema>;
 export const cupIds = ['EST', 'CDB', 'SUP', 'LIB', 'SUL'] as const;
@@ -296,6 +307,8 @@ export const messageSchema = z.object({
   playerId: z.string().optional(),
   resolved: z.boolean(),
   aiText: z.string().optional(),
+  /** Plano sugerido pelo auxiliar técnico para o próximo jogo. */
+  tactic: tacticSchema.optional(),
   choice: z.enum(['support', 'firm']).optional(),
 });
 export type Message = z.infer<typeof messageSchema>;
@@ -391,6 +404,10 @@ export const careerSchema = z.object({
   numbers: z.record(z.string(), z.number().int().min(1).max(99)).default({}),
   /** Conquistas desbloqueadas (id → data). */
   achievements: z.record(z.string(), isoDate).default({}),
+  /** Preferências da carreira. */
+  prefs: z
+    .object({ advance: z.enum(['day', 'event', 'auto']).default('day') })
+    .default({ advance: 'day' }),
   /** Lista de observação do mercado. */
   shortlist: z.array(z.string()).default([]),
   history: z

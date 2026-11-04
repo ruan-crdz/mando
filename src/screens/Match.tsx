@@ -8,9 +8,17 @@ import {
   Play,
   Shield,
   SlidersHorizontal,
+  Star,
   Volume2,
 } from 'lucide-react';
-import { available, npcFormation, stepMatch, swapTarget, type MomentAction } from '../game/matches';
+import {
+  available,
+  sideFormation,
+  stepMatch,
+  swapTarget,
+  type MomentAction,
+} from '../game/matches';
+import { manOfTheMatch, matchRatings, ratingTone } from '../game/matchRatings';
 import { fixtureLabel } from '../game/calendar';
 import { clubById, findPlayer } from '../game/npc';
 import { shirtNumbers } from '../game/numbers';
@@ -88,13 +96,17 @@ export function MatchScreen({
       numbers = {};
     }
     return {
-      formation: clubId === c.clubId ? c.tactic.formation : npcFormation,
+      formation: sideFormation(c, match, clubId),
       color,
       ids,
       numbers,
       names: Object.fromEntries(ids.map((id) => [id, findPlayer(world, id)?.name || ''])),
     };
   };
+  const ratings = useMemo(() => matchRatings(c, world, match), [c, world, match]);
+  const mvp =
+    match.mvp ||
+    (match.minute === 90 ? manOfTheMatch(ratings, match, fixture.homeId)?.id : undefined);
   const goals = match.events.filter((e) => e.type === 'goal');
   const lastGoalEvent = goals.at(-1);
   const lastGoal = lastGoalEvent
@@ -267,51 +279,96 @@ export function MatchScreen({
             </div>
           ))}
           <p className="muted small">Seed {match.seed} · A engine decide. A narração descreve.</p>
-          {match.minute === 90 && (
-            <div className="match-ratings">
-              <h3>Destaques</h3>
-              {Object.entries(match.ratings)
-                .sort((a, b) => b[1] - a[1])
-                .slice(0, 5)
-                .map(([id, rating]) => (
-                  <div key={id}>
-                    <span>{findPlayer(world, id)!.name}</span>
-                    <strong>{rating.toFixed(1)}</strong>
-                  </div>
-                ))}
-            </div>
-          )}
-        </aside>
-        <section className="panel commentary-panel">
-          <h2>
-            <Volume2 size={19} /> Direto do campo
-          </h2>
-          <div className="commentary-feed" aria-live={playing ? 'off' : 'polite'}>
-            {[...match.events]
-              .reverse()
-              .slice(0, 30)
-              .map((e, i) => (
-                <div
-                  key={`${e.minute}-${i}`}
-                  className={e.type === 'goal' ? 'goal' : e.type === 'moment' ? 'moment' : ''}
-                >
-                  <time>{e.minute}'</time>
+          <div className="match-ratings">
+            <h3>{match.minute === 90 ? 'Melhores em campo' : 'Notas ao vivo'}</h3>
+            {[...ratings]
+              .sort((x, y) => y.rating - x.rating)
+              .slice(0, 4)
+              .map((r) => (
+                <div key={r.id}>
                   <span>
-                    {e.type === 'goal'
-                      ? '⚽ '
-                      : e.type === 'yellow'
-                        ? '🟨 '
-                        : e.type === 'injury'
-                          ? '🚑 '
-                          : e.type === 'moment'
-                            ? '💬 '
-                            : ''}
-                    {e.text}
+                    {r.id === mvp ? '★ ' : ''}
+                    {findPlayer(world, r.id)!.name}
                   </span>
+                  <b className={`rating-badge ${ratingTone(r.rating)}`}>{r.rating.toFixed(1)}</b>
                 </div>
               ))}
           </div>
-        </section>
+        </aside>
+        {match.minute === 90 ? (
+          <section className="panel commentary-panel ratings-panel">
+            <h2>
+              <Star size={19} /> Notas da partida
+            </h2>
+            {mvp && (
+              <div className="mvp-banner">
+                <span>CRAQUE DO JOGO</span>
+                <strong>{findPlayer(world, mvp)?.name}</strong>
+                <b
+                  className={`rating-badge ${ratingTone(ratings.find((r) => r.id === mvp)?.rating || 0)}`}
+                >
+                  {ratings.find((r) => r.id === mvp)?.rating.toFixed(1)}
+                </b>
+              </div>
+            )}
+            <div className="ratings-columns scroll-area" tabIndex={-1}>
+              {[fixture.homeId, fixture.awayId].map((clubId) => (
+                <div key={clubId}>
+                  <h3>
+                    <Badge club={clubById(world, clubId)} /> {clubById(world, clubId).short}
+                  </h3>
+                  {ratings
+                    .filter((r) => r.clubId === clubId)
+                    .map((r) => (
+                      <div key={r.id} className={`rating-row ${r.id === mvp ? 'mvp' : ''}`}>
+                        <small>{r.role}</small>
+                        <span>
+                          {findPlayer(world, r.id)!.name}
+                          {r.goals > 0 && <em> {'⚽'.repeat(r.goals)}</em>}
+                          {r.assists > 0 && <em> {'🅰'.repeat(r.assists)}</em>}
+                          {r.minutes < 90 && <i> {r.minutes}'</i>}
+                        </span>
+                        <b className={`rating-badge ${ratingTone(r.rating)}`}>
+                          {r.rating.toFixed(1)}
+                        </b>
+                      </div>
+                    ))}
+                </div>
+              ))}
+            </div>
+          </section>
+        ) : (
+          <section className="panel commentary-panel">
+            <h2>
+              <Volume2 size={19} /> Direto do campo
+            </h2>
+            <div className="commentary-feed" aria-live={playing ? 'off' : 'polite'}>
+              {[...match.events]
+                .reverse()
+                .slice(0, 30)
+                .map((e, i) => (
+                  <div
+                    key={`${e.minute}-${i}`}
+                    className={e.type === 'goal' ? 'goal' : e.type === 'moment' ? 'moment' : ''}
+                  >
+                    <time>{e.minute}'</time>
+                    <span>
+                      {e.type === 'goal'
+                        ? '⚽ '
+                        : e.type === 'yellow'
+                          ? '🟨 '
+                          : e.type === 'injury'
+                            ? '🚑 '
+                            : e.type === 'moment'
+                              ? '💬 '
+                              : ''}
+                      {e.text}
+                    </span>
+                  </div>
+                ))}
+            </div>
+          </section>
+        )}
       </div>
       {sub && (
         <Modal
@@ -386,6 +443,7 @@ export function MatchScreen({
                   onClick={() => {
                     onSubstitute(outgoing, p.id);
                     setOut('');
+                    setSub(false);
                   }}
                 />
               )}

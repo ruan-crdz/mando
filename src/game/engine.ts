@@ -1,11 +1,12 @@
 import { addDays, ageAt, clamp, hash, random } from './random';
-import { bestLineup, reconcileSquad, simulateMatch, squad } from './matches';
+import { bestLineup, reconcileSquad, simulateMatch, squad, validateLineup } from './matches';
 import { competitionName, createSchedule, fixtureLabel, nextFixture } from './calendar';
 import { expireThread, processOffers } from './transfers';
 import { overall } from './ratings';
 import { LEARNED, TRAIN_CAP, familiarity, positionNames, trainingGain } from './positions';
 import { clubById, findPlayer, knownClub } from './npc';
 import { baseWorld, careerWorld } from './live';
+import { scoutReport } from './scouting';
 import {
   createCups,
   cupsFinished,
@@ -134,6 +135,7 @@ export function createCareer(
     numbers: {},
     achievements: {},
     shortlist: [],
+    prefs: { advance: 'day' },
     history: [],
   };
   createCups(c, world, 2026, initialQualification(world));
@@ -163,6 +165,7 @@ export function createCareer(
     title: 'Seu primeiro dia de trabalho',
     body: 'Revise a escalação, defina as responsabilidades e acompanhe o calendário. A simulação para em partidas e decisões importantes.',
   });
+  scoutNext(c, careerWorld(world, c));
   return careerSchema.parse(c);
 }
 
@@ -182,11 +185,11 @@ function applyMatch(c: Career, world: World, result: Match) {
         s.minutes += result.minutesPlayed[p.id];
         s.fitness = clamp(s.fitness - result.energySpent[p.id]);
         s.benchGames = 0;
-        result.ratings[p.id] = clamp(
-          (result.ratings[p.id] || 6.5) + (p.position === 'GK' ? 0.2 : 0),
-          1,
-          10,
-        );
+        const rating = result.ratings[p.id];
+        if (rating) {
+          s.ratingTotal = (s.ratingTotal || 0) + rating;
+          s.rated = (s.rated || 0) + 1;
+        }
       } else s.benchGames++;
     }
   }
@@ -197,13 +200,7 @@ function applyMatch(c: Career, world: World, result: Match) {
     if (e.type === 'goal') {
       s.goals++;
       s.morale = clamp(s.morale + 3);
-      const ids = e.clubId === fixture.homeId ? result.homeLineup : result.awayLineup;
-      const assistant = ids.filter(
-        (id) => id !== e.playerId && findPlayer(world, id)?.position !== 'GK',
-      );
-      const helper =
-        assistant.length &&
-        c.players[assistant[hash(`${result.seed}:${e.minute}:assist`) % assistant.length]];
+      const helper = e.assistId ? c.players[e.assistId] : undefined;
       if (helper) helper.assists++;
     }
     if (e.type === 'yellow') {
@@ -493,7 +490,83 @@ export function advanceDay(career: Career, world: World): Career {
     updateSeason(c, live);
   }
   updateSeason(c, live);
+  scoutNext(c, live);
   return c;
+}
+
+/** Simula o jogo do dia sem interação (modo automático). */
+export function simulateOwnMatch(career: Career, world: World): Career {
+  const c = structuredClone(career);
+  const live = careerWorld(world, c);
+  const fixture = nextFixture(c);
+  if (!fixture || fixture.date > c.date) throw new Error('Não há partida hoje.');
+  try {
+    validateLineup(c, live);
+  } catch {
+    c.lineup = bestLineup(c, live);
+  }
+  c.activeMatch = simulateMatch(c, live, fixture);
+  return finishMatch(c, world);
+}
+
+export type AdvanceStop = 'match' | 'decision' | 'message' | 'season' | null;
+
+/**
+ * Um passo do avanço contínuo. "event" para em qualquer novidade; "auto" simula
+ * os próprios jogos, responde as decisões com apoio e só para no fim da temporada.
+ */
+export function advanceStep(
+  career: Career,
+  world: World,
+  mode: 'event' | 'auto',
+): { career: Career; stop: AdvanceStop; played?: string } {
+  if (career.seasonEnded) return { career, stop: 'season' };
+  let c = career;
+  if (mode === 'auto')
+    for (const m of c.messages.filter((m) => m.important && !m.resolved))
+      c = respondMessage(c, m.id, 'support');
+  else if (c.messages.some((m) => m.important && !m.resolved))
+    return { career: c, stop: 'decision' };
+  const fixture = nextFixture(c);
+  if (fixture && fixture.date <= c.date) {
+    if (mode === 'event') return { career: c, stop: 'match' };
+    c = simulateOwnMatch(c, world);
+    return { career: c, stop: c.seasonEnded ? 'season' : null, played: fixture.id };
+  }
+  const known = new Set(c.messages.map((m) => m.id));
+  c = advanceDay(c, world);
+  if (c.seasonEnded) return { career: c, stop: 'season' };
+  if (mode === 'auto') return { career: c, stop: null };
+  const next = nextFixture(c);
+  if (next && next.date <= c.date) return { career: c, stop: 'match' };
+  if (c.messages.some((m) => m.important && !m.resolved)) return { career: c, stop: 'decision' };
+  if (c.messages.some((m) => !known.has(m.id))) return { career: c, stop: 'message' };
+  return { career: c, stop: null };
+}
+
+/** Aplica o plano sugerido pelo auxiliar; trocar o desenho refaz a escalação. */
+export function applyStaffPlan(career: Career, world: World, id: string): Career {
+  const plan = career.messages.find((m) => m.id === id)?.tactic;
+  if (!plan) throw new Error('Essa mensagem não tem um plano de jogo.');
+  const c = structuredClone(career);
+  const live = careerWorld(world, c);
+  const changed = plan.formation !== c.tactic.formation;
+  c.tactic = { ...plan };
+  if (changed) c.lineup = bestLineup(c, live, c.clubId, plan.formation);
+  return c;
+}
+
+/** O auxiliar manda o relatório do adversário até dois dias antes de cada jogo. */
+function scoutNext(c: Career, world: World) {
+  const fixture = nextFixture(c);
+  if (!fixture || fixture.date > addDays(c.date, 2) || c.seasonEnded) return;
+  if (c.messages.some((m) => m.id === `scout-${fixture.id}`)) return;
+  try {
+    const report = scoutReport(c, world, fixture);
+    if (report) message(c, report);
+  } catch {
+    // Relatório é opcional; nunca bloqueia o avanço do calendário.
+  }
 }
 
 const youthFirst = [

@@ -27,6 +27,7 @@ export function Office({
   onMessage,
   onRead,
   onAvatar,
+  onApplyPlan,
   aiAvailable,
   busy,
 }: {
@@ -35,6 +36,7 @@ export function Office({
   onMessage: (id: string, choice: 'support' | 'firm') => void;
   onRead: (id: string) => void;
   onAvatar: (photo?: string) => void;
+  onApplyPlan: (id: string) => void;
   aiAvailable: boolean;
   busy: boolean;
 }) {
@@ -197,6 +199,19 @@ export function Office({
                   </button>
                 )}
                 <p className="message-body">{m.aiText || m.body}</p>
+                {m.tactic && (
+                  <div className="button-row">
+                    <button
+                      className="primary"
+                      disabled={JSON.stringify(m.tactic) === JSON.stringify(c.tactic)}
+                      onClick={() => onApplyPlan(m.id)}
+                    >
+                      {JSON.stringify(m.tactic) === JSON.stringify(c.tactic)
+                        ? 'Plano do auxiliar em uso'
+                        : 'Aplicar plano do auxiliar'}
+                    </button>
+                  </div>
+                )}
                 {m.important && !m.resolved ? (
                   <div className="response-area">
                     <p className="eyebrow">SUA DECISÃO</p>

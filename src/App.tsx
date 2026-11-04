@@ -6,6 +6,7 @@ import {
   CheckCircle2,
   Gamepad2,
   LoaderCircle,
+  CalendarClock,
   Lock,
   Music,
   Radio,
@@ -40,6 +41,8 @@ import {
   createCareer,
   finishMatch,
   respondMessage,
+  applyStaffPlan,
+  advanceStep,
   validateCareerForWorld,
 } from './game/engine';
 import { bestLineup, beginMatch, resolveMoment, substitute } from './game/matches';
@@ -61,7 +64,31 @@ import { skipVoice, stopVoice, useVoice } from './components/voice';
 import { achievements, unlockAchievements, type Achievement } from './game/achievements';
 
 const tabs = ['CENTRAL', 'TIME', 'TRANSFERÊNCIAS', 'ESCRITÓRIO', 'TEMPORADA'];
-type Popup = 'world' | 'pause' | 'prematch' | 'achievements' | null;
+type Popup = 'world' | 'pause' | 'prematch' | 'achievements' | 'prefs' | null;
+type AdvanceMode = Career['prefs']['advance'];
+const advanceModes: { id: AdvanceMode; title: string; text: string }[] = [
+  {
+    id: 'day',
+    title: 'Um dia por vez',
+    text: 'Cada toque avança só um dia. Controle total do calendário.',
+  },
+  {
+    id: 'event',
+    title: 'Parar em eventos',
+    text: 'Avança sozinho e para em qualquer mensagem, decisão ou dia de jogo.',
+  },
+  {
+    id: 'auto',
+    title: 'Nunca parar',
+    text: 'Simula os jogos, responde decisões com apoio e só para no fim da temporada.',
+  },
+];
+const stopNotes: Record<string, string> = {
+  match: 'Dia de jogo! O avanço parou.',
+  decision: 'Uma decisão espera por você no escritório.',
+  message: 'Nova mensagem no escritório.',
+  season: 'Temporada encerrada.',
+};
 
 function Game() {
   const controller = useGamepad();
@@ -77,6 +104,8 @@ function Game() {
   const [user, setUser] = useState<User | null>(null);
   const [tab, setTab] = useState(0);
   const [popup, setPopup] = useState<Popup>(null);
+  const [running, setRunning] = useState(false);
+  const [played, setPlayed] = useState(0);
   const [hapticNote, setHapticNote] = useState('');
   const [detail, setDetail] = useState<Player | null>(null);
   const [deleting, setDeleting] = useState<SavedCareer | null>(null);
@@ -271,12 +300,47 @@ function Game() {
     },
     [screen, career?.activeMatch, popup, detail, busy],
   );
+  const advance = useCallback(() => {
+    if (!career || !live) return;
+    const mode = career.prefs?.advance || 'day';
+    if (mode === 'day') return act(() => setCareer(advanceDay(career, live)));
+    setPlayed(0);
+    setRunning(true);
+  }, [career, live, act]);
+  const stopRunning = useCallback(() => setRunning(false), []);
+  const step = useRef({ career, world });
+  step.current = { career, world };
+  useEffect(() => {
+    if (!running) return;
+    const timer = window.setTimeout(() => {
+      const { career: current, world: base } = step.current;
+      if (!current || !base) return setRunning(false);
+      try {
+        const mode = current.prefs?.advance === 'auto' ? 'auto' : 'event';
+        const result = advanceStep(current, base, mode);
+        setCareer(result.career);
+        if (result.played) setPlayed((n) => n + 1);
+        if (result.stop) {
+          setRunning(false);
+          setNotice(stopNotes[result.stop]);
+          rumble('whistle');
+          if (result.stop === 'match') setPopup('prematch');
+          else if (result.stop === 'decision' || result.stop === 'message') setTab(3);
+        }
+      } catch (e) {
+        setRunning(false);
+        fail(e instanceof Error ? e.message : String(e));
+      }
+    }, 110);
+    return () => window.clearTimeout(timer);
+  }, [running, career, fail, rumble]);
   useControllerActions(
     screen === 'create' || busy
       ? {}
       : {
           back: () => {
-            if (detail) setDetail(null);
+            if (running) setRunning(false);
+            else if (detail) setDetail(null);
             else if (deleting) setDeleting(null);
             else if (popup) setPopup(null);
             else if (screen === 'career') setPopup('pause');
@@ -284,14 +348,18 @@ function Game() {
           previousTab: () => switchTab(-1),
           nextTab: () => switchTab(1),
           secondary: () => {
-            if (career && screen === 'career' && !career.activeMatch && !popup)
-              act(() => setCareer(advanceDay(career, live!)));
+            if (career && screen === 'career' && !career.activeMatch && !popup && !running)
+              advance();
           },
           info: () => {
             if (screen === 'career' && !career?.activeMatch && !popup) setTab(3);
           },
           menu: () => {
-            if (screen === 'career') setPopup((p) => (p === 'pause' ? null : 'pause'));
+            if (screen !== 'career') return;
+            if (running) return setRunning(false);
+            // Na Central, START abre as preferências de avanço; nas demais telas, a pausa.
+            if (tab === 0 && !career?.activeMatch && !popup) setPopup('prefs');
+            else setPopup((p) => (p === 'pause' || p === 'prefs' ? null : 'pause'));
           },
         },
   );
@@ -434,7 +502,7 @@ function Game() {
                   career={career}
                   world={live!}
                   busy={busy}
-                  onAdvance={() => act(() => setCareer(advanceDay(career, live!)))}
+                  onAdvance={advance}
                   onMatch={() => {
                     const f = nextFixture(career);
                     if (career.messages.some((m) => m.important && !m.resolved)) setTab(3);
@@ -528,6 +596,12 @@ function Game() {
                         ),
                       });
                   }}
+                  onApplyPlan={(id) =>
+                    act(() => {
+                      setCareer(applyStaffPlan(career, world!, id));
+                      setNotice('Plano do auxiliar aplicado na tática e na escalação.');
+                    })
+                  }
                   onAvatar={(photo) =>
                     run(async () => {
                       const url = await portrait(career.manager, photo);
@@ -703,6 +777,12 @@ function Game() {
                 <Square size={16} /> Parar caixa postal
               </button>
             )}
+            {!career.activeMatch && (
+              <button onClick={() => setPopup('prefs')}>
+                <CalendarClock size={18} /> Avanço do calendário:{' '}
+                {advanceModes.find((m) => m.id === (career.prefs?.advance || 'day'))?.title}
+              </button>
+            )}
             <button onClick={() => setPopup('achievements')}>
               <Award size={18} /> Conquistas ({Object.keys(career.achievements || {}).length}/
               {achievements.length})
@@ -722,6 +802,47 @@ function Game() {
             <button onClick={menu}>Salvar e sair para o menu</button>
           </div>
         </Modal>
+      )}
+      {popup === 'prefs' && career && (
+        <Modal title="Preferências de avanço" onClose={() => setPopup(null)}>
+          <p className="muted">O que acontece quando você aperta Avançar (□ / X).</p>
+          <div className="prefs-options">
+            {advanceModes.map((m, i) => (
+              <button
+                key={m.id}
+                className={`pref-card ${(career.prefs?.advance || 'day') === m.id ? 'active' : ''}`}
+                aria-pressed={(career.prefs?.advance || 'day') === m.id}
+                data-autofocus={(career.prefs?.advance || 'day') === m.id || undefined}
+                onClick={() => {
+                  setCareer({ ...career, prefs: { ...career.prefs, advance: m.id } });
+                  setPopup(null);
+                  setNotice(`Avanço: ${m.title}.`);
+                }}
+              >
+                <b>{i + 1}</b>
+                <strong>{m.title}</strong>
+                <span>{m.text}</span>
+              </button>
+            ))}
+          </div>
+        </Modal>
+      )}
+      {running && career && (
+        <div className="advance-overlay" role="status">
+          <CalendarClock size={42} />
+          <strong>{dateLabel(career.date, true)}</strong>
+          <span>
+            {career.prefs?.advance === 'auto'
+              ? 'Simulando a temporada'
+              : 'Avançando até o próximo evento'}
+            {played
+              ? ` · ${played} jogo${played > 1 ? 's' : ''} simulado${played > 1 ? 's' : ''}`
+              : ''}
+          </span>
+          <button className="primary" data-autofocus onClick={stopRunning}>
+            <Square size={16} /> Parar (B)
+          </button>
+        </div>
       )}
       {popup === 'achievements' && career && (
         <Modal title="Conquistas" onClose={() => setPopup('pause')} wide>

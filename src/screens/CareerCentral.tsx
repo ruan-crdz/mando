@@ -38,13 +38,17 @@ export function CareerCentral({
   const unread = c.messages.filter((m) => !m.read);
   const pending = c.messages.filter((m) => m.important && !m.resolved);
   const isMatchDay = Boolean(fixture && fixture.date <= c.date);
-  const advanceAction = pending.length
-    ? () => onTab(3)
-    : c.seasonEnded
-      ? onNewSeason
-      : isMatchDay
-        ? onMatch
-        : onAdvance;
+  const mode = c.prefs?.advance || 'day';
+  const auto = mode === 'auto' && !c.seasonEnded;
+  const advanceAction = auto
+    ? onAdvance
+    : pending.length
+      ? () => onTab(3)
+      : c.seasonEnded
+        ? onNewSeason
+        : isMatchDay
+          ? onMatch
+          : onAdvance;
   return (
     <div className="screen central">
       <div className="central-strip">
@@ -94,27 +98,33 @@ export function CareerCentral({
           )}
         </button>
         <button
-          className={`tile ${isMatchDay ? 'tile-orange' : pending.length ? 'tile-pink' : 'tile-green'} advance-tile`}
+          className={`tile ${auto ? 'tile-green' : isMatchDay ? 'tile-orange' : pending.length ? 'tile-pink' : 'tile-green'} advance-tile`}
           disabled={busy}
           onClick={advanceAction}
         >
           <span className="tile-label">
-            {pending.length
-              ? 'UMA DECISÃO ESPERA POR VOCÊ'
-              : c.seasonEnded
-                ? 'FÉRIAS ACABARAM'
-                : isMatchDay
-                  ? 'O ESTÁDIO ESTÁ PRONTO'
-                  : 'O CLUBE NÃO PARA'}
+            {auto
+              ? 'MODO AUTOMÁTICO'
+              : pending.length
+                ? 'UMA DECISÃO ESPERA POR VOCÊ'
+                : c.seasonEnded
+                  ? 'FÉRIAS ACABARAM'
+                  : isMatchDay
+                    ? 'O ESTÁDIO ESTÁ PRONTO'
+                    : 'O CLUBE NÃO PARA'}
           </span>
           <h2>
-            {pending.length
-              ? 'Abrir escritório'
-              : c.seasonEnded
-                ? `Iniciar ${c.season + 1}`
-                : isMatchDay
-                  ? 'Dia de jogo'
-                  : 'Avançar dia'}
+            {auto
+              ? 'Simular temporada'
+              : pending.length
+                ? 'Abrir escritório'
+                : c.seasonEnded
+                  ? `Iniciar ${c.season + 1}`
+                  : isMatchDay
+                    ? 'Dia de jogo'
+                    : mode === 'event'
+                      ? 'Avançar até o evento'
+                      : 'Avançar dia'}
           </h2>
           <span className="advance-dates">
             <span>
@@ -142,7 +152,7 @@ export function CareerCentral({
                 ? `${pending.length} ação necessária`
                 : c.seasonEnded
                   ? 'Nova temporada'
-                  : 'Continuar'}
+                  : 'Continuar · START muda o modo'}
           </span>
         </button>
         <button className="tile tile-purple manager-tile" onClick={() => onTab(3)}>
