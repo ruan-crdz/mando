@@ -439,11 +439,7 @@ function Game() {
     <div
       className={`game-shell input-${controller.input} on-${screen}${inMatch ? ' in-match' : ''}`}
     >
-      <div className="bg-stage" aria-hidden="true">
-        <i className="beam b1" />
-        <i className="beam b2" />
-        <i className="beam b3" />
-      </div>
+      <div className="bg-stage" aria-hidden="true" />
       <header className="app-header">
         <div className="brand" aria-label="Mando">
           <img

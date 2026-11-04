@@ -12,13 +12,13 @@
   --blue: #0a8dff;
   --cyan: #00d2ff;
   --green: #5ed11c;
-  --lime: #c6ff00;
+  --lime: #36d6e7;
   --orange: #ff8a00;
   --pink: #ff2e88;
   --purple: #8b45ff;
   --yellow: #ffd400;
   --red: #ff3b4e;
-  --focus: #c6ff00;
+  --focus: #36d6e7;
   --display: 'Saira Condensed', 'Arial Narrow', 'Segoe UI', sans-serif;
   --body: 'Saira Semi Condensed', 'Segoe UI', sans-serif;
   --pad-x: clamp(14px, 2.6vw, 44px);
@@ -131,12 +131,12 @@ button:disabled {
   cursor: not-allowed;
 }
 button.primary {
-  background: linear-gradient(180deg, #d8ff3a, #8fdc00);
+  background: linear-gradient(180deg, #44dcec, #1fb3c6);
   color: #06204d;
-  box-shadow: 0 6px 18px rgba(143, 220, 0, 0.35);
+  box-shadow: 0 6px 18px rgba(54, 214, 231, 0.3);
 }
 button.primary:hover:not(:disabled) {
-  background: linear-gradient(180deg, #e6ff70, #a2ec10);
+  background: linear-gradient(180deg, #6ee6f2, #36d6e7);
 }
 button.primary.big {
   padding: 12px 26px;
@@ -173,8 +173,8 @@ button[aria-pressed='true'] {
   outline: 3px solid var(--focus);
   outline-offset: 2px;
   box-shadow:
-    0 0 0 6px rgba(198, 255, 0, 0.22),
-    0 0 28px rgba(198, 255, 0, 0.45);
+    0 0 0 6px rgba(54, 214, 231, 0.22),
+    0 0 28px rgba(54, 214, 231, 0.45);
   position: relative;
   z-index: 2;
 }
@@ -273,7 +273,7 @@ table {
 }
 .beam.b2 {
   top: 48%;
-  background: linear-gradient(90deg, transparent, rgba(198, 255, 0, 0.32), transparent);
+  background: linear-gradient(90deg, transparent, rgba(54, 214, 231, 0.32), transparent);
   animation-duration: 21s;
   animation-delay: -6s;
 }
@@ -407,7 +407,7 @@ table {
 .controller-status.connected {
   color: #06204d;
   background: var(--lime);
-  box-shadow: 0 0 16px rgba(198, 255, 0, 0.6);
+  box-shadow: 0 0 16px rgba(54, 214, 231, 0.6);
 }
 .on-menu .app-header,
 .on-create .app-header {
@@ -807,7 +807,7 @@ button.tile:focus-visible {
   outline: 4px solid #fff;
   outline-offset: 0;
   box-shadow:
-    0 0 0 8px rgba(198, 255, 0, 0.55),
+    0 0 0 8px rgba(54, 214, 231, 0.55),
     0 22px 50px rgba(0, 0, 0, 0.5);
   z-index: 3;
 }
@@ -970,7 +970,7 @@ button.tile:focus-visible {
 .menu-heading h1 span {
   display: block;
   color: var(--lime);
-  text-shadow: 0 0 30px rgba(198, 255, 0, 0.35);
+  text-shadow: 0 0 30px rgba(54, 214, 231, 0.35);
 }
 .menu-row {
   height: clamp(260px, 50vh, 470px);
@@ -1425,7 +1425,7 @@ button.tile:focus-visible {
 .versus {
   font: italic 800 clamp(28px, 3vw, 46px) var(--display);
   color: var(--lime);
-  text-shadow: 0 0 20px rgba(198, 255, 0, 0.6);
+  text-shadow: 0 0 20px rgba(54, 214, 231, 0.6);
 }
 .fixture-meta {
   font: 700 14px var(--display);
@@ -1567,7 +1567,7 @@ button.tile:focus-visible {
 
 /* ---------- Time ---------- */
 .section-title > button {
-  background: linear-gradient(180deg, #d8ff3a, #8fdc00);
+  background: linear-gradient(180deg, #44dcec, #1fb3c6);
   color: #06204d;
 }
 .squad-layout {
@@ -2222,7 +2222,7 @@ button.tile:focus-visible {
   background: #ff8a00;
 }
 .chart-legend li:nth-child(3)::before {
-  background: #c6ff00;
+  background: #36d6e7;
 }
 .line-chart {
   width: 100%;
@@ -2274,7 +2274,7 @@ button.tile:focus-visible {
 .huge-number {
   font: italic 800 clamp(64px, 12vh, 120px) / 1 var(--display);
   color: var(--lime);
-  text-shadow: 0 0 30px rgba(198, 255, 0, 0.35);
+  text-shadow: 0 0 30px rgba(54, 214, 231, 0.35);
 }
 .objectives {
   border-top-color: var(--yellow);
@@ -2413,7 +2413,7 @@ button.tile:focus-visible {
   border-left-color: var(--red);
 }
 .table-scroll tr.your-club td {
-  background: rgba(198, 255, 0, 0.2);
+  background: rgba(54, 214, 231, 0.2);
 }
 .table-scroll strong {
   color: var(--lime);
@@ -2461,7 +2461,7 @@ button.tile:focus-visible {
   text-align: center;
 }
 .result-row.your-club {
-  background: rgba(198, 255, 0, 0.14);
+  background: rgba(54, 214, 231, 0.14);
 }
 .winner {
   color: var(--lime);
@@ -2506,7 +2506,7 @@ button.tile:focus-visible {
   border-radius: 2px;
 }
 .fixture-list .today {
-  background: rgba(198, 255, 0, 0.18);
+  background: rgba(54, 214, 231, 0.18);
 }
 .milestone {
   display: flex;
@@ -2724,7 +2724,7 @@ button.tile:focus-visible {
 .field-dot.with-ball {
   transform: translate(-50%, -50%) scale(1.22);
   box-shadow:
-    0 0 0 3px rgba(198, 255, 0, 0.8),
+    0 0 0 3px rgba(54, 214, 231, 0.8),
     0 3px 8px rgba(0, 0, 0, 0.4);
 }
 .ball-dot {
@@ -2963,7 +2963,7 @@ button.tile:focus-visible {
   color: var(--cyan);
 }
 .commentary-feed .goal {
-  background: linear-gradient(90deg, rgba(198, 255, 0, 0.35), rgba(198, 255, 0, 0.08));
+  background: linear-gradient(90deg, rgba(54, 214, 231, 0.35), rgba(54, 214, 231, 0.08));
   font-weight: 700;
 }
 
@@ -3502,7 +3502,7 @@ button.tile:focus-visible {
   content: '';
   flex: 1;
   height: 2px;
-  background: linear-gradient(90deg, rgba(198, 255, 0, 0.6), transparent);
+  background: linear-gradient(90deg, rgba(54, 214, 231, 0.6), transparent);
 }
 .grid-divider:first-child {
   margin-top: 0;
@@ -3548,7 +3548,7 @@ button.tile:focus-visible {
 .player-card.active {
   border-color: var(--lime);
   box-shadow:
-    0 0 0 2px rgba(198, 255, 0, 0.35),
+    0 0 0 2px rgba(54, 214, 231, 0.35),
     0 6px 14px rgba(0, 4, 30, 0.35);
 }
 .player-card.out {
@@ -3793,7 +3793,7 @@ button.tile:focus-visible {
 }
 .pitch-player.selected {
   outline: 3px solid var(--lime);
-  background: rgba(198, 255, 0, 0.25);
+  background: rgba(54, 214, 231, 0.25);
 }
 .pitch-fitness {
   display: block;
@@ -4900,8 +4900,8 @@ button.tile:focus-visible {
 }
 .tactic-slider.editing {
   border-color: var(--lime);
-  background: linear-gradient(90deg, rgba(198, 255, 0, 0.18), rgba(255, 255, 255, 0.06));
-  box-shadow: 0 0 18px rgba(198, 255, 0, 0.35);
+  background: linear-gradient(90deg, rgba(54, 214, 231, 0.18), rgba(255, 255, 255, 0.06));
+  box-shadow: 0 0 18px rgba(54, 214, 231, 0.35);
 }
 .ts-head {
   display: flex;
@@ -5110,8 +5110,8 @@ button.tile:focus-visible {
 .option-cycler.editing > button,
 .number-stepper.editing .stepper-row {
   border-color: var(--lime);
-  background: linear-gradient(90deg, rgba(198, 255, 0, 0.18), rgba(0, 8, 46, 0.55));
-  box-shadow: 0 0 16px rgba(198, 255, 0, 0.35);
+  background: linear-gradient(90deg, rgba(54, 214, 231, 0.18), rgba(0, 8, 46, 0.55));
+  box-shadow: 0 0 16px rgba(54, 214, 231, 0.35);
 }
 .option-cycler.editing .cycler-value {
   color: var(--lime);
@@ -5177,8 +5177,8 @@ button.tile:focus-visible {
   background: linear-gradient(180deg, rgba(0, 229, 255, 0.35), rgba(0, 8, 46, 0.65));
 }
 .shirt-dial.editing > button {
-  background: linear-gradient(180deg, rgba(198, 255, 0, 0.42), rgba(0, 8, 46, 0.7));
-  box-shadow: 0 0 20px rgba(198, 255, 0, 0.45);
+  background: linear-gradient(180deg, rgba(54, 214, 231, 0.42), rgba(0, 8, 46, 0.7));
+  box-shadow: 0 0 20px rgba(54, 214, 231, 0.45);
 }
 .dial-number {
   font: 900 54px/1 var(--display);
@@ -5243,7 +5243,7 @@ button.tile:focus-visible {
   background: var(--lime);
 }
 .position-chip.main {
-  border-color: rgba(198, 255, 0, 0.6);
+  border-color: rgba(54, 214, 231, 0.6);
 }
 .position-chip.active {
   background: linear-gradient(180deg, #ffffff, #d8e6ff);
@@ -5574,7 +5574,7 @@ button.tile:focus-visible {
   width: 46%;
   height: 60%;
   transform: translate(-50%, -50%);
-  border: 3px dashed rgba(198, 255, 0, 0.85);
+  border: 3px dashed rgba(54, 214, 231, 0.85);
   border-radius: 50% 50% 46% 46%;
   pointer-events: none;
 }
@@ -6238,7 +6238,7 @@ button.danger {
   flex-direction: column;
 }
 .roster-row.focused {
-  outline: 2px solid rgba(198, 255, 0, 0.55);
+  outline: 2px solid rgba(54, 214, 231, 0.55);
   outline-offset: -2px;
 }
 .roster-item.open .roster-row {

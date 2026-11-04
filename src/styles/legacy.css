@@ -1,0 +1,426 @@
+/* MANDO 27 LEGACY — estrutura FIFA 14, acabamento noturno. Carregado depois de styles.css. */
+:root {
+  --mando-bg: #0b1020;
+  --mando-bg-deep: #080c18;
+  --mando-nav: #111a2c;
+  --mando-surface: #182747;
+  --mando-surface-raised: #223350;
+  --mando-surface-soft: #2a3b57;
+  --mando-surface-glass: rgba(21, 31, 54, 0.88);
+  --mando-overlay: rgba(5, 9, 18, 0.74);
+  --mando-border: rgba(207, 225, 247, 0.13);
+  --mando-text: #f4f7ff;
+  --mando-text-secondary: #c3d1e5;
+  --mando-text-muted: #93a5bf;
+  /* petróleo escurecido para AA (texto branco ≥ 4.5:1) */
+  --mando-petrol: #066b76;
+  --mando-petrol-bright: #087f8c;
+  --mando-cyan: #36d6e7;
+  --mando-violet: #8c6cff;
+  --mando-coral: #ff956e;
+  --mando-gold: #f9c968;
+  --mando-positive: #55c99b;
+  --mando-warning: #f8c16b;
+  --mando-danger: #ff6f83;
+  --mando-focus-outer: #f4f7ff;
+  --mando-focus-inner: #36d6e7;
+  --mando-tile-gap: 6px;
+  --mando-radius-panel: 5px;
+  --mando-radius-dialog: 7px;
+
+  /* variáveis legadas remapeadas para a paleta nova */
+  --bg0: var(--mando-bg);
+  --bg1: var(--mando-nav);
+  --bg2: var(--mando-surface);
+  --ink: var(--mando-text);
+  --ink-2: var(--mando-text-secondary);
+  --ink-3: var(--mando-text-muted);
+  --glass: var(--mando-surface-glass);
+  --glass-2: rgba(207, 225, 247, 0.06);
+  --line: var(--mando-border);
+  --blue: var(--mando-petrol-bright);
+  --cyan: var(--mando-cyan);
+  --green: var(--mando-positive);
+  --lime: var(--mando-cyan);
+  --orange: var(--mando-coral);
+  --pink: var(--mando-coral);
+  --purple: var(--mando-violet);
+  --yellow: var(--mando-gold);
+  --red: var(--mando-danger);
+  --focus: var(--mando-focus-inner);
+  background: var(--mando-bg);
+}
+
+::selection {
+  background: var(--mando-cyan);
+  color: var(--mando-bg);
+}
+
+/* ---------- Fundo: estádio noturno autoral ---------- */
+.game-shell {
+  background: var(--mando-bg);
+}
+.bg-stage {
+  background:
+    radial-gradient(60% 38% at 18% -6%, rgba(195, 225, 255, 0.16), transparent 70%),
+    radial-gradient(60% 38% at 82% -6%, rgba(195, 225, 255, 0.14), transparent 70%),
+    radial-gradient(140% 60% at 50% 118%, rgba(8, 127, 140, 0.22), transparent 62%),
+    linear-gradient(180deg, #0e1730 0%, var(--mando-bg) 46%, var(--mando-bg-deep) 100%);
+}
+.bg-stage::before {
+  /* arquibancada: faixas escuras em perspectiva */
+  background-image: repeating-linear-gradient(
+    172deg,
+    rgba(207, 225, 247, 0.025) 0 2px,
+    transparent 2px 22px
+  );
+  background-size: auto;
+  mask-image: linear-gradient(180deg, transparent 4%, #000 22%, transparent 58%);
+}
+.bg-stage::after {
+  /* gramado distante */
+  content: '';
+  position: absolute;
+  left: -10%;
+  right: -10%;
+  bottom: -32vh;
+  height: 58vh;
+  border-radius: 50% 50% 0 0;
+  background:
+    repeating-linear-gradient(90deg, rgba(85, 201, 155, 0.05) 0 7vw, transparent 7vw 14vw),
+    radial-gradient(ellipse at 50% 0%, rgba(39, 92, 76, 0.42), rgba(11, 16, 32, 0) 70%);
+  filter: blur(1px);
+}
+.beam {
+  display: none;
+}
+
+/* ---------- Cabeçalho ---------- */
+.app-header {
+  background: linear-gradient(180deg, rgba(17, 26, 44, 0.94), rgba(17, 26, 44, 0.78));
+  border-bottom: 1px solid var(--mando-border);
+  backdrop-filter: blur(10px);
+  padding-top: 8px;
+  padding-bottom: 0;
+  min-height: 58px;
+  align-items: stretch;
+}
+.brand,
+.club-header,
+.header-status {
+  align-self: center;
+}
+.brand-word {
+  font-style: normal;
+  letter-spacing: 4px;
+}
+.main-nav {
+  align-items: stretch;
+  gap: 2px;
+}
+.nav-shoulder {
+  align-items: center;
+}
+.main-nav > button {
+  padding: 10px clamp(12px, 1.8vw, 30px) 12px;
+  color: var(--mando-text-muted);
+  clip-path: polygon(10px 0, calc(100% - 10px) 0, 100% 100%, 0 100%);
+}
+.main-nav > button:hover:not(:disabled) {
+  color: var(--mando-text);
+  background: rgba(207, 225, 247, 0.05);
+}
+.main-nav > button.active {
+  color: var(--mando-text);
+  text-shadow: none;
+  background: linear-gradient(180deg, var(--mando-surface-raised), var(--mando-surface));
+}
+.main-nav > button.active::after {
+  left: 12px;
+  right: 12px;
+  height: 3px;
+  border-radius: 0;
+  background: var(--mando-cyan);
+  box-shadow: none;
+}
+.nav-dot {
+  background: var(--mando-coral);
+  box-shadow: none;
+}
+.club-header {
+  background: var(--mando-surface);
+  border-left-color: var(--mando-cyan);
+  border-radius: var(--mando-radius-panel);
+}
+.club-header-text small {
+  color: var(--mando-gold);
+}
+.controller-status.connected {
+  background: var(--mando-cyan);
+  color: var(--mando-bg);
+  box-shadow: none;
+}
+
+/* ---------- Rodapé de comandos ---------- */
+.app-footer {
+  padding-top: 5px;
+  padding-bottom: 6px;
+  background: rgba(8, 12, 24, 0.86);
+  border-top: 1px solid var(--mando-border);
+}
+.control-hint {
+  font-size: 13px;
+  color: var(--mando-text-secondary);
+}
+.pad-confirm {
+  background: #2f8f6e;
+}
+.pad-back {
+  background: #c94a5c;
+}
+.pad-secondary {
+  background: #3d6fb8;
+}
+.pad-info {
+  background: var(--mando-gold);
+  color: var(--mando-bg);
+}
+.pad-previousTab,
+.pad-nextTab,
+.pad-previousView,
+.pad-nextView,
+.pad-menu {
+  background: var(--mando-text-secondary);
+  color: var(--mando-bg);
+}
+.save-status.saved {
+  color: var(--mando-positive);
+}
+
+/* ---------- Transição horizontal entre páginas ---------- */
+main.stage {
+  animation-duration: 0.26s;
+}
+
+/* ---------- Botões: retangulares ---------- */
+button {
+  border-radius: 3px;
+  background: var(--mando-surface-soft);
+}
+button.primary {
+  background: var(--mando-cyan);
+  color: var(--mando-bg);
+  box-shadow: none;
+}
+button.primary:hover:not(:disabled) {
+  background: #6ee6f2;
+  filter: none;
+}
+button.danger {
+  background: #b8394d;
+}
+button.active,
+button[aria-pressed='true'] {
+  background: var(--mando-petrol);
+  color: var(--mando-text);
+}
+.ghost-button,
+.text-button {
+  background: transparent;
+}
+
+/* ---------- Foco: contorno duplo branco + ciano ---------- */
+:focus-visible,
+.input-xbox :focus,
+.input-playstation :focus,
+.input-keyboard :focus {
+  outline: 2px solid var(--mando-focus-outer);
+  outline-offset: 2px;
+  box-shadow:
+    0 0 0 5px var(--mando-focus-inner),
+    0 10px 26px rgba(0, 0, 0, 0.45);
+}
+input,
+select,
+textarea {
+  background: var(--mando-bg-deep);
+  border-color: var(--mando-border);
+}
+input:focus,
+select:focus,
+textarea:focus {
+  border-color: var(--mando-cyan);
+}
+select option {
+  background: var(--mando-nav);
+}
+input[type='range'] {
+  accent-color: var(--mando-cyan);
+}
+
+/* ---------- Títulos ---------- */
+.section-title h1,
+.screen-title,
+.dialog-heading h2 {
+  font-style: normal;
+}
+.title-dot,
+.eyebrow {
+  color: var(--mando-cyan);
+}
+
+/* ---------- Abas internas ---------- */
+.segmented {
+  background: var(--mando-bg-deep);
+  border: 1px solid var(--mando-border);
+  border-radius: var(--mando-radius-panel);
+  gap: 2px;
+}
+.segmented > button {
+  border-radius: 3px;
+  background: transparent;
+}
+.segmented > button.active {
+  background: var(--mando-petrol);
+  color: var(--mando-text);
+  box-shadow: inset 0 -3px 0 var(--mando-cyan);
+}
+
+/* ---------- Painéis ---------- */
+.panel {
+  background: var(--mando-surface-glass);
+  border: 1px solid var(--mando-border);
+  border-top: 2px solid var(--mando-petrol-bright);
+  border-radius: var(--mando-radius-panel);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.32);
+}
+.metric {
+  background: var(--mando-surface);
+  border-left-color: var(--mando-cyan);
+  border-radius: var(--mando-radius-panel);
+}
+.pill,
+.status-pill {
+  border-radius: 3px;
+  background: var(--mando-surface-soft);
+}
+.pill.success,
+.status-pill.open {
+  background: var(--mando-positive);
+  color: var(--mando-bg);
+}
+.status-pill {
+  background: var(--mando-coral);
+  color: var(--mando-bg);
+}
+.count {
+  background: var(--mando-coral);
+  color: var(--mando-bg);
+  border-radius: 3px;
+}
+.live-dot {
+  background: var(--mando-positive);
+  box-shadow: none;
+}
+
+/* ---------- Tiles: superfície escura + acento semântico ---------- */
+.tile {
+  --tile-accent: var(--mando-petrol-bright);
+  background: var(--mando-surface);
+  border: 1px solid var(--mando-border);
+  border-radius: var(--mando-radius-panel);
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.3);
+}
+.tile::before {
+  background:
+    linear-gradient(90deg, var(--tile-accent) 0 4px, transparent 4px),
+    linear-gradient(150deg, rgba(207, 225, 247, 0.07) 0%, transparent 46%);
+}
+button.tile:hover:not(:disabled) {
+  background: var(--mando-surface-raised);
+  filter: none;
+}
+button.tile:focus,
+button.tile:focus-visible {
+  transform: none;
+  background: var(--mando-surface-raised);
+  outline: 2px solid var(--mando-focus-outer);
+  outline-offset: 0;
+  box-shadow:
+    0 0 0 5px var(--mando-focus-inner),
+    0 16px 36px rgba(0, 0, 0, 0.45);
+}
+button.tile:disabled {
+  opacity: 0.5;
+}
+.tile-blue,
+.tile-data {
+  --tile-accent: var(--mando-petrol-bright);
+  background: var(--mando-surface);
+}
+.tile-cyan,
+.tile-primary {
+  --tile-accent: var(--mando-cyan);
+  background: linear-gradient(135deg, var(--mando-petrol) 0%, var(--mando-surface) 78%);
+}
+.tile-green,
+.tile-positive {
+  --tile-accent: var(--mando-positive);
+  background: var(--mando-surface);
+}
+.tile-orange,
+.tile-pink,
+.tile-event {
+  --tile-accent: var(--mando-coral);
+  background: linear-gradient(135deg, #3a2e45 0%, var(--mando-surface) 70%);
+}
+.tile-purple,
+.tile-market {
+  --tile-accent: var(--mando-violet);
+  background: linear-gradient(135deg, #2d2a5c 0%, var(--mando-surface) 72%);
+}
+.tile-glass {
+  --tile-accent: var(--mando-text-muted);
+  background: var(--mando-surface-glass);
+}
+.tile-label {
+  color: var(--mando-text-secondary);
+}
+
+/* ---------- Diálogos ---------- */
+.modal-backdrop {
+  background: var(--mando-overlay);
+}
+.dialog {
+  background: var(--mando-nav);
+  border: 1px solid var(--mando-border);
+  border-top: 3px solid var(--mando-cyan);
+  border-radius: var(--mando-radius-dialog);
+}
+
+/* ---------- Toasts ---------- */
+.toast,
+.toast.success,
+.toast.error {
+  border-radius: var(--mando-radius-panel);
+  background: var(--mando-surface-raised);
+  border-left: 4px solid var(--mando-cyan);
+  color: var(--mando-text);
+}
+.toast.success {
+  border-left-color: var(--mando-positive);
+}
+.toast.error {
+  border-left-color: var(--mando-danger);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

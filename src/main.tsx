@@ -9,6 +9,7 @@ import '@fontsource/saira-semi-condensed/latin-400.css';
 import '@fontsource/saira-semi-condensed/latin-500.css';
 import '@fontsource/saira-semi-condensed/latin-600.css';
 import './styles.css';
+import './styles/legacy.css';
 
 class ErrorBoundary extends React.Component<
   { children: React.ReactNode },
