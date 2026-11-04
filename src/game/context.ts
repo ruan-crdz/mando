@@ -55,7 +55,7 @@ const coords: Record<string, [number, number]> = {
   PE: [-8.05, -34.88], PI: [-5.09, -42.8], RJ: [-22.91, -43.17], RN: [-5.79, -35.21],
   RS: [-30.03, -51.23], RO: [-8.76, -63.9], RR: [2.82, -60.67], SC: [-27.6, -48.55],
   SP: [-23.55, -46.63], SE: [-10.91, -37.07], TO: [-10.18, -48.33],
-  Argentina: [-34.6, -58.4], Uruguai: [-34.9, -56.16], Chile: [-33.45, -70.67],
+  Brasil: [-15.79, -47.88], Argentina: [-34.6, -58.4], Uruguai: [-34.9, -56.16], Chile: [-33.45, -70.67],
   Colômbia: [4.7, -74.07], Paraguai: [-25.3, -57.6], Equador: [-0.18, -78.47],
   Peru: [-12.05, -77.04], Bolívia: [-16.5, -68.15], Venezuela: [10.5, -66.9],
 };
@@ -201,15 +201,16 @@ export function matchConditions(
   if (living) {
     const ourHome = fixture.homeId === career.clubId;
     const ourAway = fixture.awayId === career.clubId;
-    const gate = ourHome ? crowdFor(career, world, fixture, Boolean(name)) : null;
+    const national = fixture.cup === 'SEL';
+    const gate = ourHome && !national ? crowdFor(career, world, fixture, Boolean(name)) : null;
     if (gate)
       r.notes.push(
         `Público esperado: ${gate.crowd.toLocaleString('pt-BR')} (${Math.round(gate.occupancy * 100)}% da capacidade)`,
       );
-    if (ourHome && (living.fans >= 78 || (gate && gate.occupancy >= 0.92))) {
+    if (ourHome && !national && (living.fans >= 78 || (gate && gate.occupancy >= 0.92))) {
       r.home += 0.015;
       r.notes.push('Casa cheia empurra o time');
-    } else if (ourHome && living.fans < 30) {
+    } else if (ourHome && !national && living.fans < 30) {
       r.home -= 0.015;
       r.notes.push('Torcida impaciente: vaias pesam no time da casa');
     } else if (gate && gate.occupancy < 0.4) {
@@ -218,7 +219,7 @@ export function matchConditions(
     }
     const focus = living.training;
     const side = ourHome ? 'home' : ourAway ? 'away' : null;
-    if (side) {
+    if (side && !national) {
       const tire = side === 'home' ? 'homeTire' : 'awayTire';
       if (focus === 'Físico') r[tire] -= 0.08;
       if (focus === 'Recuperação') r[tire] -= 0.04;

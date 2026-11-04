@@ -13,6 +13,7 @@ import {
   UserX,
 } from 'lucide-react';
 import { available, bestLineup, squad } from '../game/matches';
+import { internationalCountry } from '../game/international';
 import { useGamepad } from '../controller/GamepadProvider';
 import { ControllerButtonHint } from '../controller/ControllerButtonHint';
 import { clubById } from '../game/npc';
@@ -214,6 +215,8 @@ export function Squad({
     const state = c.players[p.id];
     if (state.injuryDays) return `Lesão · ${state.injuryDays}d`;
     if (state.suspension) return `Suspenso · ${state.suspension}j`;
+    const country = internationalCountry(c, p.id);
+    if (country) return `Convocado · ${country}`;
     if (state.fitness < 30) return 'Condição insuficiente';
     return 'Disponível';
   };

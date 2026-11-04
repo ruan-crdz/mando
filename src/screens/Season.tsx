@@ -1,13 +1,15 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { TrophyArt } from '../components/TrophyArt';
 import { PlayerFace } from '../components/PlayerFace';
 import { LegacyPanel } from '../components/LivingPanels';
-import { Award, CalendarDays, ChevronLeft, ChevronRight, Medal, Trophy } from 'lucide-react';
+import { NationalPanel } from '../components/NationalPanel';
+import { Award, CalendarDays, ChevronLeft, ChevronRight, Flag, Medal, Trophy } from 'lucide-react';
 import { Badge, dateLabel, SectionTitle } from '../components/ui';
 import { standings } from '../game/engine';
 import { competitionName, fixtureCompetition, fixtureLabel, milestones } from '../game/calendar';
 import { cupGroups, cupTies } from '../game/competitions';
-import { clubById } from '../game/npc';
+import { BRAZIL_NATIONAL_ID, clubById } from '../game/npc';
+import { nextNationalFixture } from '../game/national';
 import { type Career, type Fixture, type TableRow, type World } from '../game/types';
 import { useGamepad, useStickX } from '../controller/GamepadProvider';
 
@@ -99,13 +101,27 @@ const shiftMonth = (month: string, delta: number) => {
   return d.toISOString().slice(0, 7);
 };
 
-export function Season({ career: c, world }: { career: Career; world: World }) {
+export function Season({
+  career: c,
+  world,
+  onChange,
+  onError,
+}: {
+  career: Career;
+  world: World;
+  onChange: (career: Career) => void;
+  onError: (message: string) => void;
+}) {
   const club = world.clubs.find((club) => club.id === c.clubId)!;
   const { input, hints } = useGamepad();
   const [comp, setComp] = useState<string>(c.leagues[c.clubId] || club.league);
   const [view, setView] = useState<
-    'table' | 'calendar' | 'stats' | 'trophies' | 'awards' | 'legacy'
+    'table' | 'calendar' | 'stats' | 'trophies' | 'awards' | 'legacy' | 'national'
   >('table');
+  const international = nextNationalFixture(c);
+  useEffect(() => {
+    if (international && international.date <= c.date) setView('national');
+  }, [international?.id, c.date]);
   const [month, setMonth] = useState(c.date.slice(0, 7));
   const [day, setDay] = useState(c.date);
   const available = ['A', 'B', `EST-${club.state}`, 'CDB', 'SUP', 'LIB', 'SUL'].filter(
@@ -137,11 +153,13 @@ export function Season({ career: c, world }: { career: Career; world: World }) {
           ? '.trophy-shelf'
           : view === 'awards'
             ? '.awards-list'
-            : '.legacy-layout';
+            : view === 'national'
+              ? '.national-layout'
+              : '.legacy-layout';
     const viewTarget = document.querySelector<HTMLElement>(`.season-screen ${selector}`);
     const target =
       viewTarget &&
-      (view === 'awards' || view === 'legacy'
+      (view === 'awards' || view === 'legacy' || view === 'national'
         ? viewTarget.scrollHeight > viewTarget.clientHeight
         : view === 'stats' && window.innerWidth <= 700
           ? viewTarget.scrollHeight > viewTarget.clientHeight
@@ -150,7 +168,10 @@ export function Season({ career: c, world }: { career: Career; world: World }) {
         : document.querySelector<HTMLElement>('main.stage');
     if (!target) return;
     const vertical =
-      view === 'awards' || view === 'legacy' || (view === 'stats' && window.innerWidth <= 700);
+      view === 'awards' ||
+      view === 'legacy' ||
+      view === 'national' ||
+      (view === 'stats' && window.innerWidth <= 700);
     target.scrollBy(
       vertical
         ? { top: dir * target.clientHeight * 0.6, behavior: 'smooth' }
@@ -169,6 +190,10 @@ export function Season({ career: c, world }: { career: Career; world: World }) {
     for (const f of ownFixtures) map.set(f.date, f);
     return map;
   }, [ownFixtures]);
+  const nationalByDate = useMemo(
+    () => new Map((c.national?.fixtures || []).map((fixture) => [fixture.date, fixture])),
+    [c.national?.fixtures],
+  );
   const compFixtures = c.fixtures.filter((f) => (isLeague ? f.league === comp : f.cup === comp));
   const last = compFixtures.filter((f) => f.result).slice(-10);
   const stats = world.players.filter(
@@ -212,7 +237,8 @@ export function Season({ career: c, world }: { career: Career; world: World }) {
     const n = i - lead + 1;
     return n >= 1 && n <= daysInMonth ? `${month}-${String(n).padStart(2, '0')}` : null;
   });
-  const dayFixture = byDate.get(day);
+  const dayFixture = byDate.get(day) || nationalByDate.get(day);
+  const secondDayFixture = byDate.has(day) ? nationalByDate.get(day) : undefined;
   const dayMilestones = milestones(c.season).filter((m) =>
     m.end ? m.date <= day && day <= m.end : m.date === day,
   );
@@ -230,6 +256,7 @@ export function Season({ career: c, world }: { career: Career; world: World }) {
             ['trophies', 'Troféus', Trophy],
             ['awards', 'Prêmios', Award],
             ['legacy', 'Legado', Medal],
+            ['national', 'Seleção', Flag],
           ] as const
         ).map(([id, name, Icon]) => (
           <button
@@ -385,7 +412,8 @@ export function Season({ career: c, world }: { career: Career; world: World }) {
                 () => cycleMonth(1),
               )}
               <span className="pill">
-                {ownFixtures.filter((f) => f.date.startsWith(month)).length} jogos
+                {ownFixtures.filter((f) => f.date.startsWith(month)).length +
+                  (c.national?.fixtures.filter((f) => f.date.startsWith(month)).length || 0)} jogos
               </span>
             </div>
             <div className="month-grid">
@@ -396,9 +424,10 @@ export function Season({ career: c, world }: { career: Career; world: World }) {
               ))}
               {cells.map((date, i) => {
                 if (!date) return <span key={`x${i}`} className="day-cell blank" />;
-                const f = byDate.get(date);
-                const opponent = f && clubById(world, f.homeId === c.clubId ? f.awayId : f.homeId);
-                const home = f?.homeId === c.clubId;
+                const f = byDate.get(date) || nationalByDate.get(date);
+                const side = f?.cup === 'SEL' ? BRAZIL_NATIONAL_ID : c.clubId;
+                const opponent = f && clubById(world, f.homeId === side ? f.awayId : f.homeId);
+                const home = f?.homeId === side;
                 const won =
                   f?.result &&
                   (home
@@ -423,6 +452,9 @@ export function Season({ career: c, world }: { career: Career; world: World }) {
                             ? `${f.result.homeGoals}–${f.result.awayGoals}`
                             : shortCompetition(fixtureCompetition(f))}
                         </small>
+                        {byDate.has(date) && nationalByDate.has(date) && (
+                          <small className="day-comp">+ Seleção</small>
+                        )}
                       </>
                     )}
                   </button>
@@ -455,6 +487,20 @@ export function Season({ career: c, world }: { career: Career; world: World }) {
               </div>
             ) : (
               <h3>Dia sem jogo · treino e recuperação.</h3>
+            )}
+            {secondDayFixture && (
+              <p className="muted">
+                Também: Seleção Brasileira ×{' '}
+                {clubById(
+                  world,
+                  secondDayFixture.homeId === BRAZIL_NATIONAL_ID
+                    ? secondDayFixture.awayId
+                    : secondDayFixture.homeId,
+                ).name}
+                {secondDayFixture.result
+                  ? ` · ${secondDayFixture.result.homeGoals} × ${secondDayFixture.result.awayGoals}`
+                  : ''}
+              </p>
             )}
             <p className="eyebrow">AGENDA NACIONAL</p>
             {(dayMilestones.length
@@ -552,8 +598,8 @@ export function Season({ career: c, world }: { career: Career; world: World }) {
           </div>
           <div className="trophy-footer">
             <span>
-              <strong>{ownTitles.length}</strong> {ownTitles.length === 1 ? 'título' : 'títulos'} na
-              sua gestão
+              <strong>{ownTitles.length}</strong> {ownTitles.length === 1 ? 'título' : 'títulos'} do
+              clube atual no save
             </span>
             {c.history.slice(-3).map((h) => (
               <span key={h.season}>
@@ -567,6 +613,9 @@ export function Season({ career: c, world }: { career: Career; world: World }) {
         </div>
       )}
       {view === 'legacy' && <LegacyPanel career={c} world={world} />}
+      {view === 'national' && (
+        <NationalPanel career={c} world={world} onChange={onChange} onError={onError} />
+      )}
       {view === 'awards' && (
         <div className="awards-list">
           {c.awards.length === 0 ? (

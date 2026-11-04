@@ -19,7 +19,6 @@ export function notify(
 
 export function remember(c: Career, kind: Living['timeline'][number]['kind'], text: string) {
   c.living.timeline.push({ date: c.date, kind, text });
-  if (c.living.timeline.length > 200) c.living.timeline.splice(0, c.living.timeline.length - 200);
 }
 
 const money = (n: number) =>
@@ -41,6 +40,16 @@ export function recordMove(
   if (!player) return;
   if (to === c.clubId) {
     remember(c, 'contratacao', `Contratou ${player.name} (${clubById(world, from).name}) por ${money(fee)}`);
+    const previousGames = c.living.clubStatsByClub[c.clubId]?.[playerId]?.games || 0;
+    if (previousGames >= 50) {
+      remember(c, 'marco', `${player.name} voltou ao ${clubById(world, c.clubId).name} após ${previousGames} jogos pelo clube`);
+      notify(c, {
+        kind: 'news',
+        from: 'Mando Esportes',
+        title: `O retorno de ${player.name}`,
+        body: `Depois de ${previousGames} partidas sob seu comando no clube, o atleta está de volta.`,
+      });
+    }
     return;
   }
   if (from !== c.clubId) return;

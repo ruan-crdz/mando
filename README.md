@@ -19,20 +19,32 @@ de todo o roadmap. Não exige conta para experimentar.
 | Copas          | Estaduais, Supercopa, Copa do Brasil (64 clubes), Libertadores e Sul-Americana (grupos + mata-mata)        |
 | Clubes NPC     | Nível B: clubes brasileiros por estado; nível C: clubes sul-americanos — força, reputação e elenco simples |
 | Temporadas     | Campeões, acesso/rebaixamento, prêmios mensais e anuais, potencial dinâmico, aposentadorias e calendário    |
+| Seleção        | Convite, convocação de até 23 atletas, amistosos e desfalques internacionais simulados                     |
 | Partidas       | Engine determinística por seed, minuto a minuto, pausas, 1×/2×/4×, cinco substituições, ajustes táticos    |
 | Elenco         | Campo com troca por controle ou arrastar, planos de evolução, ritmo de jogo, personalidades e conversas     |
 | Mercado        | Propostas, empréstimos, multas rescisórias, pré-contratos, salário, renovações e negociações com NPCs       |
-| Clube          | Olheiros, captação na base, eventos, coletivas, mensagens, confiança, objetivos e propostas de emprego    |
+| Clube          | Olheiros, peneira anual com escolhas, eventos, coletivas, mensagens, confiança e propostas de emprego     |
+| Legado         | Trajetória do manager, resultados e títulos registrados, linha do tempo, hall da fama e temporadas         |
 | Save           | IndexedDB, exportação/importação JSON e sincronização manual autenticada com conflito de revisão           |
 | IA             | Quatro Edge Functions, Responses API com JSON Schema, retrato, cache e limites de uso                      |
 | Plataforma     | Gamepad centralizado, teclado virtual, teclado/mouse, PWA e workflow GitHub Pages                          |
 
 **Ainda não implementado:** Série C (por isso ninguém cai da Série B);
 fases preliminares da Libertadores e playoffs entre Libertadores/Sul-Americana;
-elencos detalhados dos clubes NPC; categorias de base completas; motor específico
+elencos detalhados dos clubes NPC; campeonatos de base completos; motor específico
 de bola parada; memória vetorial; realtime/fila de geração de histórias. A visão 2D exibe posições
 ilustrativas, não trajetórias físicas da bola/jogadores. Responsabilidades são
 persistidas, mas ainda não afetam cobranças específicas da engine.
+
+**Seleção e base.** As cinco datas internacionais anuais e os amistosos são
+fictícios; não há eliminatórias ou Copa do Mundo. As convocações usam somente
+atletas disponíveis no mundo da carreira, cujas nacionalidades podem ser
+estimadas, e seleções adversárias têm elencos NPC. Para não agravar a falta de
+atletas, a convocação preserva ao menos onze jogadores e um goleiro disponíveis
+nos clubes principais. Em 1º de maio, a peneira apresenta jovens que podem ser
+promovidos ou dispensados; não há disputa de campeonatos sub-20. Saves anteriores
+continuam válidos, mas resultados e títulos não registrados antes da atualização
+não podem ser reconstruídos integralmente.
 
 **Elencos 2026.** Os nomes vêm da base [data/](data/) (oGol, GuiaGol e sites dos clubes;
 veja [data/README.md](data/README.md)): elencos da temporada 2026, não uma fotografia

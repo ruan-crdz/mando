@@ -5,10 +5,12 @@ import { endLoan, expireThread, processOffers } from './transfers';
 import { payroll, settleFee } from './market';
 import { overall } from './ratings';
 import { LEARNED, TRAIN_CAP, familiarity, positionNames, trainingGain } from './positions';
-import { clubById, findPlayer, isForeign, knownClub } from './npc';
+import { BRAZIL_NATIONAL_ID, clubById, findPlayer, isForeign, knownClub } from './npc';
 import { baseWorld, careerWorld } from './live';
 import { scoutReport } from './scouting';
 import { livingAfterMatch, livingDay, livingSeasonEnd } from './living';
+import { beginInternationalWindow, refreshInternationalDuty } from './international';
+import { nationalFixtures, nextNationalFixture, simulateNationalMatch } from './national';
 import { regionOf, rivalry } from './context';
 import { remember } from './chronicle';
 import {
@@ -268,7 +270,11 @@ export function createCareer(
     sacked: false,
     prefs: { advance: 'day' },
     history: [],
-    living: livingSchema.parse({ hiredAt: world.date }),
+    living: livingSchema.parse({
+      hiredAt: world.date,
+      managerRecord: { since: world.date },
+      managerTitles: { since: world.date },
+    }),
   };
   createCups(c, world, 2026, initialQualification(world));
   ensureEconomy(c, world);
@@ -537,6 +543,7 @@ function monthlyReviews(c: Career, world: World) {
 
 function updateSeason(c: Career, world: World) {
   const y = c.season;
+  const knownHonours = new Set(c.honours.map((h) => `${h.season}:${h.competition}`));
   const regularB = c.fixtures.filter((f) => f.league === 'B' && !f.playoff);
   if (regularB.length && regularB.every((f) => f.result) && !c.fixtures.some((f) => f.playoff)) {
     const table = standings(c, world, 'B');
@@ -644,6 +651,13 @@ function updateSeason(c: Career, world: World) {
       important: true,
     });
   }
+  for (const honour of c.honours) {
+    if (honour.clubId !== c.clubId || knownHonours.has(`${honour.season}:${honour.competition}`))
+      continue;
+    const titles = (c.living.managerTitles ??= { since: c.date, entries: [] });
+    titles.entries.push({ ...honour, date: c.date });
+    remember(c, 'titulo', `Campeão: ${competitionName(honour.competition)} ${honour.season}`);
+  }
 }
 
 export function finishMatch(career: Career, world: World): Career {
@@ -725,11 +739,33 @@ export function signProspect(career: Career, prospectId: string): Career {
   const index = c.prospects.findIndex((player) => player.id === prospectId);
   if (index < 0) throw new Error('Relatório de jovem talento não encontrado.');
   const [player] = c.prospects.splice(index, 1);
-  player.clubId = c.clubId;
-  player.contractEnd = `${c.season + 3}-12-31`;
+  promoteYoungster(c, player);
+  return careerSchema.parse(c);
+}
+
+function promoteYoungster(career: Career, player: Player) {
+  player.clubId = career.clubId;
+  player.contractEnd = `${career.season + 3}-12-31`;
   player.wage = 5000;
-  c.youth.push(player);
-  c.players[player.id] = freshState(player);
+  career.youth.push(player);
+  career.players[player.id] = freshState(player);
+}
+
+export function reviewAcademyCandidate(
+  career: Career,
+  playerId: string,
+  decision: 'promote' | 'release',
+): Career {
+  const c = structuredClone(career);
+  const academy = c.living.academy;
+  const index = academy?.candidates.findIndex((player) => player.id === playerId) ?? -1;
+  if (!academy || academy.clubId !== c.clubId || index < 0)
+    throw new Error('Candidato da peneira não encontrado neste clube.');
+  const [player] = academy.candidates.splice(index, 1);
+  if (decision === 'promote') {
+    promoteYoungster(c, player);
+    remember(c, 'base', `${player.name} foi promovido ao profissional após a peneira do clube`);
+  }
   return careerSchema.parse(c);
 }
 
@@ -822,6 +858,7 @@ export function acceptJobOffer(career: Career, world: World, offerId: string): C
     hiredAt: c.date,
   });
   delete c.living.election;
+  delete c.living.academy;
   delete c.living.transferBan;
   delete c.living.ultimatum;
   delete c.living.lastUltimatum;
@@ -855,17 +892,22 @@ export function advanceDay(career: Career, world: World): Career {
     throw new Error(
       `A temporada ${c.season} está encerrada. Inicie a temporada ${c.season + 1} pela Central.`,
     );
-  if (c.activeMatch) throw new Error('Conclua a partida em andamento.');
+  if (c.activeMatch || c.national?.activeMatch) throw new Error('Conclua a partida em andamento.');
   if (c.sacked)
     throw new Error(
       'Você foi demitido. Aceite uma proposta na Diretoria para continuar a carreira.',
     );
   if (c.messages.some((m) => blocks(c, m)))
     throw new Error('Há uma decisão importante pendente no escritório.');
+  const nationalFixture = nextNationalFixture(c);
+  if (nationalFixture && nationalFixture.date <= c.date)
+    throw new Error('Hoje a Seleção joga. Vá a Temporada → Seleção para comandar a partida.');
   const fixture = nextFixture(c);
   if (fixture && fixture.date <= c.date)
     throw new Error('Hoje é dia de jogo. Prepare a equipe e comece a partida.');
   c.date = addDays(c.date, 1);
+  beginInternationalWindow(c, live);
+  if (c.date.endsWith('-05-01')) runAcademyTrial(c, live);
   c.jobOffers = c.jobOffers.filter((offer) => c.sacked || offer.expires >= c.date);
   const ct = trainingEffect(trainingLevel(c));
   const physio = fitnessEffect(staffLevel(c, 'fitness'));
@@ -1099,6 +1141,7 @@ export function advanceDay(career: Career, world: World): Career {
   }
   livingDay(c, live);
   processOffers(c, live);
+  refreshInternationalDuty(c, live);
   reconcileSquad(c, live);
   for (const offer of c.offers.filter(
     (o) => o.incoming && o.status === 'pending' && o.responseDate < c.date,
@@ -1133,7 +1176,14 @@ export function simulateOwnMatch(career: Career, world: World): Career {
   return finishMatch(c, world);
 }
 
-export type AdvanceStop = 'match' | 'decision' | 'message' | 'season' | 'sacked' | null;
+export type AdvanceStop =
+  | 'match'
+  | 'national'
+  | 'decision'
+  | 'message'
+  | 'season'
+  | 'sacked'
+  | null;
 
 /**
  * Um passo do avanço contínuo. "event" para em qualquer novidade; "auto" simula
@@ -1152,6 +1202,12 @@ export function advanceStep(
       c = respondMessage(c, m.id, 'support');
   else if (c.messages.some((m) => blocks(c, m)))
     return { career: c, stop: 'decision' };
+  const nationalFixture = nextNationalFixture(c);
+  if (nationalFixture && nationalFixture.date <= c.date) {
+    if (mode === 'event') return { career: c, stop: 'national' };
+    c = simulateNationalMatch(c, careerWorld(world, c));
+    return { career: c, stop: null, played: nationalFixture.id };
+  }
   const fixture = nextFixture(c);
   if (fixture && fixture.date <= c.date) {
     if (mode === 'event') return { career: c, stop: 'match' };
@@ -1166,6 +1222,8 @@ export function advanceStep(
   c = advanceDay(c, world);
   if (c.seasonEnded) return { career: c, stop: 'season' };
   if (mode === 'auto') return { career: c, stop: null };
+  const nationalNext = nextNationalFixture(c);
+  if (nationalNext && nationalNext.date <= c.date) return { career: c, stop: 'national' };
   const next = nextFixture(c);
   if (next && next.date <= c.date) return { career: c, stop: 'match' };
   if (c.messages.some((m) => blocks(c, m))) return { career: c, stop: 'decision' };
@@ -1301,6 +1359,29 @@ function youthPlayer(
   };
 }
 
+function runAcademyTrial(career: Career, world: World) {
+  if (career.living.academy?.season === career.season) return;
+  const club = world.clubs.find((item) => item.id === career.clubId);
+  if (!club) throw new Error('Não foi possível organizar a peneira do clube.');
+  const expired = career.living.academy?.candidates.length || 0;
+  const coordinator = youthCoachEffect(staffLevel(career, 'youth'));
+  const bonus = youthBonus(youthLevel(career)) + coordinator.potential;
+  const candidates = Array.from({ length: 3 + coordinator.extra }, (_, index) => {
+    const player = youthPlayer(career, club.id, club.reputation, 100 + index, undefined, club.state);
+    player.id = `academy-${career.season}-${club.id}-${index}`;
+    player.birthDate = `${career.season - 17}${player.birthDate.slice(4)}`;
+    player.potential = Math.min(94, player.potential + bonus);
+    return player;
+  });
+  career.living.academy = { clubId: club.id, season: career.season, candidates };
+  message(career, {
+    kind: 'staff',
+    from: 'Categorias de base',
+    title: 'Peneira anual concluída',
+    body: `${candidates.length} candidatos aguardam sua avaliação em Escritório → Olheiros e base.${expired ? ` ${expired} candidato(s) da peneira anterior deixaram a avaliação.` : ''}`,
+  });
+}
+
 /** Fecha a temporada encerrada e prepara a seguinte com acesso, vagas continentais e base. */
 export function startNextSeason(career: Career, world: World): Career {
   const c = structuredClone(career);
@@ -1315,6 +1396,7 @@ export function startNextSeason(career: Career, world: World): Career {
   const league = live.clubs.find((x) => x.id === c.clubId)!.league;
   c.history.push({
     season: y,
+    clubId: c.clubId,
     league,
     position: (league === 'A' ? tableA : tableB).findIndex((r) => r.clubId === c.clubId) + 1,
     confidence: c.confidence,
@@ -1323,6 +1405,10 @@ export function startNextSeason(career: Career, world: World): Career {
       .map((h) => h.competition),
   });
   const finalPosition = c.history[c.history.length - 1].position;
+  if (c.relegated.includes(c.clubId))
+    remember(c, 'derrota', `Rebaixamento com o ${clubById(live, c.clubId).name} na temporada ${y}`);
+  if (c.promoted.includes(c.clubId))
+    remember(c, 'vitoria', `Acesso com o ${clubById(live, c.clubId).name} na temporada ${y}`);
   economySeasonEnd(c, live, y, {
     promoted: c.promoted.includes(c.clubId),
     relegated: c.relegated.includes(c.clubId),
@@ -1500,6 +1586,7 @@ export function startNextSeason(career: Career, world: World): Career {
   c.messages = c.messages.filter((m) => !m.resolved || m.date >= `${y}-11-01`).slice(0, 80);
   for (const m of c.messages) if (m.important) m.resolved = true;
   c.fixtures = createSchedule(nextWorld.clubs, y + 1);
+  if (c.national) c.national.fixtures.push(...nationalFixtures(y + 1));
   createCups(c, nextWorld, y + 1, q);
   for (const club of base.clubs) {
     const f = c.finances[club.id];
@@ -1598,8 +1685,12 @@ export function validateCareerForWorld(career: Career, world: World) {
   const live = careerWorld(base, c);
   const playerIds = new Set(live.players.map((p) => p.id));
   const clubIds = new Set(base.clubs.map((club) => club.id));
+  const academy = c.living.academy;
+  const national = c.national;
+  const nationalIds = new Set(national?.fixtures.map((fixture) => fixture.id) || []);
   if (
     !clubIds.has(c.clubId) ||
+    live.players.length !== playerIds.size ||
     Object.keys(c.players).length !== playerIds.size ||
     Object.entries(c.players).some(
       ([id, s]) =>
@@ -1612,6 +1703,48 @@ export function validateCareerForWorld(career: Career, world: World) {
     new Set(c.fixtures.map((f) => f.id)).size !== c.fixtures.length ||
     c.fixtures.some(
       (f) => !knownClub(base, f.homeId) || !knownClub(base, f.awayId) || f.homeId === f.awayId,
+    ) ||
+    Boolean(
+      academy &&
+        (academy.clubId !== c.clubId ||
+          academy.season > c.season ||
+          new Set(academy.candidates.map((player) => player.id)).size !== academy.candidates.length ||
+          academy.candidates.some(
+            (player) =>
+              player.clubId !== academy.clubId ||
+              playerIds.has(player.id) ||
+              c.prospects.some((prospect) => prospect.id === player.id) ||
+              player.birthDate >= c.date,
+          )),
+    ) ||
+    (national &&
+      (new Set(national.callups).size !== national.callups.length ||
+        national.callups.some((id) => !playerIds.has(id)) ||
+        Object.keys(national.suspensions).some((id) => !playerIds.has(id)) ||
+        new Set(national.lineup).size !== national.lineup.length ||
+        national.lineup.some((id) => !national.callups.includes(id)) ||
+        nationalIds.size !== national.fixtures.length ||
+        national.fixtures.some(
+          (fixture) =>
+            fixture.cup !== 'SEL' ||
+            fixture.homeId === fixture.awayId ||
+            !knownClub(base, fixture.homeId) ||
+            !knownClub(base, fixture.awayId) ||
+            (fixture.homeId !== BRAZIL_NATIONAL_ID && fixture.awayId !== BRAZIL_NATIONAL_ID) ||
+            c.fixtures.some((clubFixture) => clubFixture.id === fixture.id),
+        ) ||
+        Boolean(c.activeMatch && national.activeMatch) ||
+        Boolean(
+          national.activeMatch &&
+            !national.fixtures.some(
+              (fixture) =>
+                fixture.id === national.activeMatch?.fixtureId && !fixture.result,
+            ),
+        ))) ||
+    Boolean(
+      c.international &&
+        (c.international.from > c.international.until ||
+          Object.keys(c.international.players).some((id) => !playerIds.has(id))),
     ) ||
     c.date < base.date ||
     c.date > `${c.season}-12-31`

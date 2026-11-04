@@ -1152,6 +1152,33 @@
   border-top-color: var(--mando-cyan);
 }
 
+.season-screen .legacy-profile,
+.season-screen .legacy-seasons {
+  grid-column: 1 / -1;
+}
+
+.season-screen .legacy-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 28px;
+}
+
+.season-screen .legacy-summary p {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+}
+
+.season-screen .legacy-summary strong {
+  color: var(--mando-cyan);
+  font-size: 1.4rem;
+}
+
+.season-screen .legacy-summary span {
+  color: var(--mando-text-muted);
+  font-size: 0.8rem;
+}
+
 .season-screen .legacy-layout > .panel p:focus {
   background: var(--mando-petrol);
 }
@@ -1355,5 +1382,116 @@
 
   .office-screen .price-options {
     grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.season-screen .national-intro {
+  max-width: 760px;
+}
+
+.season-screen .national-layout {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-content: start;
+  gap: 8px;
+  max-height: calc(100dvh - 190px);
+  overflow: auto;
+  scrollbar-width: thin;
+}
+
+.season-screen .national-summary {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  border-top-color: var(--mando-gold);
+}
+
+.national-actions,
+.national-pagination {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.national-starters,
+.national-reserves,
+.national-player-list {
+  display: grid;
+  gap: 5px;
+}
+
+.national-starters,
+.national-reserves {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.national-starters button,
+.national-reserves button {
+  display: grid;
+  gap: 3px;
+  justify-content: stretch;
+  text-align: left;
+  text-transform: none;
+}
+
+.national-starters button.active {
+  border-color: var(--mando-cyan);
+  background: var(--mando-petrol);
+}
+
+.national-starters small,
+.national-reserves small,
+.national-player-row small {
+  display: block;
+  color: var(--mando-text-secondary);
+}
+
+.national-player-list {
+  max-height: 360px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
+.national-player-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px;
+  background: var(--os-slate);
+}
+
+.national-search label {
+  display: grid;
+  gap: 5px;
+  margin-bottom: 8px;
+}
+
+.national-pagination {
+  justify-content: space-between;
+  margin-top: 8px;
+}
+
+.national-central-notice {
+  border-color: var(--mando-gold);
+  color: var(--mando-text);
+}
+
+@media (max-width: 1000px) and (orientation: landscape) {
+  .season-screen .national-layout {
+    max-height: calc(100dvh - 145px);
+  }
+}
+
+@media (max-width: 700px) and (orientation: landscape) {
+  .season-screen .national-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .season-screen .national-summary {
+    flex-wrap: wrap;
   }
 }

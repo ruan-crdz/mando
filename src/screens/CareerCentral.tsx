@@ -12,6 +12,7 @@ import { CareerCalendar } from '../components/CareerCalendar';
 import { ControllerButtonHint } from '../controller/ControllerButtonHint';
 import { fixtureLabel, nextFixture } from '../game/calendar';
 import { clubById } from '../game/npc';
+import { nextNationalFixture } from '../game/national';
 import { addDays } from '../game/random';
 import { squad } from '../game/matches';
 import { standings } from '../game/engine';
@@ -51,6 +52,8 @@ export function CareerCentral({
   const unread = c.messages.filter((m) => !m.read);
   const pending = c.messages.filter((m) => m.important && !m.resolved);
   const isMatchDay = Boolean(fixture && fixture.date <= c.date);
+  const national = nextNationalFixture(c);
+  const nationalToday = Boolean(national && national.date <= c.date);
   const mode = c.prefs?.advance || 'day';
   const auto = mode === 'auto' && !c.seasonEnded && !c.sacked;
   const advanceAction = c.sacked
@@ -61,7 +64,9 @@ export function CareerCentral({
         ? () => onTab(3)
         : c.seasonEnded
           ? onNewSeason
-          : isMatchDay
+        : nationalToday
+          ? () => onTab(4)
+        : isMatchDay
             ? onMatch
             : onAdvance;
   return (
@@ -91,6 +96,11 @@ export function CareerCentral({
           </button>
         </div>
       </div>
+      {nationalToday && (
+        <button className="national-central-notice" onClick={() => onTab(4)}>
+          A Seleção joga hoje. Abrir convocação e partida.
+        </button>
+      )}
       <CareerCalendar career={c} world={world} />
       <div className="central-grid">
         <button
@@ -127,7 +137,7 @@ export function CareerCentral({
           )}
         </button>
         <button
-          className={`tile ${c.sacked || (!auto && (pending.length || isMatchDay)) ? 'tile-event' : 'tile-primary'} advance-tile`}
+          className={`tile ${c.sacked || (!auto && (pending.length || isMatchDay || nationalToday)) ? 'tile-event' : 'tile-primary'} advance-tile`}
           disabled={busy}
           onClick={advanceAction}
         >
@@ -140,6 +150,8 @@ export function CareerCentral({
                   ? 'UMA DECISÃO ESPERA POR VOCÊ'
                   : c.seasonEnded
                     ? 'FÉRIAS ACABARAM'
+                    : nationalToday
+                      ? 'A SELEÇÃO ENTRA EM CAMPO'
                     : isMatchDay
                       ? 'O ESTÁDIO ESTÁ PRONTO'
                       : 'O CLUBE NÃO PARA'}
@@ -153,6 +165,8 @@ export function CareerCentral({
                   ? 'Abrir escritório'
                   : c.seasonEnded
                     ? `Iniciar ${c.season + 1}`
+                    : nationalToday
+                      ? 'Jogo da Seleção'
                     : isMatchDay
                       ? 'Dia de jogo'
                       : mode === 'event'

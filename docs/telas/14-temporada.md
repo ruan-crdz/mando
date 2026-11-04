@@ -4,7 +4,7 @@
 
 Quinta aba principal do modo carreira (`TEMPORADA`, índice 4 em `tabs` do `App.tsx`). Reúne tudo que é "competição" e "histórico": tabela/chaves das competições, calendário mensal do clube, artilharia e outros rankings, sala de troféus, prêmios mensais/anuais e o legado do técnico (linha do tempo, hall da fama, maiores negócios).
 
-A tela tem **6 sub-abas** num seletor segmentado (`.segmented`), trocadas com clique ou LT/RT (L2/R2):
+A tela tem **7 sub-abas** num seletor segmentado (`.segmented`), trocadas com clique ou LT/RT (L2/R2):
 
 | id | Rótulo | Ícone lucide |
 |---|---|---|
@@ -14,8 +14,9 @@ A tela tem **6 sub-abas** num seletor segmentado (`.segmented`), trocadas com cl
 | `trophies` | `Troféus` | `Trophy` |
 | `awards` | `Prêmios` | `Award` |
 | `legacy` | `Legado` | `Medal` |
+| `national` | `Seleção` | `Flag` |
 
-Sub-aba inicial ao entrar: sempre `table`. O estado (`view`, `comp`, `month`, `day`) é local do componente e se perde ao sair da aba (o `<main>` é remontado com `key` por aba).
+Sub-aba inicial ao entrar: `table`, exceto quando há jogo da Seleção pendente, quando abre `national`. O estado (`view`, `comp`, `month`, `day`) é local do componente e se perde ao sair da aba (o `<main>` é remontado com `key` por aba).
 
 ## Como se chega / como se sai
 
@@ -36,6 +37,7 @@ Sub-aba inicial ao entrar: sempre `table`. O estado (`view`, `comp`, `month`, `d
 - `src\screens\Season.tsx` — tela inteira (componentes `Season`, `StandingsTable`, `switcher`, constantes `cupRules`, `shortCompetition`, `weekDays`, `monthName`, `shiftMonth`).
 - `src\components\TrophyArt.tsx` — troféus em SVG (formas `classic`, `globe`, `flag`, `ball`, `tall`; metais `gold`/`silver`).
 - `src\components\LivingPanels.tsx` → `LegacyPanel` (sub-aba Legado).
+- `src\components\NationalPanel.tsx`, `src\game\national.ts` e `src\game\international.ts` — convocação, amistosos e desfalques da Seleção.
 - `src\components\PlayerFace.tsx` — foto/rosto do atleta (stats, prêmios).
 - `src\components\ui.tsx` → `Badge`, `dateLabel`, `SectionTitle`, `money`.
 - `src\game\competitions.ts` → `cupGroups(c, cup)`, `cupTies(c, cup)`, `tieWinner`.
@@ -299,7 +301,7 @@ Quatro rankings top 10 dos jogadores dos clubes de uma divisão, somando todas a
    - `aria-label`: `{nome completo}: {n} títulos`.
    - `.won` no stand com título: contorno dourado + glow.
 2. **Rodapé** (`.trophy-footer`):
-   - `<strong>{total}</strong> título(s) na sua gestão` (número amarelo 22px).
+   - `<strong>{total}</strong> título(s) do clube atual no save` (número amarelo 22px); os títulos registrados do manager aparecem em Legado.
    - Últimas 3 temporadas de `c.history`: `{season} — {position}º na Série {league}`.
    - Se `c.seasonEnded`: `Acesso — {siglas de c.promoted separadas por vírgula}`.
 
@@ -357,22 +359,34 @@ Painel de memória da carreira vindo do sistema "mundo vivo" (`career.living`).
 ```
 
 ### Elementos
-1. **Linha do tempo** (`section.panel`, `<h2>Linha do tempo</h2>`):
-   - Se `living.nationalInvite`: `p.living-headline` (negrito, cor `#b45309`) `Convidado para treinar a Seleção Brasileira`.
-   - Até 40 eventos de `living.timeline`, do mais novo para o mais antigo: `{ícone} <muted>{data curta}</muted> {texto}`. Ícones (emoji) por `kind`: `titulo` 🏆, `venda` 💰, `contratacao` ✍️, `derrota` 💥, `vitoria` ⚽, `marco` ⭐, `base` 🌱, `cargo` 💼.
+1. **Trajetória**: temporadas encerradas, títulos registrados e vitórias/empates/derrotas em clubes desde o início do registro. Se houver trabalho na Seleção, mostra vitórias e jogos internacionais. Saves antigos não recuperam resultados que não foram registrados.
+2. **Linha do tempo** (`section.panel`, `<h2>Linha do tempo</h2>`):
+   - Se `living.nationalInvite` e o convite ainda não foi aceito: `Convidado para treinar a Seleção Brasileira`.
+   - Eventos de `living.timeline`, do mais novo para o mais antigo, em páginas de 40 acessíveis por "Ver eventos anteriores". Ícones (emoji) por `kind`: `titulo` 🏆, `venda` 💰, `contratacao` ✍️, `derrota` 💥, `vitoria` ⚽, `marco` ⭐, `base` 🌱, `cargo` 💼.
    - Vazio: `A história ainda está sendo escrita.`
-2. **Hall da fama** (`<h2>Hall da fama</h2>`): top 10 de `living.clubStats` ordenado por `jogos + gols×3`; cada linha `<strong>Nome</strong> <muted>{games} jogos · {goals} gols · {assists} assist.</muted>`. Vazio: `Jogue partidas para formar ídolos.`
-3. **Maiores negócios** (`<h2>Maiores negócios</h2>`):
+3. **Hall da fama** (`<h2>Hall da fama</h2>`): top 10 de `living.clubStats` ordenado por `jogos + gols×3`; cada linha `<strong>Nome</strong> <muted>{games} jogos · {goals} gols · {assists} assist.</muted>`. Vazio: `Jogue partidas para formar ídolos.`
+4. **Maiores negócios** (`<h2>Maiores negócios</h2>`):
    - `<h3>Vendas</h3>`: até 5 transferências com `from` = clube do usuário, por valor desc.: `Nome → Clube destino · R$ X mi` (`money` compacto pt-BR).
    - `<h3>Contratações</h3>`: até 5 com `to` = clube do usuário: `Nome ← Clube origem · R$ X mi`.
    - Sem mensagem de vazio (os títulos ficam sozinhos).
+5. **Temporadas e conquistas**: títulos registrados durante a gestão e histórico de posição e troféus por temporada.
 
 ### Estados e variações
 - Carreira nova: textos de vazio; "Maiores negócios" só com subtítulos.
 - Convite da Seleção ativo: manchete laranja no topo.
 
 ### Interações
-- Nada focável/clicável. Controle: LT/RT, RS ▲▼ (rola o painel com foco ou o maior rolável). Mouse: rolagem.
+- Controle: LT/RT, RS ▲▼ e botão "Ver eventos anteriores". Mouse: rolagem e clique.
+
+---
+
+## Aba 7 — Seleção (`national`)
+
+- Um convite pode chegar ao fim da temporada após título nacional/continental relevante ou quatro títulos registrados, com confiança mínima de 60. O cargo é exercido em paralelo ao clube.
+- A convocação é editável, limitada a 23 atletas elegíveis, com recomendação automática e troca entre titulares e reservas. Lesionados e suspensos pela Seleção não podem começar uma partida. Convocações não podem agravar a falta de atletas ou deixar um clube principal sem goleiro.
+- Há cinco janelas e amistosos por ano, em datas **fictícias**. Os adversários são seleções NPC e os atletas disponíveis dependem do snapshot, cujas nacionalidades podem ser estimadas. Não há Copa do Mundo nem eliminatórias.
+- Convocados desfalcam seus clubes durante a janela. A disponibilidade é revista após lesões e transferências; se a lista precisar ser reduzida para preservar o elenco de um clube, chega uma mensagem explicando a mudança.
+- O jogo da Seleção usa a tela e a engine de partidas, sem mudar os contratos ou as suspensões domésticas. Lesões e desgaste retornam ao clube; suspensões internacionais são separadas. A agenda, o andamento e os resultados persistem no save.
 
 ---
 

@@ -55,15 +55,23 @@ import {
   fireScout,
   reassignScout,
   signProspect,
+  reviewAcademyCandidate,
   playerConversation,
   setDevelopmentPlan,
   setReleaseClause,
   setPlayerRole,
   blocks,
 } from './game/engine';
-import { bestLineup, beginMatch, resolveMoment, substitute } from './game/matches';
+import { available, bestLineup, beginMatch, resolveMoment, substitute } from './game/matches';
 import { careerWorld } from './game/live';
 import { fixtureLabel, nextFixture } from './game/calendar';
+import { internationalCountry } from './game/international';
+import {
+  finishNationalMatch,
+  mergeNationalMatch,
+  nationalMatchCareer,
+  nextNationalFixture,
+} from './game/national';
 import { clubById } from './game/npc';
 import {
   answerIncoming,
@@ -123,6 +131,7 @@ const advanceModes: { id: AdvanceMode; title: string; text: string }[] = [
 ];
 const stopNotes: Record<string, string> = {
   match: 'Dia de jogo! O avanço parou.',
+  national: 'A Seleção joga hoje. Abra a convocação e prepare a partida.',
   decision: 'Uma decisão espera por você no escritório.',
   message: 'Nova mensagem no escritório.',
   season: 'Temporada encerrada.',
@@ -139,17 +148,26 @@ function Game() {
     () => (world && career ? careerWorld(world, career) : world),
     [world, career],
   );
+  const playingNational = Boolean(career?.national?.activeMatch);
+  const inMatch = Boolean(career?.activeMatch || playingNational);
+  const nationalCareer = useMemo(
+    () => (career && playingNational ? nationalMatchCareer(career) : null),
+    [career, playingNational],
+  );
   const matchdayFixture = career ? nextFixture(career) : null;
   const matchdayHome = matchdayFixture && live ? clubById(live, matchdayFixture.homeId) : null;
   const matchdayAway = matchdayFixture && live ? clubById(live, matchdayFixture.awayId) : null;
   const matchdayLabel = matchdayFixture ? fixtureLabel(matchdayFixture) : null;
   const matchdayLineupComplete = Boolean(
     career &&
+      live &&
       career.lineup.length === 11 &&
+      new Set(career.lineup).size === 11 &&
+      live.players.some((player) => player.id === career.lineup[0] && player.position === 'GK') &&
       career.lineup.every((id) => {
         const state = career.players[id];
         if (!state || state.clubId !== career.clubId) return false;
-        return !state.injuryDays && !state.suspension;
+        return Boolean(available(career, id));
       }),
   );
   const matchdayUnavailable =
@@ -157,7 +175,7 @@ function Game() {
       ? live.players.filter((player) => {
           const state = career.players[player.id];
           if (!state || state.clubId !== career.clubId) return false;
-          return state.injuryDays > 0 || state.suspension > 0;
+          return !available(career, player.id);
         })
       : [];
   const [saves, setSaves] = useState<SavedCareer[]>([]);
@@ -195,7 +213,7 @@ function Game() {
     if (controller.input === 'xbox' || controller.input === 'playstation') startMusic();
   }, [controller.input]);
   // Em jogo: a trilha some e entra o som do estádio.
-  const matchOn = screen === 'career' && Boolean(career?.activeMatch);
+  const matchOn = screen === 'career' && inMatch;
   useEffect(() => {
     if (!matchOn) return;
     setMusicSuspended(true);
@@ -383,20 +401,31 @@ function Game() {
   }, [career, user, sync]);
   const switchTab = useCallback(
     (delta: number) => {
-      if (screen !== 'career' || career?.activeMatch || popup || detail || busy || running) return;
+      if (screen !== 'career' || inMatch || popup || detail || busy || running) return;
       setTab((t) => (t + delta + 5) % 5);
     },
-    [screen, career?.activeMatch, popup, detail, busy, running],
+    [screen, inMatch, popup, detail, busy, running],
   );
   const advance = useCallback(() => {
-    if (!career || !live || running || busy || career.activeMatch) return;
+    if (!career || !live || running || busy || inMatch) return;
     const mode = career.prefs?.advance || 'day';
     if (career.sacked) return setTab(3);
+    const nationalFixture = nextNationalFixture(career);
+    if (
+      mode !== 'auto' &&
+      !career.messages.some((message) => blocks(career, message)) &&
+      nationalFixture &&
+      nationalFixture.date <= career.date
+    ) {
+      setTab(4);
+      setNotice(stopNotes.national);
+      return;
+    }
     if (mode === 'day') return act(() => setCareer(advanceDay(career, live)));
     setPlayed(0);
     setAdvanceStartedAt(career.date);
     setRunning(true);
-  }, [career, live, act, running, busy]);
+  }, [career, live, act, running, busy, inMatch]);
   const stopRunning = useCallback(() => setRunning(false), []);
   const step = useRef({ career, world });
   step.current = { career, world };
@@ -415,6 +444,7 @@ function Game() {
           setNotice(stopNotes[result.stop]);
           rumble('whistle');
           if (result.stop === 'match') setPopup('prematch');
+          else if (result.stop === 'national') setTab(4);
           else if (
             result.stop === 'decision' ||
             result.stop === 'message' ||
@@ -444,17 +474,17 @@ function Game() {
           nextTab: () => switchTab(1),
           secondary: () => {
             if (running) return setRunning(false);
-            if (career && screen === 'career' && !career.activeMatch && !popup && !running)
+            if (career && screen === 'career' && !inMatch && !popup && !running)
               advance();
           },
           info: () => {
-            if (screen === 'career' && !career?.activeMatch && !popup && !running) setTab(3);
+            if (screen === 'career' && !inMatch && !popup && !running) setTab(3);
           },
           menu: () => {
             if (screen !== 'career') return;
             if (running) return setRunning(false);
             // Na Central, START abre as preferências de avanço; nas demais telas, a pausa.
-            if (tab === 0 && !career?.activeMatch && !popup) {
+            if (tab === 0 && !inMatch && !popup) {
               prefsFromPause.current = false;
               setPopup('prefs');
             } else
@@ -481,7 +511,6 @@ function Game() {
       photo,
     );
   const club = career && world?.clubs.find((club) => club.id === career.clubId);
-  const inMatch = Boolean(career?.activeMatch);
   return (
     <div
       className={`game-shell input-${controller.input} on-${screen}${inMatch ? ' in-match' : ''}`}
@@ -579,15 +608,27 @@ function Game() {
         {screen === 'career' &&
           career &&
           world &&
-          (career.activeMatch ? (
+          (inMatch ? (
             <MatchScreen
-              career={career}
+              career={nationalCareer || career}
               world={live!}
-              onChange={setCareer}
+              onChange={
+                nationalCareer
+                  ? (updated) =>
+                      setCareer((current) =>
+                        current ? mergeNationalMatch(current, updated) : current,
+                      )
+                  : setCareer
+              }
               onError={fail}
               paused={Boolean(popup) || busy}
               onFinish={() =>
                 act(() => {
+                  if (nationalCareer) {
+                    setCareer(finishNationalMatch(career, live!));
+                    setTab(4);
+                    return;
+                  }
                   let session: PressSession | null;
                   try {
                     session = buildPress(career, live!);
@@ -604,10 +645,16 @@ function Game() {
                 })
               }
               onSubstitute={(outId, inId) =>
-                act(() => setCareer(substitute(career, live!, outId, inId)))
+                act(() => {
+                  const updated = substitute(nationalCareer || career, live!, outId, inId);
+                  setCareer(nationalCareer ? mergeNationalMatch(career, updated) : updated);
+                })
               }
               onMoment={(id, action) =>
-                act(() => setCareer(resolveMoment(career, live!, id, action)))
+                act(() => {
+                  const updated = resolveMoment(nationalCareer || career, live!, id, action);
+                  setCareer(nationalCareer ? mergeNationalMatch(career, updated) : updated);
+                })
               }
             />
           ) : (
@@ -834,6 +881,16 @@ function Game() {
                       setNotice('Jovem talento integrado às categorias de base.');
                     })
                   }
+                  onReviewAcademy={(id, decision) =>
+                    act(() => {
+                      setCareer(reviewAcademyCandidate(career, id, decision));
+                      setNotice(
+                        decision === 'promote'
+                          ? 'Candidato integrado ao elenco profissional.'
+                          : 'Candidato dispensado da peneira.',
+                      );
+                    })
+                  }
                   onAcceptJob={(id) =>
                     act(() => {
                       setCareer(acceptJobOffer(career, live!, id));
@@ -900,7 +957,9 @@ function Game() {
                   }
                 />
               )}
-              {tab === 4 && <Season career={career} world={live!} />}
+              {tab === 4 && (
+                <Season career={career} world={live!} onChange={setCareer} onError={fail} />
+              )}
             </>
           ))}
       </main>
@@ -1026,7 +1085,7 @@ function Game() {
       )}
       {popup === 'pause' && career && world && (
         <Modal
-          title={career.activeMatch ? 'Jogo pausado' : 'Pausa'}
+          title={inMatch ? 'Jogo pausado' : 'Pausa'}
           onClose={() => setPopup(null)}
           className="hub-modal pause-modal"
         >
@@ -1107,7 +1166,7 @@ function Game() {
                 <Square size={16} /> Parar caixa postal
               </button>
             )}
-            {!career.activeMatch && (
+            {!inMatch && (
               <button
                 onClick={() => {
                   prefsFromPause.current = true;
@@ -1332,7 +1391,11 @@ function Game() {
                             <small>
                               {state.injuryDays
                                 ? `Lesão · ${state.injuryDays} dia${state.injuryDays === 1 ? '' : 's'}`
-                                : `Suspensão · ${state.suspension} jogo${state.suspension === 1 ? '' : 's'}`}
+                                : state.suspension
+                                  ? `Suspensão · ${state.suspension} jogo${state.suspension === 1 ? '' : 's'}`
+                                  : internationalCountry(career, player.id)
+                                    ? `Convocado · ${internationalCountry(career, player.id)}`
+                                    : 'Condição insuficiente'}
                             </small>
                           </span>
                         </li>
@@ -1353,7 +1416,9 @@ function Game() {
             </div>
           </div>
           <div className="matchday-forecast">
-            {matchdayFixture && <MatchOdds career={career} world={live!} fixture={matchdayFixture} />}
+            {matchdayFixture && matchdayLineupComplete && (
+              <MatchOdds career={career} world={live!} fixture={matchdayFixture} />
+            )}
             {!matchdayLineupComplete && (
               <p className="matchday-lineup-warning">
                 A previsão depende de uma escalação completa. Revise o Time para liberar as

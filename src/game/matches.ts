@@ -14,6 +14,7 @@ import {
   type Strength,
 } from './tactics';
 import { matchConditions } from './context';
+import { internationalCountry } from './international';
 import { trainingEffect, trainingLevel } from './economy';
 import { fitnessEffect, goalkeepingEffect, staffLevel } from './staff';
 import { manOfTheMatch, matchRatings } from './matchRatings';
@@ -36,7 +37,13 @@ export const stateOf = (career: Career, id: string) =>
 
 export const available = (career: Career, id: string) => {
   const p = stateOf(career, id);
-  return p && p.injuryDays === 0 && p.suspension === 0 && p.fitness >= 30;
+  return (
+    p &&
+    p.injuryDays === 0 &&
+    p.suspension === 0 &&
+    p.fitness >= 30 &&
+    !internationalCountry(career, id)
+  );
 };
 
 export function squad(career: Career, world: World, clubId = career.clubId) {
@@ -104,7 +111,7 @@ export function validateLineup(career: Career, world: World) {
     )
   )
     throw new Error(
-      'A escalação contém atleta lesionado, suspenso, exausto ou de outro clube. Use a autoescalação.',
+      'A escalação contém atleta lesionado, suspenso, convocado, exausto ou de outro clube. Use a autoescalação.',
     );
   const keeper = world.players.find((p) => p.id === career.lineup[0]);
   if (keeper?.position !== 'GK') throw new Error('Escale um goleiro na posição de goleiro.');

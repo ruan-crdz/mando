@@ -383,6 +383,16 @@ export const fixtureSchema = z.object({
   result: matchSchema.optional(),
 });
 export type Fixture = z.infer<typeof fixtureSchema>;
+export const nationalSchema = z.object({
+  callups: z.array(z.string()).max(23),
+  lineup: z.array(z.string()).max(11),
+  roles: z.record(z.string(), z.string()),
+  tactic: tacticSchema,
+  fixtures: z.array(fixtureSchema),
+  activeMatch: matchSchema.optional(),
+  suspensions: z.record(z.string(), z.number().int().nonnegative()).default({}),
+});
+export type NationalCareer = z.infer<typeof nationalSchema>;
 export const messageSchema = z.object({
   id: z.string(),
   date: isoDate,
@@ -622,6 +632,49 @@ export const livingSchema = z.object({
       }),
     )
     .default({}),
+  clubStatsByClub: z
+    .record(
+      z.string(),
+      z.record(
+        z.string(),
+        z.object({
+          games: z.number().int().nonnegative(),
+          goals: z.number().int().nonnegative(),
+          assists: z.number().int().nonnegative(),
+        }),
+      ),
+    )
+    .default({}),
+  managerRecord: z
+    .object({
+      since: isoDate,
+      won: z.number().int().nonnegative().default(0),
+      drawn: z.number().int().nonnegative().default(0),
+      lost: z.number().int().nonnegative().default(0),
+    })
+    .optional(),
+  managerTitles: z
+    .object({
+      since: isoDate,
+      entries: z
+        .array(
+          z.object({
+            season: z.number().int(),
+            competition: z.string(),
+            clubId: z.string(),
+            date: isoDate,
+          }),
+        )
+        .default([]),
+    })
+    .optional(),
+  academy: z
+    .object({
+      clubId: z.string(),
+      season: z.number().int().min(2026),
+      candidates: z.array(playerSchema),
+    })
+    .optional(),
   /** Simpatia de cada jornalista (0–100). */
   media: z.record(z.string(), percent).default({}),
   headline: z.object({ text: z.string(), until: isoDate }).optional(),
@@ -810,6 +863,7 @@ export const careerSchema = z.object({
     .array(
       z.object({
         season: z.number().int(),
+        clubId: z.string().optional(),
         league: z.enum(['A', 'B']),
         position: z.number().int(),
         confidence: z.number(),
@@ -819,6 +873,16 @@ export const careerSchema = z.object({
     .default([]),
   /** Mundo vivo: técnicos da IA, mercado, vestiário, diretoria, torcida e legado. */
   living: livingSchema.prefault({}),
+  /** Trabalho na Seleção, separado do clube e preservado no mesmo save. */
+  national: nationalSchema.optional(),
+  /** Atletas cedidos às seleções durante uma janela internacional simulada. */
+  international: z
+    .object({
+      from: isoDate,
+      until: isoDate,
+      players: z.record(z.string(), z.string()),
+    })
+    .optional(),
 });
 export type Career = z.infer<typeof careerSchema>;
 export type TableRow = {

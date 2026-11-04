@@ -277,7 +277,7 @@ Comissão e perfil (`staff`), Olheiros e base (`scouts`), Clube vivo (`club`): g
   - Rótulo ciano "{REGIÃO} · NÍVEL {skill}" (1–5; nível = min(5, 2 + reputação do clube ÷ 35)).
   - `strong` nome (sorteado entre "Marcos Vieira", "Renata Campos", "Paulo Nogueira").
   - "Progresso da próxima observação: {progress}/7 dias" + `<meter 0–7>`.
-  - `button.danger` "Demitir {primeiro nome}" → `fireScout` + toast "Olheiro demitido." (sem confirmação, sem reembolso).
+  - "Gerenciar" abre opções para mudar a região ou dispensar, com confirmação e explicação das consequências; a contratação não é reembolsada.
 - Se menos de 3 olheiros: `.button-row` com 3 botões "Contratar olheiro · {Brasil | América do Sul | Europa} · {custo}" — custo = R$ 500 mil + R$ 250 mil × olheiros atuais (debitado do caixa e lançado no histórico). Toast "Olheiro contratado para {região}."; erro "Caixa insuficiente para contratar um olheiro." A mesma região pode ser contratada mais de uma vez.
 
 **Captação na base (`section.panel.staff-reports`)**
@@ -289,6 +289,9 @@ Comissão e perfil (`staff`), Olheiros e base (`scouts`), Clube vivo (`club`): g
   - "{potential} de potencial · {uncertainty} de incerteza · {money(value)} de valor estimado".
   - `button.primary` "Promover à base do clube" → `signProspect` (vai para `career.youth`, contrato até {season+3}-12-31, salário R$ 5 mil) + toast "Jovem talento integrado às categorias de base.".
 - Cada novo prospecto gera mensagem do olheiro "Novo talento encontrado" (o texto diz "Confira em Comissão e perfil", mas a lista está nesta sub-aba).
+- Em 1º de maio, a peneira anual apresenta candidatos próprios do clube, independentes dos relatórios dos olheiros. As instalações e o coordenador influenciam o potencial e a quantidade.
+- Cada candidato pode ser integrado diretamente ao elenco profissional (R$ 5 mil/mês) ou dispensado com confirmação. Candidatos pendentes saem na peneira seguinte, com aviso na caixa de entrada; ao assumir outro clube, a peneira anterior não acompanha o manager.
+- A peneira e seus candidatos são salvos na carreira; ainda não há competição sub-20 simulada.
 
 ### Estados e variações
 - 0–3 olheiros (botões de contratar somem com 3); 0–5 prospectos; caixa insuficiente (erro em toast).

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { ArrowUpRight, ChevronLeft, ChevronRight, Radar } from 'lucide-react';
 import { useStickX } from '../controller/GamepadProvider';
 import { ControllerButtonHint } from '../controller/ControllerButtonHint';
-import { clubById, findPlayer } from '../game/npc';
+import { BRAZIL_NATIONAL_ID, clubById, findPlayer } from '../game/npc';
 import { analystCost } from '../game/living';
 import {
   staffEffectText,
@@ -29,7 +29,7 @@ import {
 } from '../game/dressing';
 import { winProbability } from '../game/tactics';
 import { dateLabel, money } from './ui';
-import { nextFixture } from '../game/calendar';
+import { competitionName, nextFixture } from '../game/calendar';
 import {
   trainingFocus,
   type Career,
@@ -363,7 +363,7 @@ export function ClubPanel({
                 {l.election.threat}% de chance de vencer e te demitir.
               </p>
             )}
-            {l.nationalInvite && (
+            {l.nationalInvite && !career.national && (
               <p className="living-headline">A CBF quer você no comando da Seleção!</p>
             )}
             <h3>Exigências em aberto</h3>
@@ -831,7 +831,23 @@ const kindIcon: Record<string, string> = {
 };
 
 export function LegacyPanel({ career, world }: { career: Career; world: World }) {
+  const [visibleEvents, setVisibleEvents] = useState(40);
   const l = career.living;
+  const titles = new Set(
+    career.history.flatMap((season) =>
+      season.trophies.map((competition) => `${season.season}:${competition}`),
+    ),
+  );
+  for (const title of l.managerTitles?.entries || [])
+    titles.add(`${title.season}:${title.competition}`);
+  const record = l.managerRecord;
+  const nationalGames = career.national?.fixtures.filter((fixture) => fixture.result) || [];
+  const nationalWins = nationalGames.filter((fixture) => {
+    const result = fixture.result!;
+    return fixture.homeId === BRAZIL_NATIONAL_ID
+      ? result.homeGoals > result.awayGoals
+      : result.awayGoals > result.homeGoals;
+  }).length;
   const hall = Object.entries(l.clubStats)
     .sort((a, b) => b[1].games + b[1].goals * 3 - (a[1].games + a[1].goals * 3))
     .slice(0, 10);
@@ -845,15 +861,42 @@ export function LegacyPanel({ career, world }: { career: Career; world: World })
     .slice(0, 5);
   return (
     <div className="staff-layout legacy-layout">
+      <section className="panel legacy-profile">
+        <h2>{career.manager.firstName} {career.manager.lastName} · trajetória</h2>
+        <div className="legacy-summary">
+          <p><strong>{career.history.length}</strong><span>temporadas encerradas</span></p>
+          <p><strong>{titles.size}</strong><span>títulos registrados</span></p>
+          <p>
+            <strong>{record ? record.won + record.drawn + record.lost : 0}</strong>
+            <span>jogos de clube registrados</span>
+          </p>
+          {career.national && (
+            <p><strong>{nationalWins}/{nationalGames.length}</strong><span>vitórias pela Seleção</span></p>
+          )}
+        </div>
+        {record ? (
+          <p className="muted">
+            Clubes: {record.won} vitórias · {record.drawn} empates · {record.lost} derrotas
+            {' '}· registro desde {dateLabel(record.since)}.
+          </p>
+        ) : (
+          <p className="muted">O registro de resultados começa na próxima partida de clube.</p>
+        )}
+        {l.managerTitles && l.managerTitles.since > '2026-01-01' && (
+          <p className="muted">
+            Títulos anteriores à atualização aparecem quando constam no histórico de temporadas.
+          </p>
+        )}
+      </section>
       <section className="panel">
         <h2>Linha do tempo</h2>
-        {l.nationalInvite && (
+        {l.nationalInvite && !career.national && (
           <p className="living-headline">Convidado para treinar a Seleção Brasileira</p>
         )}
         {l.timeline.length ? (
           [...l.timeline]
             .reverse()
-            .slice(0, 40)
+            .slice(0, visibleEvents)
             .map((e, i) => (
               <p key={i} tabIndex={0}>
                 {kindIcon[e.kind]} <span className="muted">{dateLabel(e.date)}</span> {e.text}
@@ -861,6 +904,9 @@ export function LegacyPanel({ career, world }: { career: Career; world: World })
             ))
         ) : (
           <p className="muted">A história ainda está sendo escrita.</p>
+        )}
+        {visibleEvents < l.timeline.length && (
+          <button onClick={() => setVisibleEvents((count) => count + 40)}>Ver eventos anteriores</button>
         )}
       </section>
       <section className="panel">
@@ -889,6 +935,24 @@ export function LegacyPanel({ career, world }: { career: Career; world: World })
             {playerName(career, world, t.playerId)} ← {clubName(world, t.from)} · {money(t.fee)}
           </p>
         ))}
+      </section>
+      <section className="panel legacy-seasons">
+        <h2>Temporadas e conquistas</h2>
+        {l.managerTitles?.entries.slice().reverse().map((title) => (
+          <p key={`${title.season}-${title.competition}`} tabIndex={0}>
+            🏆 {competitionName(title.competition)} {title.season} · {clubName(world, title.clubId)}
+          </p>
+        ))}
+        {career.history.slice().reverse().map((season) => (
+          <p key={`${season.season}-${season.clubId || 'antigo'}`} tabIndex={0}>
+            <strong>{season.season}</strong> · {season.clubId ? clubName(world, season.clubId) : 'Clube não registrado'} ·{' '}
+            Série {season.league}, {season.position}º
+            {season.trophies.length ? ` · ${season.trophies.map(competitionName).join(', ')}` : ''}
+          </p>
+        ))}
+        {!career.history.length && !l.managerTitles?.entries.length && (
+          <p className="muted">Seu histórico será preenchido ao conquistar títulos e encerrar temporadas.</p>
+        )}
       </section>
     </div>
   );

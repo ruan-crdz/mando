@@ -758,6 +758,10 @@ export function livingAfterMatch(c: Career, world: World, fixture: Fixture, resu
   if (!home && fixture.awayId !== c.clubId) return;
   const L = c.living;
   const diff = home ? result.homeGoals - result.awayGoals : result.awayGoals - result.homeGoals;
+  const record = (L.managerRecord ??= { since: c.date, won: 0, drawn: 0, lost: 0 });
+  if (diff > 0) record.won++;
+  else if (diff < 0) record.lost++;
+  else record.drawn++;
   const derby = rivalry(fixture.homeId, fixture.awayId);
   const weight = derby ? 2 : 1;
   const rival = clubById(world, home ? fixture.awayId : fixture.homeId).name;
@@ -817,11 +821,30 @@ export function livingAfterMatch(c: Career, world: World, fixture: Fixture, resu
     if (c.players[id]?.clubId !== c.clubId) continue;
     const row = (L.clubStats[id] ??= { games: 0, goals: 0, assists: 0 });
     row.games++;
+    const clubRows = (L.clubStatsByClub[c.clubId] ??= {});
+    const clubRow = (clubRows[id] ??= { games: 0, goals: 0, assists: 0 });
+    clubRow.games++;
+    if (clubRow.games === 100) {
+      const youth = c.youth.find((player) => player.id === id && player.clubId === c.clubId);
+      if (youth) {
+        remember(c, 'base', `${youth.name}, formado no clube, chegou a 100 jogos no seu comando`);
+        notify(c, {
+          kind: 'news',
+          from: 'Mando Esportes',
+          title: `Cria da base: 100 jogos de ${youth.name}`,
+          body: 'O jovem formado no clube alcançou a marca sob seu comando e entrou para a história da sua carreira.',
+        });
+      }
+    }
   }
   for (const e of result.events) {
     if (e.type !== 'goal' || e.clubId !== c.clubId) continue;
     if (e.playerId && L.clubStats[e.playerId]) L.clubStats[e.playerId].goals++;
     if (e.assistId && L.clubStats[e.assistId]) L.clubStats[e.assistId].assists++;
+    if (e.playerId && L.clubStatsByClub[c.clubId]?.[e.playerId])
+      L.clubStatsByClub[c.clubId][e.playerId].goals++;
+    if (e.assistId && L.clubStatsByClub[c.clubId]?.[e.assistId])
+      L.clubStatsByClub[c.clubId][e.assistId].assists++;
   }
   const debut = `Estreia no comando do ${clubById(world, c.clubId).name}`;
   if (!L.timeline.some((t) => t.text === debut)) remember(c, 'marco', debut);
@@ -829,12 +852,20 @@ export function livingAfterMatch(c: Career, world: World, fixture: Fixture, resu
 
 /** Fecha a temporada: títulos na linha do tempo e convite da Seleção. */
 export function livingSeasonEnd(c: Career, season: number) {
-  const titles = c.honours.filter((h) => h.season === season && h.clubId === c.clubId);
-  for (const h of titles)
-    remember(c, 'titulo', `Campeão: ${competitionName(h.competition)} ${season}`);
+  const titles = c.living.managerTitles
+    ? c.living.managerTitles.entries.filter((h) => h.season === season)
+    : c.honours.filter((h) => h.season === season && h.clubId === c.clubId);
+  for (const h of titles) {
+    const text = `Campeão: ${competitionName(h.competition)} ${season}`;
+    if (!c.living.timeline.some((event) => event.text === text)) remember(c, 'titulo', text);
+  }
   const big = titles.filter((h) => ['A', 'LIB', 'CDB'].includes(h.competition)).length;
-  const career = c.honours.filter((h) => h.clubId === c.clubId).length;
-  if (!c.living.nationalInvite && (big >= 1 || career >= 4) && c.confidence >= 60) {
+  const trophies = new Set(
+    c.history.flatMap((entry) => entry.trophies.map((competition) => `${entry.season}:${competition}`)),
+  );
+  for (const title of c.living.managerTitles?.entries || titles)
+    trophies.add(`${title.season}:${title.competition}`);
+  if (!c.living.nationalInvite && (big >= 1 || trophies.size >= 4) && c.confidence >= 60) {
     c.living.nationalInvite = true;
     remember(c, 'marco', 'Convidado pela CBF para comandar a Seleção (em paralelo ao clube)');
     notify(c, {

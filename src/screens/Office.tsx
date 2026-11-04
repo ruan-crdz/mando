@@ -36,6 +36,8 @@ import {
 import { squad } from '../game/matches';
 import { standings } from '../game/engine';
 import { competitionName } from '../game/calendar';
+import { ageAt } from '../game/random';
+import { overall } from '../game/ratings';
 import { PortraitCamera } from '../components/PortraitCamera';
 import { dateLabel, ManagerPortrait, Metric, Modal, money, SectionTitle } from '../components/ui';
 
@@ -70,6 +72,7 @@ export function Office({
   onFireScout,
   onReassignScout,
   onSignProspect,
+  onReviewAcademy,
   onAcceptJob,
   onDeclineJob,
   onLiving,
@@ -93,6 +96,7 @@ export function Office({
   onFireScout: (id: string) => void;
   onReassignScout: (id: string, region: string) => void;
   onSignProspect: (id: string) => void;
+  onReviewAcademy: (id: string, decision: 'promote' | 'release') => void;
   onAcceptJob: (id: string) => void;
   onDeclineJob: (id: string) => void;
   onLiving: (patch: Partial<Living>) => void;
@@ -141,7 +145,10 @@ export function Office({
   const inboxFull = c.prospects.length >= 5;
   const [managingId, setManaging] = useState<string | null>(null);
   const [confirmFire, setConfirmFire] = useState(false);
+  const [releasingId, setReleasing] = useState<string | null>(null);
   const managed = c.scouts.find((scout) => scout.id === managingId);
+  const academy = c.living.academy?.clubId === c.clubId ? c.living.academy : undefined;
+  const releasing = academy?.candidates.find((candidate) => candidate.id === releasingId);
   const closeManage = () => {
     setManaging(null);
     setConfirmFire(false);
@@ -354,6 +361,34 @@ export function Office({
             </button>
           </div>
         ))}
+        <h3>Peneira anual {academy?.season || ''}</h3>
+        <p className="muted">
+          Em 1º de maio, a base apresenta candidatos. Promovidos integram diretamente o elenco
+          profissional por R$ 5 mil mensais; quem não for escolhido sai na próxima peneira.
+        </p>
+        {!academy?.candidates.length && (
+          <p className="muted">
+            {academy ? 'Todos os candidatos desta peneira já foram avaliados.' : 'Nenhuma peneira disponível ainda.'}
+          </p>
+        )}
+        {academy?.candidates.map((candidate) => (
+          <div key={candidate.id}>
+            <span>{candidate.position} · {ageAt(candidate.birthDate, c.date)} anos</span>
+            <strong>{candidate.name}</strong>
+            <p>
+              OVR {overall(candidate)} · potencial estimado {candidate.potential} · incerteza{' '}
+              {candidate.uncertainty}
+            </p>
+            <div className="button-row">
+              <button className="primary" onClick={() => onReviewAcademy(candidate.id, 'promote')}>
+                <UserPlus size={15} /> Integrar ao profissional
+              </button>
+              <button onClick={() => setReleasing(candidate.id)}>
+                <UserMinus size={15} /> Dispensar…
+              </button>
+            </div>
+          </div>
+        ))}
       </section>
       {managed && (
         <Modal
@@ -424,6 +459,23 @@ export function Office({
               </div>
             </>
           )}
+        </Modal>
+      )}
+      {releasing && (
+        <Modal title={`Dispensar ${releasing.name}?`} onClose={() => setReleasing(null)}>
+          <p>O candidato sairá desta peneira e não será integrado ao elenco.</p>
+          <div className="button-row">
+            <button data-autofocus onClick={() => setReleasing(null)}>Manter candidato</button>
+            <button
+              className="danger"
+              onClick={() => {
+                onReviewAcademy(releasing.id, 'release');
+                setReleasing(null);
+              }}
+            >
+              Confirmar dispensa
+            </button>
+          </div>
         </Modal>
       )}
     </div>

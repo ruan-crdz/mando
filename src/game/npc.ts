@@ -264,9 +264,31 @@ const abroad: [string, Row[]][] = [
 export const foreignClubs: NpcClub[] = abroad.flatMap(([country, rows]) =>
   rows.map((r) => make(r, country.slice(0, 2).toUpperCase(), 'exterior', country)),
 );
+export const BRAZIL_NATIONAL_ID = 'national-brasil';
+export const nationalTeams: NpcClub[] = [
+  {
+    ...make(['Brasil', 'BRA', 87, '#e4c522'], 'RJ', 'continental', 'Brasil'),
+    id: BRAZIL_NATIONAL_ID,
+    stadium: 'Maracanã',
+  },
+  ...([
+    ['Argentina', 'ARG', 87, '#76b5e3', 'AR'],
+    ['Uruguai', 'URU', 82, '#72b5d8', 'UY'],
+    ['Colômbia', 'COL', 81, '#e3bd24', 'CO'],
+    ['Chile', 'CHI', 77, '#c83a3a', 'CL'],
+    ['Equador', 'ECU', 78, '#d6ad20', 'EC'],
+  ] as const).map(([name, short, reputation, color, state]) => ({
+    ...make([name, short, reputation, color], state, 'continental', name),
+    id: `npc-national-${slug(name)}`,
+    stadium: `Estádio nacional de ${name}`,
+  })),
+];
 export const isForeign = (id: string | null | undefined) => Boolean(id?.startsWith('npc-x-'));
 const npcById = new Map<string, NpcClub>(
-  [...brazilianNpcClubs, ...continentalNpcClubs, ...foreignClubs].map((c) => [c.id, c]),
+  [...brazilianNpcClubs, ...continentalNpcClubs, ...foreignClubs, ...nationalTeams].map((c) => [
+    c.id,
+    c,
+  ]),
 );
 
 /** Completa estaduais de UFs sem lista curada com clubes NPC genéricos e estáveis. */

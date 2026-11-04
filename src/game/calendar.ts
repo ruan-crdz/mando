@@ -8,6 +8,7 @@ export const competitionNames: Record<string, string> = {
   SUP: 'Supercopa do Brasil',
   LIB: 'Copa Libertadores',
   SUL: 'Copa Sul-Americana',
+  SEL: 'Amistoso de Seleções',
 };
 export const stateCupNames: Record<string, string> = {
   SP: 'Paulistão',
