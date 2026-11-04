@@ -4,7 +4,8 @@ import { squad } from './matches';
 import { competitionName, transferWindow } from './calendar';
 import { table } from './competitions';
 import { clubById, foreignClubs, isForeign } from './npc';
-import { askingPrice, marketValue } from './transfers';
+import { askingPrice, expireLoanOptions, marketValue } from './transfers';
+import { agentCount, agentInfluence, agentName, agentOf, settleFee } from './market';
 import { notify, recordMove, remember } from './chronicle';
 import { rivalry } from './context';
 import { positionNames } from './positions';
@@ -200,16 +201,17 @@ function move(
   const s = c.players[p.id];
   const from = s.clubId || 'livre';
   const buyer = c.finances[to];
-  const seller = s.clubId ? c.finances[s.clubId] : undefined;
   if (buyer) {
     buyer.cash -= fee;
     buyer.transferBudget = Math.max(0, buyer.transferBudget - fee);
     buyer.history.push({ date: c.date, income: 0, expenses: fee, balance: buyer.cash });
   }
-  if (seller) {
-    seller.cash += fee;
-    seller.transferBudget += Math.round(fee * 0.6);
-    seller.history.push({ date: c.date, income: fee, expenses: 0, balance: seller.cash });
+  // Vendedor recebe só a sua fatia; solidariedade, parceiros e sell-ons são repassados.
+  if (s.clubId) settleFee(c, world, { playerId: p.id, from: s.clubId, to, fee, budgetShare: 0.6 });
+  else {
+    s.rights = 100;
+    delete s.partner;
+    delete s.rightsPartners;
   }
   s.clubId = to;
   s.wage = Math.round(s.wage * (isForeign(to) ? 2.5 : 1.2));
@@ -585,7 +587,52 @@ function monthly(c: Career, world: World) {
   refreshRelations(c, world);
   lockerMonthly(c, world);
   directorReport(c, world);
+  agentPitch(c, world);
   createDemand(c, world);
+}
+
+/** Empresário influente oferece atletas da carteira (mensagem informativa, não trava o avanço). */
+function agentPitch(c: Career, world: World) {
+  const rng = random(hash(`${c.seed}:${c.date}:empresario`));
+  if (rng() > 0.6) return;
+  const influential = Array.from({ length: agentCount }, (_, i) => i).filter(
+    (i) => agentInfluence(i) >= 4,
+  );
+  const index = influential[Math.floor(rng() * influential.length)];
+  const budget = c.finances[c.clubId]?.transferBudget ?? 0;
+  const ovr = (p: Player) => overall(p, p.position, c.players[p.id]);
+  const clients = world.players
+    .filter((p) => {
+      const s = c.players[p.id];
+      return (
+        s &&
+        !s.retired &&
+        s.clubId &&
+        s.clubId !== c.clubId &&
+        !s.loanFrom &&
+        !isForeign(s.clubId) &&
+        !s.clubId.startsWith('npc-') &&
+        agentOf(p.id).index === index
+      );
+    })
+    .map((p) => ({ p, price: askingPrice(c, world, p) }))
+    .filter((x) => x.price <= Math.max(budget * 1.3, 2e6))
+    .sort((a, b) => ovr(b.p) - ovr(a.p) || a.price - b.price)
+    .slice(0, 3);
+  if (!clients.length) return;
+  notify(c, {
+    kind: 'market',
+    from: `${agentName(index)} · Empresário (influência ${agentInfluence(index)})`,
+    title: 'Atletas da minha carteira',
+    body: `Professor, tenho nomes que encaixam no seu projeto: ${clients
+      .map(
+        (x) =>
+          `${x.p.name} (${x.p.position}, ${clubById(world, c.players[x.p.id].clubId!).name}, geral ${ovr(x.p)}, pedida ~${money(x.price)})`,
+      )
+      .join('; ')}. Minha comissão é de 5 a 10% e facilito a conversa com os clubes.`,
+    playerId: clients[0].p.id,
+    resolved: true,
+  });
 }
 
 /** Relatório mensal do diretor de futebol: alvos para a posição mais carente que cabem no orçamento. */
@@ -668,6 +715,7 @@ function electionDay(c: Career) {
 /** Chamado a cada dia avançado (antes dos jogos da IA). */
 export function livingDay(c: Career, world: World) {
   ensureCoaches(c, world);
+  expireLoanOptions(c, world);
   if (transferWindow(c.date)) aiMarket(c, world);
   if (c.date.endsWith('-01')) monthly(c, world);
   checkDemands(c, world);

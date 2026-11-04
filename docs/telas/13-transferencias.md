@@ -4,7 +4,7 @@
 
 Terceira aba principal do modo carreira (`TRANSFERÊNCIAS`, índice 2 do menu superior `CENTRAL · TIME · TRANSFERÊNCIAS · ESCRITÓRIO · TEMPORADA`). É onde o técnico procura reforços em clubes brasileiros, acompanha alvos observados e conduz todas as negociações por chat — tanto **compras** (proposta → acordo com o clube → contrato com o agente do atleta) quanto **vendas** (propostas recebidas de clubes nacionais e do exterior pelos atletas do usuário, com aceitar / pedir mais / recusar).
 
-A tela tem **3 subvistas** (botões segmentados, alternáveis com LT/RT) e **1 modal grande** com subetapas:
+A tela tem **4 subvistas** (botões segmentados, alternáveis com LT/RT) e **1 modal grande** com subetapas:
 
 | # | Subvista / modal | Estado interno (`Transfers.tsx`) | Conteúdo |
 |---|---|---|---|
@@ -12,6 +12,7 @@ A tela tem **3 subvistas** (botões segmentados, alternáveis com LT/RT) e **1 m
 | B | **Mercado** | `view === 'market'` | Painel de filtros (14 critérios) + tabela paginada (20/página) |
 | C | **Observados** | `view === 'shortlist'` | Grade de cards FIFA dos atletas marcados com ★ |
 | D | **Negociações** | `view === 'negotiations'` | Lista de conversas + painel de chat (compra e venda), modo "dentro da conversa" |
+| D1 | **Contas** | `view === 'accounts'` | Opções de compra, cláusulas de futura venda e histórico de repasses |
 | E | **Modal "Sala de negociação"** | `deal !== null` | 3 colunas: alvo (card FIFA + fatos + atalhos), mesa (etapas), resumo financeiro |
 | E1 | ↳ Coluna do alvo + atalhos (pré-contrato, multa, empréstimo, observar) | sempre no modal | |
 | E2 | ↳ Etapa 1 "Acordo com o clube" | `step === 'club'` | Fala do clube, taxa, chips rápidos, troca, medidor |
@@ -70,7 +71,8 @@ A tela tem **3 subvistas** (botões segmentados, alternáveis com LT/RT) e **1 m
 | `career` / `world` | estado atual | — | — |
 | `onOffer` | `(id, fee, wage, exchange?, {years, bonus}) => boolean` | `createOffer(...)`; retorna `true` se não lançou erro | "Proposta enviada. A resposta chega amanhã." |
 | `onShortlist` | `(id) => void` | alterna o id em `career.shortlist` | (nenhum) |
-| `onLoan` | `(id) => void` | `arrangeLoan(career, world, id, 6)` | "Empréstimo concluído por seis meses." |
+| `onLoan` | `(id, termos) => boolean` | `createLoanOffer(...)`; envia uma negociação de empréstimo | "Pedido de empréstimo enviado. A resposta chega amanhã." |
+| `onExerciseOption` | `(id) => void` | `exerciseLoanOption(...)` | "Opção de compra exercida. O atleta é definitivamente do clube." |
 | `onPrecontract` | `(id, wage) => void` | `signPreContract(...)` | "Pré-contrato assinado. O reforço chega ao fim do vínculo atual." |
 | `onClause` | `(id) => void` | `exerciseReleaseClause(...)` | "Multa rescisória paga e transferência concluída." |
 | `onAnswer` | `(id, accept) => void` | `answerIncoming` (proposta recebida) + recalcula escalação ideal | (nenhum) |
@@ -110,7 +112,7 @@ Dicas fixas no rodapé do App: `A Selecionar · B Voltar · X Avançar dia · RT
 # A. Cabeçalho comum
 
 ## Resumo
-Faixa de topo presente nas três subvistas: título editorial, pílula de status da janela com orçamento e a barra segmentada de subvistas.
+Faixa de topo presente nas quatro subvistas: título editorial, pílula de status da janela com orçamento e a barra segmentada de subvistas.
 
 ## Wireframe atual (ASCII)
 ```
@@ -143,7 +145,7 @@ A PRÓXIMA PEÇA DO SEU PLANO.                               │ JANELA ABERTA �
 
 ## Interações
 - Clique nos botões da barra troca a subvista. Clicar em "Negociações" também zera o modo "dentro da conversa".
-- Controle: **LT/RT (L2/R2)** ciclam as 3 subvistas (o provider clica o próximo botão e foca nele). D-pad até a barra + A também funciona.
+- Controle: **LT/RT (L2/R2)** ciclam as 4 subvistas (o provider clica o próximo botão e foca nele). D-pad até a barra + A também funciona.
 - Pílula não é interativa.
 
 ## Classes CSS e visual atual
@@ -533,7 +535,7 @@ Modal largo (até 980 px) aberto ao clicar em um atleta (Mercado/Observados) ou 
 ││ [☆ Observar]        ││                 [Próximo: contrato do jogador ›]││ [➤ Enviar proposta] ││
 ││ [Assinar pré-contrato · R$ 440 mil/mês]   ││                          ││ Resposta amanhã.    ││
 ││ [Acionar multa · R$ 80 mi]               ││                          ││ B fecha a sala.     ││
-││ [Pedir empréstimo · 6 meses]             ││                          │└─────────────────────┘│
+││                                         ││ [Compra | Empréstimo]    │└─────────────────────┘│
 │└─────────────────────┘└────────────────────────────────────────────────┘                       │
 └────────────────────────────────────────────────────────────────────────────────────────────────┘
 ```
@@ -544,7 +546,7 @@ Modal largo (até 980 px) aberto ao clicar em um atleta (Mercado/Observados) ou 
 - Foco inicial: primeiro botão do corpo (o botão "Observar"), ou o elemento com `data-autofocus` (no seletor de troca, o card "Sem troca"). Ao fechar, o foco volta ao elemento anterior (linha/card/botão do chat).
 
 ## Estados e variações (gerais)
-- **Janela fechada**: botão de envio desabilitado com texto `Janela fechada`; atalhos "Acionar multa" e "Pedir empréstimo" somem; "Assinar pré-contrato" continua (não depende da janela).
+- **Janela fechada**: botão de envio desabilitado com texto `Janela fechada`; o atalho "Acionar multa" some; "Assinar pré-contrato" continua (não depende da janela).
 - **Transfer ban / desafios / proposta já pendente / conversa travada / sem orçamento / elenco do vendedor curto**: o envio é permitido na UI e o motor responde com toast de erro (ex.: `Transfer ban da FIFA até 15/01/2027: o clube não pode contratar.`, `Esta proposta já está com o outro lado. Aguarde a resposta.`, `Palmeiras encerrou as conversas por X até 04/12.`, `Proposta acima do orçamento disponível.`, `Venda R$ 10 milhões em atletas antes de contratar.`, `Este desafio permite contratar apenas jogadores de até 23 anos.`, `A transferência deixaria o clube com menos de 18 atletas ou dois goleiros.`). O modal **não fecha** em caso de erro.
 - Responsivo ≤1100px: 2 colunas (alvo | mesa) e o resumo ocupa a linha inteira embaixo.
 
@@ -578,7 +580,7 @@ Identidade do atleta no estilo card FIFA (**o card que o usuário adorou — pre
  Contrato até ..... 31 de dez. de 2027
  Scouting ......... OVR 78 · potencial 80–86
  [☆ Observar]
- [Assinar pré-contrato · R$ 441 mil/mês] [Acionar multa · R$ 80 mi] [Pedir empréstimo · 6 meses]
+ [Assinar pré-contrato · R$ 441 mil/mês] [Acionar multa · R$ 80 mi]
 ```
 
 ### Elementos
@@ -594,7 +596,7 @@ Identidade do atleta no estilo card FIFA (**o card que o usuário adorou — pre
 - **Atalhos** (`div.button-row`, quebram linha), cada um executa e **fecha o modal**:
   - `Assinar pré-contrato · {money(salário pedido)}/mês` — só se o contrato termina nos **próximos 6 meses** (e ainda não terminou). Salário pedido = salário atual × 1,05 (×1,15 no Profissional). Sem custo de transferência; o atleta chega ao fim do vínculo.
   - `Acionar multa · {money(cláusula)}` — só com **janela aberta**, atleta com cláusula definida e que **não** está emprestado. Paga a multa, contrata na hora (salário pedido, 3 anos).
-  - `Pedir empréstimo · 6 meses` — só com **janela aberta** e atleta não emprestado. Empréstimo imediato de 6 meses, **sem custo** e sem resposta do clube.
+  - O seletor **Empréstimo** abre uma proposta com duração, taxa, parcela salarial e cláusula opcional; o atleta só muda de clube depois da negociação.
 
 ### Estados e variações
 - Atleta emprestado (`loanFrom`): sem multa e sem empréstimo.
@@ -615,10 +617,10 @@ Identidade do atleta no estilo card FIFA (**o card que o usuário adorou — pre
 - Alternância Observar/Observado.
 
 ### Problemas atuais e oportunidades
-- Atalhos sem confirmação: um A acidental paga a multa ou fecha empréstimo.
+- Acionar a multa ainda é imediato; um pedido de empréstimo passa por negociação.
 - Modal fecha antes de saber se deu erro.
 - Faltam atributos (PAC/SHO/PAS/DRI/DEF/PHY) e potencial no card, como no FIFA.
-- Empréstimo não permite escolher duração (fixo 6 meses) nem mostra custo de salário.
+- O pedido de empréstimo mostra duração, divisão salarial, custo e eventual opção ou obrigação de compra.
 
 ---
 
@@ -838,7 +840,7 @@ Faixa fixa no topo central (`div.toast`), **some sozinha** (sucesso 2,6 s / erro
 ```
 
 ## Elementos
-- Sucesso (degradê verde `#8be22a→#34b51f`): "Proposta enviada. A resposta chega amanhã." · "Empréstimo concluído por seis meses." · "Pré-contrato assinado. O reforço chega ao fim do vínculo atual." · "Multa rescisória paga e transferência concluída."
+- Sucesso (degradê verde `#8be22a→#34b51f`): "Proposta enviada. A resposta chega amanhã." · "Pedido de empréstimo enviado. A resposta chega amanhã." · "Pré-contrato assinado. O reforço chega ao fim do vínculo atual." · "Multa rescisória paga e transferência concluída."
 - Erro (degradê vermelho `#ff5a6a→#d61b3a`): mensagens do motor listadas em E e D.
 - Aceitar/recusar/pedir mais **não** geram toast (o resultado aparece no chat).
 
@@ -864,7 +866,7 @@ Faixa fixa no topo central (`div.toast`), **some sozinha** (sucesso 2,6 s / erro
 | Janela de transferências | 05/jan–03/mar e 20/jul–11/set |
 | Fora da janela | não envia proposta, não aceita contraproposta, sem multa/empréstimo; conversas abertas são encerradas no fechamento |
 | Pré-contrato | só nos últimos 6 meses de contrato do atleta; não depende da janela |
-| Resposta da IA | no dia seguinte (compra); vendas expiram em 7 dias, contraproposta do comprador dá +5 dias |
+| Resposta da IA | no dia seguinte para compras e pedidos de empréstimo; vendas expiram em 7 dias, contraproposta do comprador dá +5 dias |
 | Paciência | Iniciante 5 / Normal 4 / Profissional 3 rodadas; proposta < 60% do mínimo gasta 2 |
 | Trava | 30 dias após o clube/agente encerrar |
 | Preço pedido (oculto) | 1,08 + 0,1/ano de contrato (máx. 4) + diferença de reputação − moral; limitado a 0,8–1,9× o valor |
@@ -872,3 +874,12 @@ Faixa fixa no topo central (`div.toast`), **some sozinha** (sucesso 2,6 s / erro
 | Elenco mínimo | 18 atletas e 2 goleiros (vendedor); 11 disponíveis se sair titular |
 | Transfer ban | `career.living.transferBan`: impede contratar até a data (só mensagem de erro) |
 | Exterior | só propõe por atletas do usuário; paga 1,2–1,8× valor; recusar pode frustrar o atleta |
+
+## Fase 3: mercado brasileiro
+
+- **Empréstimo recebido:** a proposta fica pendente até o dia seguinte e aparece em Negociações. O clube dono pode recusar ou contrapor taxa, duração, salário e cláusula; após acordo, o atleta e seu empresário também decidem. O jogador só muda de clube após os dois aceites. A janela, a disponibilidade, o contrato e o transfer ban são conferidos novamente ao concluir.
+- **Termos:** 3, 6 ou 12 meses na interface; divisão salarial, taxa, opção de compra ou obrigação sujeita a jogos. A folha mensal de cada clube considera sua parcela. Opções podem ser exercidas durante o empréstimo ou até dez dias após seu fim, em Contas.
+- **Direitos econômicos:** o comprador escolhe 50% a 100% e pode oferecer até 30% de futura venda. Na revenda, o valor é distribuído proporcionalmente entre os titulares e a cláusula incide sobre a parte do clube vendedor após a solidariedade. O saldo dos direitos permanece com os titulares anteriores.
+- **Solidariedade:** o modelo simplificado repassa 5% ao clube formador quando ele não é comprador nem vendedor. Para atletas do snapshot, o formador é uma estimativa simulada, não um dado histórico verificado; jovens gerados usam seu clube de origem.
+- **Empresários:** nomes, influência e comissões de 5% a 10% são simulados de forma determinística. A comissão aparece no resumo e é paga pelo comprador. Há sugestões mensais de atletas.
+- **Contas:** lista cláusulas a receber ou repassar, opções de compra e histórico dos repasses do clube. Os novos campos são opcionais ou têm valores padrão para saves antigos.

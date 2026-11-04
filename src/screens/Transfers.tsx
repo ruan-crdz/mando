@@ -11,6 +11,7 @@ import {
   Send,
   Star,
   UserRoundX,
+  Wallet,
   X,
 } from 'lucide-react';
 import {
@@ -23,12 +24,19 @@ import {
 } from '../game/types';
 import {
   activeThread,
+  commissionOf,
+  type LoanRequest,
+  loanAsk,
+  loanBonusAsk,
+  loanOptionFor,
+  loanOutlook,
   marketValue,
   negotiationOutlook,
   requiredWage,
   scoutReport,
   threadOf,
 } from '../game/transfers';
+import { agentOf, clubRights, formingClub, partyName, rightsPartners } from '../game/market';
 import { squad } from '../game/matches';
 import { addMonths, ageAt } from '../game/random';
 import { overall } from '../game/ratings';
@@ -80,7 +88,86 @@ type Deal = {
   years: number;
   bonus: number;
   exchange: string;
+  mode: 'buy' | 'loan';
+  rights: number;
+  sellOn: number;
+  months: number;
+  wagePct: number;
+  clause: 'none' | 'option' | 'obligation';
+  option: number;
+  obligationFee: number;
+  obligationGames: number;
 };
+
+const ledgerLabel: Record<Career['living']['ledger'][number]['kind'], string> = {
+  sellon: 'Sell-on',
+  solidariedade: 'Solidariedade FIFA',
+  direitos: 'Direitos econômicos',
+  comissao: 'Comissão de empresário',
+  emprestimo: 'Empréstimo',
+  opcao: 'Opção de compra',
+};
+
+/** Fatos de mercado brasileiro: direitos, sell-on pendente, formador e empresário. */
+function MarketFacts({ c, world, p }: { c: Career; world: World; p: Player }) {
+  const s = c.players[p.id];
+  const rights = clubRights(c, p.id);
+  const partners = rightsPartners(c, world, p.id);
+  const former = formingClub(c, world, p.id);
+  const agent = agentOf(p.id);
+  const sellOns = c.living.sellOns.filter((x) => x.playerId === p.id);
+  return (
+    <>
+      <div>
+        <dt>Direitos do clube</dt>
+        <dd>
+          {rights}%
+          {partners.map((partner) => ` · ${partner.pct}% ${partyName(world, partner.id, p.id)}`)}
+        </dd>
+      </div>
+      <div>
+        <dt>Sell-on</dt>
+        <dd>
+          {sellOns.length
+            ? sellOns.map((x) => `${x.pct}% ${partyName(world, x.clubId)}`).join(' · ')
+            : 'Nenhum'}
+        </dd>
+      </div>
+      <div>
+        <dt>
+          {c.youth.some((youth) => youth.id === p.id) ||
+          c.prospects.some((prospect) => prospect.id === p.id)
+            ? 'Clube formador'
+            : 'Formador (simulado)'}
+        </dt>
+        <dd>{former ? partyName(world, former) : '—'}</dd>
+      </div>
+      <div>
+        <dt>Empresário (simulado)</dt>
+        <dd>
+          {agent.name} · influência {agent.influence}/5 · {agent.commission}%
+        </dd>
+      </div>
+      {s?.loanFrom && s.loan && (
+        <div>
+          <dt>Emprestado</dt>
+          <dd>
+            {partyName(world, s.loanFrom)} · {s.loan.wagePct}% salário
+            {s.loan.option !== undefined ? ` · opção ${money(s.loan.option)}` : ''}
+            {s.loan.obligation
+              ? ` · obrigação ${money(s.loan.obligation.fee)} (≥${s.loan.obligation.games} jogos)`
+              : ''}
+          </dd>
+        </div>
+      )}
+    </>
+  );
+}
+
+const loanTermsLabel = (l: NonNullable<NegotiationMessage['loan']>) =>
+  `${l.months}m · ${l.wagePct}% salário${l.option !== undefined ? ` · opção ${money(l.option)}` : ''}${
+    l.obligation ? ` · obrigação ${money(l.obligation.fee)} (≥${l.obligation.games} jogos)` : ''
+  }`;
 
 const chanceLevels = [
   [85, 'Muito provável'],
@@ -185,6 +272,7 @@ function ScoutReportPanel({
           <dt>Divisão</dt>
           <dd>{club.league === 'A' ? 'Série A' : club.league === 'B' ? 'Série B' : 'Outra'}</dd>
         </div>
+        <MarketFacts c={c} world={world} p={p} />
       </dl>
       <div className="scout-flags">
         {watched && (
@@ -234,7 +322,10 @@ const kindLabel: Record<NegotiationMessage['kind'], string> = {
 function Figures({ m, world }: { m: NegotiationMessage; world: World }) {
   const exchange = m.exchangePlayerId && world.players.find((p) => p.id === m.exchangePlayerId);
   const items: [string, string][] = [];
-  if (m.fee !== undefined) items.push(['Taxa', money(m.fee)]);
+  if (m.fee !== undefined) items.push([m.loan ? 'Taxa de empréstimo' : 'Taxa', money(m.fee)]);
+  if (m.rights !== undefined && m.rights < 100) items.push(['Direitos', `${m.rights}%`]);
+  if (m.sellOn) items.push(['Sell-on', `${m.sellOn}%`]);
+  if (m.loan) items.push(['Empréstimo', loanTermsLabel(m.loan)]);
   if (exchange) items.push(['Troca', exchange.name]);
   if (m.wage !== undefined) items.push(['Salário/mês', money(m.wage)]);
   if (m.years) items.push(['Contrato', `${m.years} ${m.years === 1 ? 'ano' : 'anos'}`]);
@@ -299,8 +390,10 @@ function ChatPanel({
   const p = world.players.find((p) => p.id === offer.playerId)!;
   const other = clubById(world, offer.incoming ? offer.fromClubId : offer.toClubId);
   const mine = clubById(world, c.clubId);
+  const agent = agentOf(p.id);
+  const agentLabel = `${agent.name} · empresário de ${p.name}`;
   const author = (m: NegotiationMessage) =>
-    m.from === 'me' ? mine.name : m.from === 'agent' ? `Agente de ${p.name}` : other.name;
+    m.from === 'me' ? mine.name : m.from === 'agent' ? agentLabel : other.name;
   const stillThere = c.players[p.id]?.clubId === offer.toClubId;
   const locked = offer.lockedUntil && offer.lockedUntil > c.date;
   return (
@@ -329,7 +422,9 @@ function ChatPanel({
               {offer.stage === 'player' ? <Check size={13} /> : '1'} Clube
             </span>
             <ChevronRight size={14} />
-            <span className={offer.stage === 'player' ? 'active' : ''}>2 Contrato</span>
+            <span className={offer.stage === 'player' ? 'active' : ''}>
+              2 {offer.loan ? 'Atleta' : 'Contrato'}
+            </span>
           </div>
         )}
       </header>
@@ -363,7 +458,7 @@ function ChatPanel({
         {offer.status === 'pending' && !offer.incoming && (
           <div className="bubble from-them typing">
             <span className="bubble-author">
-              {offer.stage === 'player' ? `Agente de ${p.name}` : other.name}
+              {offer.stage === 'player' ? agentLabel : other.name}
             </span>
             <p className="typing-dots">
               <i />
@@ -457,6 +552,7 @@ export function Transfers({
   onAsk,
   onShortlist,
   onLoan,
+  onExerciseOption,
   onPrecontract,
   onClause,
 }: {
@@ -467,17 +563,20 @@ export function Transfers({
     fee: number,
     wage: number,
     exchange: string | undefined,
-    terms: { years: number; bonus: number },
+    terms: { years: number; bonus: number; rights?: number; sellOn?: number },
   ) => boolean;
   onAnswer: (id: string, accept: boolean) => void;
   onRespond: (id: string, accept: boolean) => void;
   onAsk: (id: string, fee: number) => void;
   onShortlist: (id: string) => void;
-  onLoan: (id: string) => void;
+  onLoan: (id: string, terms: LoanRequest) => boolean;
+  onExerciseOption: (id: string) => void;
   onPrecontract: (id: string, wage: number) => void;
   onClause: (id: string) => void;
 }) {
-  const [view, setView] = useState<'market' | 'shortlist' | 'negotiations'>('market');
+  const [view, setView] = useState<'market' | 'shortlist' | 'negotiations' | 'accounts'>(
+    'market',
+  );
   const [selected, setSelected] = useState('');
   const [inside, setInside] = useState(false);
   const [filters, setFilters] = useState(initialFilters);
@@ -528,15 +627,36 @@ export function Transfers({
   const startDeal = (p: Player, previous?: Partial<Deal>) => {
     const thread = activeThread(c, p.id);
     const last = thread && thread.status !== 'completed' ? thread : undefined;
+    const mode = previous?.mode ?? (last?.loan ? 'loan' : 'buy');
+    const loan = last?.loan;
+    const months = previous?.months ?? loan?.months ?? 6;
+    const ask = loanAsk(c, world, p, months);
     setDeal({
       player: p,
-      fee: previous?.fee ?? last?.fee ?? marketValue(c, p),
-      wage: previous?.wage ?? last?.wage ?? Math.round((c.players[p.id].wage * 1.15) / 1000) * 1000,
+      fee:
+        previous?.fee ??
+        (last && Boolean(last.loan) === (mode === 'loan') ? last.fee : undefined) ??
+        (mode === 'loan' ? ask.fee : marketValue(c, p)),
+      wage: previous?.wage ?? (last?.loan ? undefined : last?.wage) ?? Math.round((c.players[p.id].wage * 1.15) / 1000) * 1000,
       years: previous?.years ?? last?.years ?? 3,
       bonus: previous?.bonus ?? last?.bonus ?? 0,
       exchange: previous?.exchange ?? last?.exchangePlayerId ?? '',
+      mode,
+      rights: previous?.rights ?? last?.rights ?? 100,
+      sellOn: previous?.sellOn ?? last?.sellOn ?? 0,
+      months,
+      wagePct: previous?.wagePct ?? loan?.wagePct ?? ask.wagePct,
+      clause:
+        previous?.clause ?? (loan?.obligation ? 'obligation' : loan?.option !== undefined ? 'option' : 'none'),
+      option: previous?.option ?? loan?.option ?? ask.option,
+      obligationFee: previous?.obligationFee ?? loan?.obligation?.fee ?? ask.obligation,
+      obligationGames: previous?.obligationGames ?? loan?.obligation?.games ?? 15,
     });
-    setStep(last?.stage === 'player' ? 'player' : 'club');
+    setStep(
+      last && Boolean(last.loan) === (mode === 'loan') && last.stage === 'player'
+        ? 'player'
+        : 'club',
+    );
     setPickExchange(false);
   };
   const openCounter = (o: Offer) => {
@@ -555,7 +675,9 @@ export function Transfers({
   const current =
     threads.find((o) => o.id === selected || (!o.incoming && o.playerId === selected)) ||
     threads[0];
-  const dealThread = deal ? activeThread(c, deal.player.id) : undefined;
+  const anyThread = deal ? activeThread(c, deal.player.id) : undefined;
+  const dealThread =
+    anyThread && Boolean(anyThread.loan) === (deal?.mode === 'loan') ? anyThread : undefined;
   const clubAgreed =
     dealThread?.stage === 'player' &&
     (dealThread.status === 'countered' || dealThread.status === 'rejected');
@@ -569,23 +691,59 @@ export function Transfers({
   const shortlistPlayer = shortlisted.find((p) => p.id === shortlistFocus) ?? shortlisted[0];
   const seasonYears = Array.from({ length: 6 }, (_, i) => c.season + i);
 
+  const loanReq: LoanRequest | undefined =
+    deal && deal.mode === 'loan'
+      ? {
+          months: deal.months,
+          wagePct: deal.wagePct,
+          fee: deal.fee,
+          bonus: deal.bonus,
+          ...(deal.clause === 'option' ? { option: deal.option } : {}),
+          ...(deal.clause === 'obligation'
+            ? { obligation: { fee: deal.obligationFee, games: deal.obligationGames } }
+            : {}),
+        }
+      : undefined;
+  const loanAssessment =
+    deal && loanReq
+      ? loanOutlook(c, world, deal.player, deal.fee, loanReq, deal.bonus, dealThread?.ask)
+      : undefined;
   const outlook =
     deal &&
-    negotiationOutlook(
-      c,
-      world,
-      deal.player,
-      deal.fee,
-      deal.wage,
-      deal.exchange || undefined,
-      deal.years,
-      deal.bonus,
-      dealThread?.ask,
-    );
+    (loanAssessment ??
+      negotiationOutlook(
+          c,
+          world,
+          deal.player,
+          deal.fee,
+          deal.wage,
+          deal.exchange || undefined,
+          deal.years,
+          deal.bonus,
+          dealThread?.ask,
+          deal.rights,
+          deal.sellOn,
+        ));
+  const loanBase = deal && loanReq ? loanAsk(c, world, deal.player, deal.months) : undefined;
+  const commission = deal ? commissionOf(deal.player.id, deal.fee) : 0;
+  const dealAgent = deal ? agentOf(deal.player.id) : undefined;
+  const loanWages = deal ? (deal.wagePct / 100) * c.players[deal.player.id].wage * deal.months : 0;
   const exchangePlayer = deal?.exchange
     ? world.players.find((p) => p.id === deal.exchange)
     : undefined;
-  const totalCost = deal ? deal.fee + deal.bonus + deal.wage * 12 * deal.years : 0;
+  const totalCost = deal
+    ? deal.fee +
+      deal.bonus +
+      commission +
+      (deal.mode === 'loan' ? loanWages : deal.wage * 12 * deal.years)
+    : 0;
+  const purchaseOptions = world.players.flatMap((player) => {
+    const option = loanOptionFor(c, player.id);
+    return option ? [{ player, option }] : [];
+  });
+  const relevantSellOns = c.living.sellOns.filter(
+    (claim) => claim.clubId === c.clubId || c.players[claim.playerId]?.clubId === c.clubId,
+  );
   const update = (patch: Partial<Deal>) => setDeal((d) => (d ? { ...d, ...patch } : d));
 
   return (
@@ -623,6 +781,12 @@ export function Transfers({
             {pending}
             {actionCount ? ` · ${actionCount} !` : ''}
           </span>
+        </button>
+        <button
+          className={view === 'accounts' ? 'active' : ''}
+          onClick={() => setView('accounts')}
+        >
+          <Wallet size={16} /> Contas
         </button>
       </div>
       {deal && outlook && (
@@ -669,6 +833,7 @@ export function Transfers({
                   <dt>Scouting</dt>
                   <dd>{scoutReport(c, deal.player)}</dd>
                 </div>
+                <MarketFacts c={c} world={world} p={deal.player} />
               </dl>
               <button
                 className={c.shortlist.includes(deal.player.id) ? 'active' : ''}
@@ -699,19 +864,34 @@ export function Transfers({
                     Acionar multa · {money(c.players[deal.player.id].clause!)}
                   </button>
                 )}
-                {open && !c.players[deal.player.id].loanFrom && (
-                  <button
-                    onClick={() => {
-                      onLoan(deal.player.id);
-                      setDeal(null);
-                    }}
-                  >
-                    Pedir empréstimo · 6 meses
-                  </button>
-                )}
               </div>
             </aside>
             <section className="deal-table">
+              <div className="segmented compact deal-mode" role="group" aria-label="Tipo de operação">
+                <button
+                  className={deal.mode === 'buy' ? 'active' : ''}
+                  aria-pressed={deal.mode === 'buy'}
+                  onClick={() => {
+                    startDeal(deal.player, { mode: 'buy', fee: marketValue(c, deal.player) });
+                  }}
+                >
+                  Compra
+                </button>
+                <button
+                  className={deal.mode === 'loan' ? 'active' : ''}
+                  aria-pressed={deal.mode === 'loan'}
+                  disabled={Boolean(c.players[deal.player.id].loanFrom)}
+                  onClick={() => {
+                    startDeal(deal.player, {
+                      mode: 'loan',
+                      fee: loanAsk(c, world, deal.player, deal.months).fee,
+                      bonus: 0,
+                    });
+                  }}
+                >
+                  Empréstimo
+                </button>
+              </div>
               <div className="deal-steps" role="tablist">
                 <button
                   role="tab"
@@ -734,7 +914,7 @@ export function Transfers({
                     setPickExchange(false);
                   }}
                 >
-                  <span>2</span> Contrato do jogador
+                  <span>2</span> {deal.mode === 'loan' ? 'Aceite do atleta' : 'Contrato do jogador'}
                 </button>
               </div>
               {step === 'club' && clubAgreed && (
@@ -742,7 +922,7 @@ export function Transfers({
                   <div className="call-bubble">
                     <Badge club={clubById(world, c.players[deal.player.id].clubId!)} size="small" />
                     <p>
-                      {`"Acordo fechado em ${money(dealThread!.fee)}. Agora é com o agente de ${deal.player.name}."`}
+                      {`"Acordo fechado em ${money(dealThread!.fee)}. Agora é com ${dealAgent!.name}, empresário de ${deal.player.name}."`}
                     </p>
                   </div>
                   <button className="primary" onClick={() => setStep('player')}>
@@ -750,7 +930,85 @@ export function Transfers({
                   </button>
                 </div>
               )}
-              {step === 'club' && !clubAgreed && !pickExchange && (
+              {step === 'club' && !clubAgreed && deal.mode === 'loan' && loanBase && (
+                <div className="deal-step">
+                  <div className="call-bubble">
+                    <Badge club={clubById(world, c.players[deal.player.id].clubId!)} size="small" />
+                    <p>
+                      {loanAssessment?.blocked
+                        ? `"${loanAssessment.blocked}"`
+                        : dealThread?.status === 'countered' && dealThread.counter?.fee !== undefined
+                          ? `"Para emprestar: ${money(dealThread.counter.fee)} de taxa${dealThread.counter.loan ? ` · ${loanTermsLabel(dealThread.counter.loan)}` : ''}."`
+                          : `"Emprestamos se pagarem ao menos ${loanBase.wagePct}% do salário e uma taxa justa."`}
+                    </p>
+                  </div>
+                  <ChipGroup
+                    label="Duração"
+                    value={String(deal.months)}
+                    options={[3, 6, 12].map((m) => ({ value: String(m), label: `${m} meses` }))}
+                    onChange={(v) => update({ months: Number(v) })}
+                  />
+                  <NumberStepper
+                    label="Taxa de empréstimo"
+                    value={deal.fee}
+                    min={0}
+                    max={finance.transferBudget}
+                    step={50000}
+                    onChange={(v) => update({ fee: v ?? 0 })}
+                    format={(v) => money(v)}
+                  />
+                  <ChipGroup
+                    label="Salário pago por nós"
+                    value={String(deal.wagePct)}
+                    options={[0, 25, 50, 60, 75, 100].map((v) => ({ value: String(v), label: `${v}%` }))}
+                    onChange={(v) => update({ wagePct: Number(v) })}
+                  />
+                  <ChipGroup
+                    label="Compra ao fim"
+                    value={deal.clause}
+                    options={[
+                      { value: 'none', label: 'Sem cláusula' },
+                      { value: 'option', label: 'Opção' },
+                      { value: 'obligation', label: 'Obrigação' },
+                    ]}
+                    onChange={(v) => update({ clause: v as Deal['clause'] })}
+                  />
+                  {deal.clause === 'option' && (
+                    <NumberStepper
+                      label={`Valor da opção (pedida ${money(loanBase.option)})`}
+                      value={deal.option}
+                      min={0}
+                      step={100000}
+                      onChange={(v) => update({ option: v ?? 0 })}
+                      format={(v) => money(v)}
+                    />
+                  )}
+                  {deal.clause === 'obligation' && (
+                    <>
+                      <NumberStepper
+                        label={`Valor da obrigação (pedida ${money(loanBase.obligation)})`}
+                        value={deal.obligationFee}
+                        min={0}
+                        step={100000}
+                        onChange={(v) => update({ obligationFee: v ?? 0 })}
+                        format={(v) => money(v)}
+                      />
+                      <NumberStepper
+                        label="Jogos para a obrigação"
+                        value={deal.obligationGames}
+                        min={1}
+                        max={40}
+                        onChange={(v) => update({ obligationGames: v ?? 15 })}
+                      />
+                    </>
+                  )}
+                  <LikelihoodMeter label="Clube" value={outlook.club} />
+                  <button className="primary" onClick={() => setStep('player')}>
+                    Próximo: aceite do atleta <ChevronRight size={17} />
+                  </button>
+                </div>
+              )}
+              {step === 'club' && !clubAgreed && deal.mode === 'buy' && !pickExchange && (
                 <div className="deal-step">
                   <div className="call-bubble">
                     <Badge club={clubById(world, c.players[deal.player.id].clubId!)} size="small" />
@@ -806,6 +1064,24 @@ export function Transfers({
                       </button>
                     )}
                   </div>
+                  <ChipGroup
+                    label="Direitos econômicos comprados"
+                    value={String(deal.rights)}
+                    options={[50, 60, 70, 80, 90, 100].map((v) => ({
+                      value: String(v),
+                      label: `${v}%`,
+                    }))}
+                    onChange={(v) => update({ rights: Number(v) })}
+                  />
+                  <ChipGroup
+                    label="Sell-on ao vendedor (% da futura venda)"
+                    value={String(deal.sellOn)}
+                    options={[0, 5, 10, 15, 20, 30].map((v) => ({
+                      value: String(v),
+                      label: `${v}%`,
+                    }))}
+                    onChange={(v) => update({ sellOn: Number(v) })}
+                  />
                   <LikelihoodMeter label="Clube" value={outlook.club} />
                   <button className="primary" onClick={() => setStep('player')}>
                     Próximo: contrato do jogador <ChevronRight size={17} />
@@ -847,8 +1123,33 @@ export function Transfers({
                   </div>
                 </div>
               )}
-              {step === 'player' && (
+              {step === 'player' && deal.mode === 'loan' && (
                 <div className="deal-step">
+                  <div className="call-bubble agent">
+                    <span className="agent-avatar">AG</span>
+                    <p>
+                      {dealThread?.status === 'countered' && dealThread.counter?.bonus !== undefined
+                        ? `"${deal.player.name} só vai com luvas de ${money(dealThread.counter.bonus)}."`
+                        : `"Sou ${dealAgent!.name} (influência ${dealAgent!.influence}/5). Comissão de ${dealAgent!.commission}% sobre a taxa: ${money(commission)}. Se não houver minutos, ele pede luvas de ${money(loanBonusAsk(c, deal.player))}."`}
+                    </p>
+                  </div>
+                  <NumberStepper
+                    label="Luvas (bônus de empréstimo)"
+                    value={deal.bonus}
+                    min={0}
+                    max={Math.max(0, finance.cash - deal.fee)}
+                    onChange={(v) => update({ bonus: v ?? 0 })}
+                    format={(v) => money(v)}
+                  />
+                  <LikelihoodMeter label="Jogador" value={outlook.player} />
+                </div>
+              )}
+              {step === 'player' && deal.mode === 'buy' && (
+                <div className="deal-step">
+                  <p className="muted agent-line">
+                    Empresário: {dealAgent!.name} · influência {dealAgent!.influence}/5 · comissão{' '}
+                    {dealAgent!.commission}% ({money(commission)})
+                  </p>
                   <div className="call-bubble agent">
                     <span className="agent-avatar">AG</span>
                     <p>
@@ -907,9 +1208,30 @@ export function Transfers({
                   <dd>{money(deal.bonus)}</dd>
                 </div>
                 <div>
-                  <dt>Salários ({deal.years}a)</dt>
-                  <dd>{money(deal.wage * 12 * deal.years)}</dd>
+                  <dt>Comissão ({dealAgent!.commission}%)</dt>
+                  <dd>{money(commission)}</dd>
                 </div>
+                {deal.mode === 'loan' ? (
+                  <div>
+                    <dt>
+                      Salários ({deal.months}m · {deal.wagePct}%)
+                    </dt>
+                    <dd>{money(loanWages)}</dd>
+                  </div>
+                ) : (
+                  <>
+                    <div>
+                      <dt>Direitos / sell-on</dt>
+                      <dd>
+                        {deal.rights}% / {deal.sellOn}%
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>Salários ({deal.years}a)</dt>
+                      <dd>{money(deal.wage * 12 * deal.years)}</dd>
+                    </div>
+                  </>
+                )}
                 <div className="total">
                   <dt>Custo total</dt>
                   <dd>{money(totalCost)}</dd>
@@ -925,16 +1247,14 @@ export function Transfers({
                 className="primary send-offer"
                 disabled={!open}
                 onClick={() => {
-                  const sent = onOffer(
-                    deal.player.id,
-                    deal.fee,
-                    deal.wage,
-                    deal.exchange || undefined,
-                    {
-                      years: deal.years,
-                      bonus: deal.bonus,
-                    },
-                  );
+                  const sent = loanReq
+                    ? onLoan(deal.player.id, loanReq)
+                    : onOffer(deal.player.id, deal.fee, deal.wage, deal.exchange || undefined, {
+                        years: deal.years,
+                        bonus: deal.bonus,
+                        rights: deal.rights,
+                        sellOn: deal.sellOn,
+                      });
                   if (sent) {
                     setDeal(null);
                     setSelected(deal.player.id);
@@ -947,7 +1267,9 @@ export function Transfers({
                   ? 'Janela fechada'
                   : dealThread
                     ? 'Enviar contraproposta'
-                    : 'Enviar proposta'}
+                    : deal.mode === 'loan'
+                      ? 'Pedir empréstimo'
+                      : 'Enviar proposta'}
               </button>
               <small className="muted">Resposta amanhã. B fecha a sala.</small>
             </aside>
@@ -1244,6 +1566,82 @@ export function Transfers({
           )}
         </div>
       )}
+      {view === 'accounts' && (
+        <div className="market-accounts">
+          <section className="panel">
+            <h2>Opções de compra</h2>
+            <p className="muted small">
+              Atletas emprestados com opção podem ser comprados pelo valor acordado.
+            </p>
+            {purchaseOptions.length ? (
+              <div className="market-account-list">
+                {purchaseOptions.map(({ player, option }) => (
+                  <div className="market-account-row" key={player.id}>
+                    <span>
+                      <strong>{player.name}</strong>
+                      <small>
+                        {partyName(world, option.owner)} · {money(option.fee)}
+                        {option.expires ? ` · até ${dateLabel(option.expires)}` : ''}
+                      </small>
+                    </span>
+                    <button onClick={() => onExerciseOption(player.id)}>Exercer opção</button>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="muted">Nenhuma opção de compra disponível.</p>
+            )}
+          </section>
+          <section className="panel">
+            <h2>Cláusulas de futura venda</h2>
+            <p className="muted small">
+              Percentuais que nosso clube receberá ou deverá repassar quando houver uma venda.
+            </p>
+            {relevantSellOns.length ? (
+              <div className="market-account-list">
+                {relevantSellOns.map((claim, index) => (
+                  <div className="market-account-row" key={`${claim.playerId}-${claim.clubId}-${index}`}>
+                    <span>
+                      <strong>{world.players.find((player) => player.id === claim.playerId)?.name ?? claim.playerId}</strong>
+                      <small>
+                        {claim.clubId === c.clubId
+                          ? 'A receber na próxima venda'
+                          : `A repassar a ${partyName(world, claim.clubId)}`}
+                      </small>
+                    </span>
+                    <strong>{claim.pct}%</strong>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="muted">Nenhuma cláusula pendente.</p>
+            )}
+          </section>
+          <section className="panel market-ledger">
+            <h2>Repasses do mercado</h2>
+            <p className="muted small">
+              Histórico de solidariedade, direitos, comissões e empréstimos do clube.
+            </p>
+            {c.living.ledger.length ? (
+              <div className="market-account-list">
+                {[...c.living.ledger].reverse().map((entry, index) => (
+                  <div className="market-account-row" key={`${entry.date}-${entry.playerId}-${index}`}>
+                    <span>
+                      <strong>{ledgerLabel[entry.kind]} · {world.players.find((player) => player.id === entry.playerId)?.name ?? entry.playerId}</strong>
+                      <small>
+                        {dateLabel(entry.date)} · {partyName(world, entry.from)} → {partyName(world, entry.to)}
+                      </small>
+                    </span>
+                    <strong>{entry.to === c.clubId ? '+' : '−'} {money(entry.amount)}</strong>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="muted">Nenhum repasse registrado.</p>
+            )}
+          </section>
+        </div>
+      )}
       {view === 'negotiations' &&
         (current ? (
           <div className="negotiations-layout">
@@ -1270,7 +1668,7 @@ export function Transfers({
                       <span className="thread-text">
                         <strong>{p.name}</strong>
                         <small>
-                          {o.incoming ? 'VENDA' : 'COMPRA'} · {other.name}
+                          {o.incoming ? 'VENDA' : o.loan ? 'EMPRÉSTIMO' : 'COMPRA'} · {other.name}
                         </small>
                         <em>{thread[thread.length - 1].text}</em>
                       </span>

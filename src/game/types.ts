@@ -216,6 +216,26 @@ export const playerStateSchema = z.object({
   listed: z.number().nonnegative().optional(),
   loanFrom: z.string().optional(),
   loanUntil: isoDate.optional(),
+  /** Termos do empréstimo em vigor (taxa, salário, opção/obrigação e números no clube). */
+  loan: z
+    .object({
+      months: z.number().int().min(1).max(12),
+      fee: z.number().nonnegative(),
+      wagePct: z.number().min(0).max(100),
+      option: z.number().nonnegative().optional(),
+      obligation: z
+        .object({ fee: z.number().nonnegative(), games: z.number().int().min(1) })
+        .optional(),
+      games: z.number().int().nonnegative().default(0),
+      ratingSum: z.number().nonnegative().default(0),
+    })
+    .optional(),
+  /** % dos direitos econômicos do clube atual (ausente = padrão determinístico). */
+  rights: z.number().min(0).max(100).optional(),
+  /** Dono do restante dos direitos: id de clube, 'investidor' ou 'empresario'. */
+  partner: z.string().optional(),
+  /** Demais titulares dos direitos, quando há mais de um. */
+  rightsPartners: z.record(z.string(), z.number().min(0).max(100)).optional(),
   promiseUntil: isoDate.optional(),
 });
 export type PlayerState = z.infer<typeof playerStateSchema>;
@@ -358,12 +378,29 @@ export const messageSchema = z.object({
   choice: z.enum(['support', 'firm']).optional(),
 });
 export type Message = z.infer<typeof messageSchema>;
+export const loanTermsSchema = z.object({
+  months: z.number().int().min(1).max(12),
+  /** % do salário pago pelo clube que recebe o atleta. */
+  wagePct: z.number().min(0).max(100),
+  /** Opção de compra (valor fixo) ao fim do empréstimo. */
+  option: z.number().nonnegative().optional(),
+  /** Obrigação de compra se o atleta fizer ao menos `games` jogos. */
+  obligation: z
+    .object({ fee: z.number().nonnegative(), games: z.number().int().min(1) })
+    .optional(),
+});
+export type LoanTerms = z.infer<typeof loanTermsSchema>;
 const negotiationTermsSchema = z.object({
   fee: z.number().nonnegative().optional(),
   wage: z.number().nonnegative().optional(),
   years: z.number().int().min(1).max(5).optional(),
   bonus: z.number().nonnegative().optional(),
   exchangePlayerId: z.string().optional(),
+  /** % dos direitos econômicos comprados. */
+  rights: z.number().min(0).max(100).optional(),
+  /** % sobre futura venda devida ao vendedor. */
+  sellOn: z.number().min(0).max(30).optional(),
+  loan: loanTermsSchema.optional(),
 });
 export type NegotiationTerms = z.infer<typeof negotiationTermsSchema>;
 export const negotiationMessageSchema = negotiationTermsSchema.extend({
@@ -400,6 +437,12 @@ export const offerSchema = z.object({
   counter: negotiationTermsSchema.optional(),
   lockedUntil: isoDate.optional(),
   messages: z.array(negotiationMessageSchema).optional(),
+  /** % dos direitos econômicos negociados (padrão 100). */
+  rights: z.number().min(0).max(100).optional(),
+  /** % sobre futura venda concedida ao vendedor. */
+  sellOn: z.number().min(0).max(30).optional(),
+  /** Presente quando a conversa é um pedido de empréstimo. */
+  loan: loanTermsSchema.optional(),
 });
 export type Offer = z.infer<typeof offerSchema>;
 export const coachStyles = [
@@ -598,6 +641,41 @@ export const livingSchema = z.object({
   /** Duplas de mentoria: veterano → jovem. */
   mentors: z
     .array(z.object({ mentor: z.string(), pupil: z.string(), since: isoDate }))
+    .default([]),
+  /** % sobre a próxima venda do atleta devida ao clube credor. */
+  sellOns: z
+    .array(
+      z.object({
+        playerId: z.string(),
+        clubId: z.string(),
+        pct: z.number().min(0).max(100),
+        since: isoDate,
+      }),
+    )
+    .default([]),
+  /** Opções de compra de empréstimos encerrados que o usuário ainda pode exercer. */
+  loanOptions: z
+    .array(
+      z.object({
+        playerId: z.string(),
+        clubId: z.string(),
+        fee: z.number().nonnegative(),
+        expires: isoDate,
+      }),
+    )
+    .default([]),
+  /** Contas pagas e recebidas pelo clube do usuário em transações de terceiros. */
+  ledger: z
+    .array(
+      z.object({
+        date: isoDate,
+        playerId: z.string(),
+        kind: z.enum(['sellon', 'solidariedade', 'direitos', 'comissao', 'emprestimo', 'opcao']),
+        from: z.string(),
+        to: z.string(),
+        amount: z.number().nonnegative(),
+      }),
+    )
     .default([]),
 });
 export type Living = z.infer<typeof livingSchema>;

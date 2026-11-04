@@ -20,7 +20,14 @@ import { ageAt } from '../game/random';
 import { overall } from '../game/ratings';
 import { pitchCoordinates } from '../game/pitch';
 import { setShirtNumber, shirtNumbers } from '../game/numbers';
-import { marketValue, releaseCost, renewalOptions, renewalTerms } from '../game/transfers';
+import {
+  loanOptionFor,
+  marketValue,
+  releaseCost,
+  renewalOptions,
+  renewalTerms,
+  type LoanRequest,
+} from '../game/transfers';
 import {
   MENTOR_MIN_AGE,
   MENTOR_SLOTS,
@@ -146,6 +153,7 @@ export function Squad({
   onRole,
   onSetClause,
   onLoanOut,
+  onExerciseOption,
   onListForSale,
   onRelease,
   onError,
@@ -162,7 +170,8 @@ export function Squad({
   onEndMentor: (pupilId: string) => void;
   onRole: (id: string, role: Career['players'][string]['role']) => void;
   onSetClause: (id: string, amount: number) => void;
-  onLoanOut: (id: string, clubId: string) => void;
+  onLoanOut: (id: string, clubId: string, terms: LoanRequest) => void;
+  onExerciseOption: (id: string) => void;
   onListForSale: (id: string, price: number | null) => void;
   onRelease: (id: string) => void;
   onError: (s: string) => void;
@@ -179,6 +188,12 @@ export function Squad({
   const [picking, setPicking] = useState<Picking>(null);
   const [months, setMonths] = useState(36);
   const [clauseValue, setClauseValue] = useState(0);
+  const [loanMonths, setLoanMonths] = useState(6);
+  const [loanFee, setLoanFee] = useState(0);
+  const [loanWagePct, setLoanWagePct] = useState(100);
+  const [loanClause, setLoanClause] = useState<'none' | 'option' | 'obligation'>('none');
+  const [loanBuyFee, setLoanBuyFee] = useState(0);
+  const [loanGames, setLoanGames] = useState(15);
   const [action, setAction] = useState<PlayerAction>('summary');
   const [focusId, setFocusId] = useState<string | null>(null);
   const lastDetail = useRef<string | null>(null);
@@ -332,6 +347,12 @@ export function Squad({
     setMonths(36);
     setClauseValue(c.players[p.id]?.clause || Math.round(p.value * 2.5));
     setSalePrice(c.players[p.id]?.listed || Math.round(marketValue(c, p) / 50000) * 50000);
+    setLoanMonths(6);
+    setLoanFee(0);
+    setLoanWagePct(100);
+    setLoanClause('none');
+    setLoanBuyFee(Math.max(100000, Math.round(marketValue(c, p) / 100000) * 100000));
+    setLoanGames(15);
     setConfirmRelease(false);
     setAction('summary');
     setDetail(p);
@@ -752,17 +773,105 @@ export function Squad({
         )}
         {action === 'loan' && (
           <>
-            <p className="eyebrow">LISTA DE EMPRÉSTIMOS · 6 MESES</p>
-            <p className="muted small">
-              O clube de destino paga o salário e o atleta ganha ritmo de jogo.
-            </p>
-            <div className="hub-list">
-              {loanDestinations.map(({ club }) => (
-                <button key={club.id} onClick={() => onLoanOut(d.id, club.id)}>
-                  <strong>{club.short}</strong> {club.name}
-                </button>
-              ))}
-            </div>
+            <p className="eyebrow">EMPRÉSTIMO</p>
+            {ds.loanFrom ? (
+              <>
+                <p className="muted small">
+                  O atleta pertence ao {clubById(world, ds.loanFrom).name} e está emprestado
+                  {ds.loanUntil ? ` até ${dateLabel(ds.loanUntil)}` : ''}.
+                </p>
+                {loanOptionFor(c, d.id) && (
+                  <button className="primary" onClick={() => onExerciseOption(d.id)}>
+                    Exercer opção · {money(loanOptionFor(c, d.id)!.fee)}
+                  </button>
+                )}
+              </>
+            ) : (
+              <>
+                <p className="muted small">
+                  Defina as condições e escolha um destino. O clube avalia a proposta antes de
+                  aceitar o atleta.
+                </p>
+                <ChipGroup
+                  label="Duração"
+                  value={String(loanMonths)}
+                  options={[3, 6, 12].map((value) => ({
+                    value: String(value),
+                    label: `${value} meses`,
+                  }))}
+                  onChange={(value) => setLoanMonths(Number(value))}
+                />
+                <NumberStepper
+                  label="Taxa recebida"
+                  value={loanFee}
+                  min={0}
+                  step={50000}
+                  onChange={(value) => setLoanFee(value ?? 0)}
+                  format={money}
+                />
+                <ChipGroup
+                  label="Salário pago pelo destino"
+                  value={String(loanWagePct)}
+                  options={[0, 25, 50, 60, 75, 100].map((value) => ({
+                    value: String(value),
+                    label: `${value}%`,
+                  }))}
+                  onChange={(value) => setLoanWagePct(Number(value))}
+                />
+                <ChipGroup
+                  label="Compra ao fim"
+                  value={loanClause}
+                  options={[
+                    { value: 'none', label: 'Sem cláusula' },
+                    { value: 'option', label: 'Opção' },
+                    { value: 'obligation', label: 'Obrigação' },
+                  ]}
+                  onChange={(value) => {
+                    if (value === 'none' || value === 'option' || value === 'obligation')
+                      setLoanClause(value);
+                  }}
+                />
+                {loanClause !== 'none' && (
+                  <NumberStepper
+                    label="Valor de compra"
+                    value={loanBuyFee}
+                    min={100000}
+                    step={100000}
+                    onChange={(value) => setLoanBuyFee(value ?? 100000)}
+                    format={money}
+                  />
+                )}
+                {loanClause === 'obligation' && (
+                  <NumberStepper
+                    label="Jogos para obrigação"
+                    value={loanGames}
+                    min={1}
+                    max={40}
+                    onChange={(value) => setLoanGames(value ?? 15)}
+                  />
+                )}
+                <div className="hub-list">
+                  {loanDestinations.map(({ club }) => (
+                    <button
+                      key={club.id}
+                      onClick={() =>
+                        onLoanOut(d.id, club.id, {
+                          months: loanMonths,
+                          fee: loanFee,
+                          wagePct: loanWagePct,
+                          ...(loanClause === 'option' ? { option: loanBuyFee } : {}),
+                          ...(loanClause === 'obligation'
+                            ? { obligation: { fee: loanBuyFee, games: loanGames } }
+                            : {}),
+                        })
+                      }
+                    >
+                      <strong>{club.short}</strong> {club.name}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
           </>
         )}
         {action === 'renew' && (

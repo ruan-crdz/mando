@@ -1,7 +1,8 @@
 import { addDays, ageAt, clamp, hash, random } from './random';
 import { bestLineup, reconcileSquad, simulateMatch, squad, validateLineup } from './matches';
 import { competitionName, createSchedule, fixtureLabel, nextFixture } from './calendar';
-import { expireThread, processOffers } from './transfers';
+import { endLoan, expireThread, processOffers } from './transfers';
+import { payroll, settleFee } from './market';
 import { overall } from './ratings';
 import { LEARNED, TRAIN_CAP, familiarity, positionNames, trainingGain } from './positions';
 import { clubById, findPlayer, isForeign, knownClub } from './npc';
@@ -330,6 +331,11 @@ function applyMatch(c: Career, world: World, result: Match) {
           s.rated = (s.rated || 0) + 1;
           s.monthlyRatingTotal += rating;
           s.monthlyRated++;
+        }
+        // Números do empréstimo (opção/obrigação de compra).
+        if (s.loan && s.loanFrom && s.clubId === clubId) {
+          s.loan.games++;
+          s.loan.ratingSum += rating || 6;
         }
       } else {
         s.benchGames++;
@@ -868,19 +874,8 @@ export function advanceDay(career: Career, world: World): Career {
     const s = c.players[player.id];
     if (!s || s.retired) continue;
     const rng = random(hash(`${c.seed}:${c.date}:${player.id}`));
-    if (s.loanUntil && s.loanUntil <= c.date && s.loanFrom) {
-      s.clubId = s.loanFrom;
-      delete s.loanUntil;
-      delete s.loanFrom;
-      if (s.clubId === c.clubId)
-        message(c, {
-          kind: 'market',
-          from: 'Diretor de futebol',
-          title: `${player.name} retornou de empréstimo`,
-          body: 'O vínculo temporário terminou e o jogador está novamente disponível no elenco.',
-          playerId: player.id,
-        });
-    }
+    if (s.loanFrom && ((s.loanUntil && s.loanUntil <= c.date) || s.contractEnd < c.date))
+      endLoan(c, live, player.id);
     const own = s.clubId === c.clubId;
     const returning = s.injuryDays === 1;
     s.injuryDays = Math.max(0, s.injuryDays - 1);
@@ -957,6 +952,12 @@ export function advanceDay(career: Career, world: World): Career {
         (contract) => contract.playerId === player.id && !contract.joined,
       );
       if (signed) {
+        settleFee(c, live, {
+          playerId: player.id,
+          from: s.clubId,
+          to: signed.clubId,
+          fee: 0,
+        });
         s.clubId = signed.clubId;
         s.wage = signed.wage;
         s.contractEnd = `${c.season + 3}-12-31`;
@@ -1076,7 +1077,7 @@ export function advanceDay(career: Career, world: World): Career {
       const original = base.clubs.find((x) => x.id === club.id)!.league;
       // Receita de TV e patrocínio acompanha a divisão atual.
       const factor = original === club.league ? 1 : club.league === 'A' ? 1.4 : 0.6;
-      const wage = squad(c, live, club.id).reduce((sum, p) => sum + c.players[p.id].wage, 0);
+      const wage = payroll(c, live, club.id);
       // O clube do usuário separa TV, patrocínio master, sócios e manutenção das instalações.
       const own = club.id === c.clubId ? economyMonth(c, live) : null;
       const income = own
@@ -1342,6 +1343,7 @@ export function startNextSeason(career: Career, world: World): Career {
     live.clubs.map((x) => [x.id, relegated.has(x.id) ? 'B' : promoted.has(x.id) ? 'A' : x.league]),
   ) as Career['leagues'];
   const ourLeague = c.leagues[c.clubId];
+  c.date = next;
   // Atletas: zera estatísticas, envelhece e renova/aposenta pelos clubes da engine.
   const freeAgents: Player[] = [];
   for (const p of live.players) {
@@ -1364,15 +1366,19 @@ export function startNextSeason(career: Career, world: World): Career {
       morale: clamp(Math.round(s.morale + (70 - s.morale) * 0.5)),
     });
     const age = ageAt(p.birthDate, next);
-    if (s.loanUntil && s.loanUntil <= next && s.loanFrom) {
-      s.clubId = s.loanFrom;
-      delete s.loanUntil;
-      delete s.loanFrom;
-    }
+    if (s.loanFrom && ((s.loanUntil && s.loanUntil <= next) || s.contractEnd < next))
+      endLoan(c, live, p.id);
     const preContract = c.preContracts.find(
       (contract) => contract.playerId === p.id && !contract.joined,
     );
     if (preContract && s.contractEnd < next) {
+      if (s.clubId)
+        settleFee(c, live, { playerId: p.id, from: s.clubId, to: preContract.clubId, fee: 0 });
+      else {
+        s.rights = 100;
+        delete s.partner;
+        delete s.rightsPartners;
+      }
       s.clubId = preContract.clubId;
       s.wage = preContract.wage;
       s.contractEnd = `${y + 3}-12-31`;
@@ -1415,6 +1421,9 @@ export function startNextSeason(career: Career, world: World): Career {
       const [signed] = freeAgents.splice(i, 1);
       const s = c.players[signed.id];
       s.clubId = club.id;
+      s.rights = 100;
+      delete s.partner;
+      delete s.rightsPartners;
       s.contractEnd = `${y + 2}-12-31`;
       count++;
       if (signed.position === 'GK') keepers++;

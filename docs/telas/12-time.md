@@ -477,8 +477,8 @@ Editor "Posições e treino" (dentro da linha expandida no painel direito):
 - `p.eyebrow` **`MULTA RESCISÓRIA`**; `NumberStepper` **Valor da multa** (mín. 0, passo 100.000; inicial = multa atual ou `valor × 2,5`); botão **`Definir multa`** → `onSetClause`.
 
 #### Ação **Lista de empréstimos**
-- `p.eyebrow` **`LISTA DE EMPRÉSTIMOS · 6 MESES`**; `p.muted.small` **`O clube de destino paga o salário e o atleta ganha ritmo de jogo.`**
-- `div.hub-list`: 3 botões com os clubes (exceto o próprio) de **menor elenco**: `strong` sigla + nome. Clique → `onLoanOut(id, clubId)` (empréstimo imediato de 6 meses).
+- Para atletas próprios, permite escolher duração, taxa, divisão salarial e opção ou obrigação de compra antes de selecionar um dos três clubes sugeridos. O clube da IA avalia e aceita ou recusa na hora.
+- Para atleta recebido por empréstimo, mostra o clube dono e a data de término; se houver opção de compra, oferece o botão para exercê-la.
 
 #### Ação **Renovar contrato**
 - `p.eyebrow` **`RENOVAR CONTRATO · ESTENDER POR`**.
@@ -537,7 +537,7 @@ Editor "Posições e treino" (dentro da linha expandida no painel direito):
 - Painel de stats: tier do card muda conforme overall; mapa de calor bom/médio/ruim.
 - Sem jogadores: painel de stats não aparece (cai para o campinho).
 - Erros possíveis (toast): `Atleta indisponível.`, `A posição exige um goleiro.`, `Escolha um número entre 1 e 99.`, erros de `setTraining`/`setMainPosition`/`releasePlayer`/renovação/venda vindos do motor.
-- Avisos (App, `setNotice`): `Contrato renovado. Luvas debitadas do caixa.`, `Conversa registrada na memória do jogador.`, `Multa rescisória atualizada.`, `Empréstimo concluído. O jogador retornará em seis meses.`, `Atleta à venda. As propostas chegam em Transferências › Negociações.` / `Atleta retirado da lista de venda.`, `Contrato rescindido. O atleta deixou o clube.`
+- Avisos (App, `setNotice`): `Contrato renovado. Luvas debitadas do caixa.`, `Conversa registrada na memória do jogador.`, `Multa rescisória atualizada.`, `Empréstimo concluído por {meses} meses.`, `Atleta à venda. As propostas chegam em Transferências › Negociações.` / `Atleta retirado da lista de venda.`, `Contrato rescindido. O atleta deixou o clube.`
 
 ## Interações
 
@@ -578,7 +578,7 @@ Editor "Posições e treino" (dentro da linha expandida no painel direito):
 - **Painel esquerdo de stats do jogador focado** (foto em card, nome, número, posição, overall, potencial, idade, estilo/função, personalidade, todos os atributos, mapa de calor) **atualizando ao rolar** a lista com o controle ou o mouse.
 - Ordenação por **botão/analógico do controle** com indicador visível **"Ordenando por …"** e os 5 modos (OVERALL, POSIÇÃO, IDADE, VALOR, CONTRATO); bloqueada com linha aberta.
 - Uma linha aberta por vez; B fecha; foco retorna à linha.
-- Dispensa em dois passos com custo exibido; venda exige preço; empréstimo fixo de 6 meses para 3 clubes sugeridos; renovação mostra salário/luvas/término antes de confirmar.
+- Dispensa em dois passos com custo exibido; venda exige preço; empréstimo tem condições configuráveis para três clubes sugeridos; renovação mostra salário/luvas/término antes de confirmar.
 - Troca de número com permuta automática com o dono atual.
 - Regras de treino de posição (apto ≥85%, teto 92%, GK ↔ linha proibido) e "tornar principal" só com ≥85%.
 - Card de stats segue tiers e **fonte branca**; sem foto = bonequinho sem sigla/fundo.

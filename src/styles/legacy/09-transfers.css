@@ -39,6 +39,42 @@
   fill: var(--mando-gold);
 }
 
+.market-accounts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.market-ledger {
+  grid-column: 1 / -1;
+}
+
+.market-account-list {
+  display: grid;
+  gap: 4px;
+  max-height: 360px;
+  overflow-y: auto;
+}
+
+.market-account-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.market-account-row span {
+  display: grid;
+  min-width: 0;
+  gap: 4px;
+}
+
+.market-account-row small {
+  color: var(--mando-text-muted);
+}
+
 /* ---------- Mercado: filtros | lista dominante | relatório ---------- */
 .transfers-screen .market-layout {
   grid-template-columns: minmax(230px, 280px) minmax(0, 1fr) minmax(250px, 320px);
@@ -663,6 +699,14 @@
 }
 
 @media (max-width: 700px) and (orientation: landscape) {
+  .market-accounts {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .market-ledger {
+    grid-column: auto;
+  }
+
   .transfers-screen .market-layout {
     grid-template-columns: minmax(150px, 0.8fr) minmax(0, 1.2fr);
     grid-template-rows: minmax(0, 1fr);

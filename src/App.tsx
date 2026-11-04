@@ -71,7 +71,8 @@ import {
   createOffer,
   renewContract,
   respondCounter,
-  arrangeLoan,
+  createLoanOffer,
+  exerciseLoanOption,
   signPreContract,
   exerciseReleaseClause,
   loanOutPlayer,
@@ -681,10 +682,16 @@ function Game() {
                       setNotice('Multa rescisória atualizada.');
                     })
                   }
-                  onLoanOut={(id, clubId) =>
+                  onLoanOut={(id, clubId, terms) =>
                     act(() => {
-                      setCareer(loanOutPlayer(career, live!, id, clubId, 6));
-                      setNotice('Empréstimo concluído. O jogador retornará em seis meses.');
+                      setCareer(loanOutPlayer(career, live!, id, clubId, terms));
+                      setNotice(`Empréstimo concluído por ${terms.months} meses.`);
+                    })
+                  }
+                  onExerciseOption={(id) =>
+                    act(() => {
+                      setCareer(exerciseLoanOption(career, live!, id));
+                      setNotice('Opção de compra exercida. O atleta é definitivamente do clube.');
                     })
                   }
                   onListForSale={(id, price) =>
@@ -730,10 +737,19 @@ function Game() {
                         : [...career.shortlist, id],
                     })
                   }
-                  onLoan={(id) =>
+                  onLoan={(id, terms) => {
+                    let sent = false;
                     act(() => {
-                      setCareer(arrangeLoan(career, live!, id, 6));
-                      setNotice('Empréstimo concluído por seis meses.');
+                      setCareer(createLoanOffer(career, live!, id, terms));
+                      setNotice('Pedido de empréstimo enviado. A resposta chega amanhã.');
+                      sent = true;
+                    });
+                    return sent;
+                  }}
+                  onExerciseOption={(id) =>
+                    act(() => {
+                      setCareer(exerciseLoanOption(career, live!, id));
+                      setNotice('Opção de compra exercida. O atleta é definitivamente do clube.');
                     })
                   }
                   onPrecontract={(id, wage) =>
