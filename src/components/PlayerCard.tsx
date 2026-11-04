@@ -35,8 +35,6 @@ export function PlayerCard({
   player,
   career,
   role,
-  number,
-  note,
   onClick,
   active = false,
   disabled = false,
@@ -73,16 +71,12 @@ export function PlayerCard({
     >
       <span className="pc-top">
         <strong className="pc-ovr">{ovr}</strong>
-        <span className="pc-pos">{player.position}</span>
-        {number !== undefined && <span className="pc-number">{number}</span>}
+        <span className="pc-pos">{role && role !== player.position ? role : player.position}</span>
       </span>
       <PlayerFace player={player} className="pc-face" />
       {badge && <span className="pc-badge">{badge}</span>}
       <strong className="pc-name">{shortName(player.name)}</strong>
-      <span className="pc-meta">{status || note}</span>
-      <span className="pc-fitness" aria-hidden="true">
-        <i style={{ width: `${Math.round(s.fitness)}%` }} />
-      </span>
+      {status && <span className="pc-meta">{status}</span>}
     </button>
   );
 }

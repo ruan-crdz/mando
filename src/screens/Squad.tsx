@@ -17,7 +17,8 @@ import { ageAt } from '../game/random';
 import { overall } from '../game/ratings';
 import { pitchCoordinates } from '../game/pitch';
 import { setShirtNumber, shirtNumbers } from '../game/numbers';
-import { renewalOptions, renewalTerms } from '../game/transfers';
+import { marketValue, releaseCost, renewalOptions, renewalTerms } from '../game/transfers';
+import { useStickX } from '../controller/GamepadProvider';
 import {
   LEARNED,
   TRAIN_CAP,
@@ -114,6 +115,8 @@ export function Squad({
   onRole,
   onSetClause,
   onLoanOut,
+  onListForSale,
+  onRelease,
   onError,
   detail,
   setDetail,
@@ -127,11 +130,16 @@ export function Squad({
   onRole: (id: string, role: Career['players'][string]['role']) => void;
   onSetClause: (id: string, amount: number) => void;
   onLoanOut: (id: string, clubId: string) => void;
+  onListForSale: (id: string, price: number | null) => void;
+  onRelease: (id: string) => void;
   onError: (s: string) => void;
   detail: Player | null;
   setDetail: (p: Player | null) => void;
 }) {
   const [view, setView] = useState<'lineup' | 'tactics' | 'roles' | 'kit'>('lineup');
+  const [sortMode, setSortMode] = useState(0);
+  const [salePrice, setSalePrice] = useState(0);
+  const [confirmRelease, setConfirmRelease] = useState(false);
   const [kitId, setKitId] = useState<string | null>(null);
   const [kitPos, setKitPos] = useState<Position | null>(null);
   const [picking, setPicking] = useState<Picking>(null);
@@ -221,6 +229,8 @@ export function Squad({
   const openDetail = (p: Player) => {
     setMonths(36);
     setClauseValue(c.players[p.id]?.clause || Math.round(p.value * 2.5));
+    setSalePrice(c.players[p.id]?.listed || Math.round(marketValue(c, p) / 50000) * 50000);
+    setConfirmRelease(false);
     setDetail(p);
   };
   const apply = (fn: () => Career) => {
@@ -240,6 +250,18 @@ export function Squad({
       .join(' · ');
 
   const sortedRoster = [...players].sort(byPosition(c));
+  const sortModes = [
+    { label: 'OVERALL', fn: (a: Player, b: Player) => overall(b, b.position, c.players[b.id]) - overall(a, a.position, c.players[a.id]) },
+    { label: 'POSIÇÃO', fn: byPosition(c) },
+    { label: 'IDADE', fn: (a: Player, b: Player) => ageAt(a.birthDate, c.date) - ageAt(b.birthDate, c.date) },
+    { label: 'VALOR', fn: (a: Player, b: Player) => marketValue(c, b) - marketValue(c, a) },
+    { label: 'CONTRATO', fn: (a: Player, b: Player) => c.players[a.id].contractEnd.localeCompare(c.players[b.id].contractEnd) },
+  ];
+  const mode = sortModes[sortMode % sortModes.length];
+  const listRoster = [...players].sort(mode.fn);
+  const cycleSort = (dir: number) =>
+    setSortMode((m) => (m + dir + sortModes.length) % sortModes.length);
+  useStickX(cycleSort, view === 'kit' && !kitId && !detail);
   let pickerContent = null;
   if (picking?.kind === 'slot') {
     const role = rolePositions[picking.index];
@@ -426,7 +448,7 @@ export function Squad({
             setKitId(null);
           }}
         >
-          <Hash size={16} /> Camisas e posições
+          <Hash size={16} /> Jogadores
         </button>
       </div>
       <div className="squad-layout">
@@ -469,12 +491,15 @@ export function Squad({
                   }}
                   aria-label={`${rolePositions[i]} ${p.name}, camisa ${numbers[id]}, overall ${overall(p, rolePositions[i], s)}${fam < LEARNED ? `, improvisado (${familiarityLabel(fam).toLowerCase()})` : ''}. Trocar atleta`}
                 >
-                  <span className="shirt-number">{numbers[id]}</span>
-                  <strong>{shortName(p.name)}</strong>
-                  <small>
+                  <PlayerFace player={p} size="md" className="pitch-face" />
+                  <span className="pitch-ovr">
+                    <b>{overall(p, rolePositions[i], s)}</b>
+                    {rolePositions[i]}
+                  </span>
+                  <strong>
                     {fam < LEARNED && <TriangleAlert size={11} className="oop-icon" />}
-                    {rolePositions[i]} · <b>{overall(p, rolePositions[i], s)}</b>
-                  </small>
+                    {shortName(p.name)}
+                  </strong>
                   <i className="pitch-fitness" style={{ width: `${Math.round(s.fitness)}%` }} />
                 </button>
               );
@@ -583,25 +608,47 @@ export function Squad({
               ) : (
                 <>
                   <div className="panel-heading">
-                    <h2>Camisas e posições</h2>
-                    <span>A edita número, posição e treino</span>
+                    <h2>Jogadores</h2>
+                    <button
+                      type="button"
+                      className="sort-pill"
+                      onClick={() => cycleSort(1)}
+                      aria-label={`Ordenando por ${mode.label.toLowerCase()}. Trocar ordenação`}
+                    >
+                      ◀ ▶ Ordenando por <strong>{mode.label}</strong>
+                    </button>
                   </div>
                   <div className="card-scroll">
-                    <div className="card-grid">
-                      {sortedRoster.map((p) => (
-                        <PlayerCard
-                          key={p.id}
-                          player={p}
-                          career={c}
-                          number={numbers[p.id]}
-                          badge={c.players[p.id].training ? <Dumbbell size={12} /> : undefined}
-                          note={positionsLine(p)}
-                          onClick={() => {
-                            setKitId(p.id);
-                            setKitPos(p.position);
-                          }}
-                        />
-                      ))}
+                    <div className="roster-list">
+                      {listRoster.map((p) => {
+                        const s = c.players[p.id];
+                        return (
+                          <button
+                            type="button"
+                            key={p.id}
+                            data-player={p.id}
+                            className={`market-row roster-row ${c.lineup.includes(p.id) ? 'starter' : ''}`}
+                            onClick={() => openDetail(p)}
+                          >
+                            <span>
+                              <span className="position-tag">{s.position ?? p.position}</span>
+                              <PlayerFace player={p} size="md" />
+                              <span>
+                                <strong>{p.name}</strong>
+                                <small>
+                                  {ageAt(p.birthDate, c.date)} anos · {money(s.wage)}/mês · até{' '}
+                                  {s.contractEnd.slice(0, 4)}
+                                  {s.listed ? ' · À VENDA' : ''}
+                                  {s.injuryDays ? ' · Lesionado' : ''}
+                                </small>
+                              </span>
+                            </span>
+                            <b className="roster-ovr">{overall(p, p.position, s)}</b>
+                            <strong>{money(marketValue(c, p))}</strong>
+                            <span>{c.lineup.includes(p.id) ? 'Titular' : 'Reserva'}</span>
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
                 </>
@@ -751,6 +798,51 @@ export function Squad({
               </div>
               {ds.clubId === c.clubId && (
                 <>
+                  <div className="detail-block detail-market">
+                    <p className="eyebrow">
+                      MERCADO{ds.listed ? ` · À VENDA POR ${money(ds.listed)}` : ''}
+                    </p>
+                    <NumberStepper
+                      label="Preço pedido"
+                      value={salePrice}
+                      min={50000}
+                      step={250000}
+                      onChange={(value) => setSalePrice(value ?? 0)}
+                      format={money}
+                    />
+                    <div className="button-row">
+                      <button className="primary" onClick={() => onListForSale(d.id, salePrice)}>
+                        {ds.listed ? 'Atualizar preço' : 'Colocar à venda'}
+                      </button>
+                      {ds.listed ? (
+                        <button onClick={() => onListForSale(d.id, null)}>Tirar da venda</button>
+                      ) : null}
+                      <button
+                        onClick={() => {
+                          setDetail(null);
+                          setView('kit');
+                          setKitId(d.id);
+                          setKitPos(d.position);
+                        }}
+                      >
+                        <Dumbbell size={16} /> Posições e treino
+                      </button>
+                    </div>
+                    <div className="button-row">
+                      {confirmRelease ? (
+                        <>
+                          <button className="danger" onClick={() => onRelease(d.id)}>
+                            Confirmar rescisão · {money(releaseCost(c, d.id))}
+                          </button>
+                          <button onClick={() => setConfirmRelease(false)}>Cancelar</button>
+                        </>
+                      ) : (
+                        <button className="danger" onClick={() => setConfirmRelease(true)}>
+                          <UserX size={16} /> Dispensar · multa {money(releaseCost(c, d.id))}
+                        </button>
+                      )}
+                    </div>
+                  </div>
                   <div className="detail-block detail-kit">
                     <div>
                       <p className="eyebrow">NÚMERO DA CAMISA</p>

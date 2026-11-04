@@ -202,6 +202,8 @@ export const playerStateSchema = z.object({
     .enum(['Padrão', 'Finalizador', 'Armador', 'Pivô', 'Volante', 'Zagueiro construtor', 'Lateral ofensivo'])
     .default('Padrão'),
   clause: z.number().nonnegative().optional(),
+  /** Preço pedido quando o treinador colocou o atleta à venda. */
+  listed: z.number().nonnegative().optional(),
   loanFrom: z.string().optional(),
   loanUntil: isoDate.optional(),
   promiseUntil: isoDate.optional(),

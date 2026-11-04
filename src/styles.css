@@ -3635,20 +3635,57 @@ button.tile:focus-visible {
 }
 .player-card .pc-face {
   position: absolute;
-  right: -2%;
-  bottom: 16%;
-  width: 72%;
+  left: 22%;
+  right: 0;
+  top: 3%;
+  bottom: 22%;
+  width: auto;
   height: auto;
-  aspect-ratio: 1;
   border-radius: 0;
   background: none;
+  overflow: visible;
   filter: drop-shadow(0 6px 8px rgba(0, 4, 30, 0.45));
-  -webkit-mask-image: linear-gradient(180deg, #000 72%, transparent 100%);
-  mask-image: linear-gradient(180deg, #000 72%, transparent 100%);
+  -webkit-mask-image: linear-gradient(180deg, #000 86%, transparent 100%);
+  mask-image: linear-gradient(180deg, #000 86%, transparent 100%);
 }
 .player-card .pc-face img {
   object-fit: contain;
   object-position: 50% 100%;
+  transform: none;
+}
+/* Card FIFA: overall e posição empilhados à esquerda, foto grande, nome na faixa de baixo. */
+.player-card .pc-top {
+  flex-direction: column;
+  align-items: center;
+  align-self: flex-start;
+  gap: 3px;
+}
+.player-card .pc-ovr {
+  font-size: clamp(24px, 3.6vh, 36px);
+  text-shadow: 0 2px 4px rgba(0, 4, 30, 0.5);
+}
+.player-card .pc-name {
+  margin: auto -9px -7px;
+  padding: 5px 6px;
+  text-align: center;
+  font: 800 clamp(13px, 1.8vh, 17px) / 1.05 var(--display);
+  text-transform: uppercase;
+  background: linear-gradient(180deg, rgba(0, 4, 30, 0.15), rgba(0, 4, 30, 0.7));
+}
+.player-card .pc-meta {
+  position: absolute;
+  left: 6px;
+  right: 6px;
+  bottom: 30px;
+  min-height: 0;
+  text-align: center;
+  font-size: 11px;
+  background: rgba(158, 0, 28, 0.85);
+  border-radius: 3px;
+}
+.player-card.empty .pc-name {
+  margin: 0;
+  background: none;
 }
 .player-card .pc-face.generated {
   background: none !important;
@@ -5710,4 +5747,101 @@ button.tile:focus-visible {
   .press-answer {
     min-height: 0;
   }
+}
+
+/* ---------- Mini-cards FIFA no campinho ---------- */
+.pitch-player {
+  padding: 0 0 3px;
+  min-width: 70px;
+  width: 70px;
+  gap: 0;
+  overflow: hidden;
+  border-radius: 6px 6px 4px 4px;
+  background: linear-gradient(170deg, #f4d77a 0%, #c9a43c 55%, #8f6f1f 100%);
+  color: #1d1500;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.45);
+}
+.pitch-player:hover:not(:disabled) {
+  background: linear-gradient(170deg, #ffe590 0%, #d6b14a 55%, #9a7a26 100%);
+}
+.pitch-player .pitch-face {
+  width: 70px;
+  height: 58px;
+  border-radius: 0;
+  background: none;
+}
+.pitch-player .pitch-face img {
+  object-fit: contain;
+  object-position: 50% 100%;
+  transform: none;
+}
+.pitch-player .pitch-ovr {
+  position: absolute;
+  top: 2px;
+  left: 4px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  font: 800 9px/1 var(--display);
+}
+.pitch-player .pitch-ovr b {
+  font-size: 16px;
+}
+.pitch-player strong {
+  width: 100%;
+  padding: 2px 3px 0;
+  font: 800 11px/1.1 var(--display);
+  text-transform: uppercase;
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  border-top: 1px solid rgba(29, 21, 0, 0.25);
+}
+.pitch-player .pitch-fitness {
+  margin: 2px 6px 0;
+}
+
+/* ---------- Lista de jogadores ---------- */
+.roster-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.roster-row {
+  grid-template-columns: minmax(0, 2.6fr) 54px minmax(0, 1fr) minmax(0, 0.7fr);
+}
+.roster-row.starter {
+  box-shadow: inset 3px 0 0 var(--lime);
+}
+.roster-ovr {
+  font: 800 22px var(--display);
+  text-align: center;
+}
+.sort-pill {
+  padding: 4px 10px;
+  font-size: 12px;
+  letter-spacing: 1px;
+  background: rgba(255, 255, 255, 0.12);
+}
+.sort-pill strong {
+  color: var(--lime);
+}
+.market-row .player-face.sm,
+.market-row .player-face.md {
+  width: 56px;
+  height: 56px;
+  border-radius: 8px;
+  background: linear-gradient(160deg, #3d8bff 0%, #0b2f8f 75%);
+}
+.market-row .player-face img {
+  object-fit: contain;
+  object-position: 50% 100%;
+  transform: none;
+}
+.detail-market .button-row {
+  margin-top: 8px;
+}
+button.danger {
+  background: rgba(200, 20, 50, 0.75);
+  color: #fff;
 }

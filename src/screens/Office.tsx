@@ -46,6 +46,7 @@ export function Office({
   onAvatar,
   onApplyPlan,
   onHireScout,
+  onFireScout,
   onSignProspect,
   onAcceptJob,
   onDeclineJob,
@@ -59,6 +60,7 @@ export function Office({
   onAvatar: (photo?: string) => void;
   onApplyPlan: (id: string) => void;
   onHireScout: (region: string) => void;
+  onFireScout: (id: string) => void;
   onSignProspect: (id: string) => void;
   onAcceptJob: (id: string) => void;
   onDeclineJob: (id: string) => void;
@@ -135,6 +137,9 @@ export function Office({
             <strong>{scout.name}</strong>
             <p>Progresso da próxima observação: {scout.progress}/7 dias</p>
             <meter min={0} max={7} value={scout.progress} />
+            <button className="danger" onClick={() => onFireScout(scout.id)}>
+              Demitir {scout.name.split(' ')[0]}
+            </button>
           </div>
         ))}
         {c.scouts.length < 3 && (

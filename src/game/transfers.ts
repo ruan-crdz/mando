@@ -540,6 +540,7 @@ export function completeTransfer(c: Career, world: World, offer: Offer) {
   p.wage = offer.wage;
   p.contractEnd = `${Number(c.date.slice(0, 4)) + (offer.years || 3)}-12-31`;
   p.morale = clamp(p.morale + 8);
+  delete p.listed;
   offer.status = 'completed';
   if (offer.toClubId === c.clubId) c.sales += offer.fee;
   reconcileSquad(c, world);
@@ -676,17 +677,28 @@ export function processOffers(c: Career, world: World) {
     return;
   }
   const rng = random(hash(`${c.seed}:${c.date}:market`));
-  if (rng() > 0.045) return;
   const own = squad(c, world).filter(
     (p) =>
       !c.players[p.id].loanFrom &&
       !c.offers.some((o) => o.playerId === p.id && o.status === 'pending'),
   );
-  const player = own[Math.floor(rng() * own.length)];
+  // Atletas à venda atraem propostas com frequência, perto do preço pedido.
+  const listed = own.filter((p) => c.players[p.id].listed);
+  const roll = rng();
+  const forSale = listed.length > 0 && roll < 0.3;
+  if (!forSale && roll > 0.045) return;
+  const pool = forSale ? listed : own;
+  const player = pool[Math.floor(rng() * pool.length)];
   const buyers = world.clubs.filter((club) => club.id !== c.clubId);
   const buyer = buyers[Math.floor(rng() * buyers.length)];
   if (!player || !buyer) return;
-  const fee = roundUp(marketValue(c, player) * (0.75 + rng() * 0.5), 50000);
+  const asking = c.players[player.id].listed;
+  const fee = roundUp(
+    forSale && asking
+      ? asking * (0.6 + rng() * 0.35)
+      : marketValue(c, player) * (0.75 + rng() * 0.5),
+    50000,
+  );
   if (fee > c.finances[buyer.id].transferBudget) return;
   const id = `incoming-${hash(`${c.date}:${player.id}`)}`;
   c.offers.push({
@@ -700,7 +712,7 @@ export function processOffers(c: Career, world: World) {
     responseDate: addDays(c.date, 7),
     incoming: true,
     status: 'pending',
-    minimum: askingPrice(c, world, player, buyer.id),
+    minimum: forSale && asking ? asking : askingPrice(c, world, player, buyer.id),
     patience: 3,
     messages: [
       {
@@ -841,6 +853,71 @@ export function exerciseReleaseClause(
 export const renewalOptions = [6, 12, 24, 36, 48, 60] as const;
 
 /** Novo salário, luvas e término para estender o contrato por `months` meses. */
+/** Coloca (ou tira, com preço null) o atleta na lista de venda; os clubes passam a fazer propostas. */
+export function listForSale(
+  career: Career,
+  world: World,
+  playerId: string,
+  price: number | null,
+): Career {
+  const c = structuredClone(career);
+  const state = c.players[playerId];
+  if (!state || state.clubId !== c.clubId || state.loanFrom)
+    throw new Error('Só atletas do seu elenco podem ser colocados à venda.');
+  if (price === null) delete state.listed;
+  else {
+    if (!Number.isFinite(price) || price <= 0) throw new Error('Defina um preço válido.');
+    state.listed = roundUp(price, 50000);
+    state.morale = clamp(state.morale - 4);
+  }
+  return c;
+}
+
+/** Multa para rescindir: metade dos salários restantes do contrato (mínimo de três salários). */
+export function releaseCost(c: Career, playerId: string) {
+  const state = c.players[playerId];
+  const months = Math.max(
+    0,
+    (Number(state.contractEnd.slice(0, 4)) - Number(c.date.slice(0, 4))) * 12 +
+      Number(state.contractEnd.slice(5, 7)) -
+      Number(c.date.slice(5, 7)),
+  );
+  return Math.round(state.wage * Math.max(3, months * 0.5));
+}
+
+export function releasePlayer(career: Career, world: World, playerId: string): Career {
+  const c = structuredClone(career);
+  const state = c.players[playerId];
+  if (!state || state.clubId !== c.clubId || state.loanFrom)
+    throw new Error('Só atletas do seu elenco podem ser dispensados.');
+  checkOutgoing(c, world, playerId, c.clubId);
+  const cost = releaseCost(c, playerId);
+  const finance = c.finances[c.clubId];
+  if (finance.cash < cost) throw new Error('Caixa insuficiente para pagar a rescisão.');
+  if (c.lineup.includes(playerId)) {
+    const remaining = squad(c, world).filter(
+      (p) =>
+        p.id !== playerId &&
+        c.players[p.id].injuryDays === 0 &&
+        c.players[p.id].suspension === 0,
+    );
+    if (remaining.length < 11)
+      throw new Error('A dispensa deixaria o clube sem onze atletas disponíveis.');
+  }
+  finance.cash -= cost;
+  finance.history.push({ date: c.date, income: 0, expenses: cost, balance: finance.cash });
+  state.clubId = null;
+  delete state.listed;
+  delete state.clause;
+  for (const offer of c.offers.filter(
+    (o) => o.playerId === playerId && (o.status === 'pending' || o.status === 'countered'),
+  ))
+    expireThread(offer, c.date, 'O atleta foi dispensado. Negociação encerrada.');
+  for (const role of Object.keys(c.roles)) if (c.roles[role] === playerId) delete c.roles[role];
+  reconcileSquad(c, world);
+  return c;
+}
+
 export function renewalTerms(c: Career, playerId: string, months = 36) {
   const p = c.players[playerId];
   const increase = (c.difficulty === 'Profissional' ? 1.18 : 1.1) - (months < 12 ? 0.05 : 0);

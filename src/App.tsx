@@ -46,6 +46,7 @@ import {
   validateCareerForWorld,
   acceptJobOffer,
   hireScout,
+  fireScout,
   signProspect,
   playerConversation,
   setDevelopmentPlan,
@@ -65,6 +66,8 @@ import {
   signPreContract,
   exerciseReleaseClause,
   loanOutPlayer,
+  listForSale,
+  releasePlayer,
 } from './game/transfers';
 import { type Career, type Player, type World } from './game/types';
 import { listLocal, removeLocal, saveLocal, type SavedCareer } from './services/storage';
@@ -193,6 +196,18 @@ function Game() {
     },
     [rumble],
   );
+  // Avisos somem sozinhos: no controle não faz sentido navegar até um botão de fechar.
+  useEffect(() => {
+    if (!error && !notice) return;
+    const timer = window.setTimeout(
+      () => {
+        setError('');
+        setNotice('');
+      },
+      error ? 4000 : 2600,
+    );
+    return () => window.clearTimeout(timer);
+  }, [error, notice]);
   const run = useCallback(
     (operation: () => Promise<void>) => {
       if (lock.current) return;
@@ -600,6 +615,26 @@ function Game() {
                       setNotice('Empréstimo concluído. O jogador retornará em seis meses.');
                     })
                   }
+                  onListForSale={(id, price) =>
+                    act(() => {
+                      setCareer(listForSale(career, live!, id, price));
+                      setNotice(
+                        price === null
+                          ? 'Atleta retirado da lista de venda.'
+                          : 'Atleta à venda. As propostas chegam em Transferências › Negociações.',
+                      );
+                    })
+                  }
+                  onRelease={(id) =>
+                    act(() => {
+                      const updated = releasePlayer(career, live!, id);
+                      const lineup = bestLineup(updated, live!);
+                      if (lineup.length === 11) updated.lineup = lineup;
+                      setCareer(updated);
+                      setDetail(null);
+                      setNotice('Contrato rescindido. O atleta deixou o clube.');
+                    })
+                  }
                 />
               )}
               {tab === 2 && (
@@ -692,6 +727,12 @@ function Game() {
                       setNotice(`Olheiro contratado para ${region}.`);
                     })
                   }
+                  onFireScout={(id) =>
+                    act(() => {
+                      setCareer(fireScout(career, id));
+                      setNotice('Olheiro demitido.');
+                    })
+                  }
                   onSignProspect={(id) =>
                     act(() => {
                       setCareer(signProspect(career, id));
@@ -756,15 +797,6 @@ function Game() {
       {(error || notice) && (
         <div className={`toast ${error ? 'error' : 'success'}`} role={error ? 'alert' : 'status'}>
           <span>{error || notice}</span>
-          <button
-            aria-label="Fechar aviso"
-            onClick={() => {
-              setError('');
-              setNotice('');
-            }}
-          >
-            <X size={18} />
-          </button>
         </div>
       )}
       {voice.current && (

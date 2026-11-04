@@ -183,19 +183,37 @@ export function stopCrowd() {
   }, 3000);
 }
 
+/** Narrador grita o gol com a voz pt-BR do navegador (gratuita e instantânea). */
+function narrateGoal() {
+  if (!('speechSynthesis' in window)) return;
+  const voices = speechSynthesis.getVoices().filter((v) => /pt-?BR/i.test(v.lang));
+  const voice =
+    voices.find((v) => /antonio|daniel|natural|online/i.test(v.name)) ||
+    voices.find((v) => /google/i.test(v.name)) ||
+    voices[0];
+  const shout = new SpeechSynthesisUtterance('Gooooooooool! É gol! Gol, gol, gol!');
+  if (voice) shout.voice = voice;
+  shout.lang = 'pt-BR';
+  shout.rate = 0.82;
+  shout.pitch = 1.35;
+  shout.volume = 1;
+  speechSynthesis.speak(shout);
+}
+
 /** Gol: explosão da torcida (a favor) ou lamento seguido de silêncio (contra). */
 export function crowdGoal(ours: boolean) {
   if (!ctx || !running) return;
   const t = ctx.currentTime;
   if (ours) {
-    out.gain.cancelScheduledValues(t);
-    out.gain.setValueAtTime(out.gain.value, t);
-    out.gain.linearRampToValueAtTime(1, t + 0.3);
-    out.gain.setTargetAtTime(VOLUME, t + 6, 1.5);
-    rise(1.4, 4.5, 1300, 0.3, 4);
-    roarFilter.Q.setValueAtTime(0.35, t);
-    roarFilter.Q.setTargetAtTime(0.6, t + 5, 1);
+    // Sobe as vozes (formantes) em vez de ruído puro: soa como gente, não como rádio fora de sintonia.
+    bed.gain.cancelScheduledValues(t);
+    bed.gain.setValueAtTime(bed.gain.value, t);
+    bed.gain.linearRampToValueAtTime(0.75, t + 0.4);
+    bed.gain.setTargetAtTime(0.3, t + 6, 1.6);
+    rise(0.32, 4, 700, 0.4, 3.5);
+    roarFilter.Q.setValueAtTime(1.1, t);
     window.setTimeout(() => chant(4), 3500);
+    narrateGoal();
   } else {
     rise(0.5, 0.6, 420, 0.15, 1.5);
     bed.gain.cancelScheduledValues(t);

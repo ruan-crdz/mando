@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from 'react';
-import { requestVoice, supabase, type VoiceRole } from '../services/supabase';
+import { type VoiceRole } from '../services/supabase';
 
 export type { VoiceRole };
 export type VoiceItem = { id: string; title: string; text: string; voice?: VoiceRole };
@@ -47,10 +47,7 @@ function pickVoice() {
 }
 
 export const speechAvailable = () => typeof window !== 'undefined' && 'speechSynthesis' in window;
-const aiAvailable = () => Boolean(supabase) && typeof Audio !== 'undefined';
-export const voiceAvailable = () => speechAvailable() || aiAvailable();
-// Se a voz de IA falhar (sem créditos, offline), usa a voz do sistema por um tempo.
-let aiPausedUntil = 0;
+export const voiceAvailable = () => speechAvailable();
 
 /**
  * Reprodutor global de mensagens: continua tocando ao trocar de aba ou avançar
@@ -61,12 +58,10 @@ let index = -1;
 let mailbox = false;
 let loading = false;
 let token = 0;
-let audio: HTMLAudioElement | null = null;
 // Mantém a referência viva: o Chrome descarta utterances sem referência e o onend some.
 const utterances = new Set<SpeechSynthesisUtterance>();
 let state: VoiceState = { current: null, position: 0, total: 0, mailbox: false, loading: false };
 const listeners = new Set<() => void>();
-const pending = new Map<string, Promise<Blob>>();
 
 function emit() {
   state = {
@@ -79,34 +74,62 @@ function emit() {
   listeners.forEach((l) => l());
 }
 
-async function cacheKey(item: VoiceItem) {
-  const bytes = new TextEncoder().encode(`${item.voice || 'president'}|${speakable(item.text)}`);
-  const hash = await crypto.subtle.digest('SHA-256', bytes);
-  const hex = [...new Uint8Array(hash)].map((b) => b.toString(16).padStart(2, '0')).join('');
-  return `https://voice.mando.local/${hex}.mp3`;
+let fx: AudioContext | null = null;
+let hiss: { src: AudioBufferSourceNode; gain: GainNode } | null = null;
+function audioCtx() {
+  if (typeof window === 'undefined' || !window.AudioContext) return null;
+  fx ??= new AudioContext();
+  if (fx.state === 'suspended') void fx.resume();
+  return fx;
 }
-
-/** Cada fala é gerada uma única vez e fica guardada no navegador. */
-async function voiceAudio(item: VoiceItem): Promise<Blob> {
-  const key = await cacheKey(item);
-  const running = pending.get(key);
-  if (running) return running;
-  const job = (async () => {
-    const store = 'caches' in window ? await caches.open('mando-voice').catch(() => null) : null;
-    const hit = await store?.match(key);
-    if (hit) return hit.blob();
-    const blob = await requestVoice(speakable(item.text), item.voice || 'president');
-    await store
-      ?.put(key, new Response(blob, { headers: { 'Content-Type': 'audio/mpeg' } }))
-      .catch(() => undefined);
-    return blob;
-  })();
-  pending.set(key, job);
-  job.then(
-    () => pending.delete(key),
-    () => pending.delete(key),
-  );
-  return job;
+/** Clique de telefone ao começar cada recado. */
+function phoneClick() {
+  const c = audioCtx();
+  if (!c) return;
+  const t = c.currentTime;
+  for (const [at, peak] of [
+    [0, 0.5],
+    [0.07, 0.28],
+  ]) {
+    const o = c.createOscillator();
+    const g = c.createGain();
+    o.type = 'square';
+    o.frequency.setValueAtTime(1800, t + at);
+    o.frequency.exponentialRampToValueAtTime(300, t + at + 0.03);
+    g.gain.setValueAtTime(peak, t + at);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + at + 0.04);
+    o.connect(g).connect(c.destination);
+    o.start(t + at);
+    o.stop(t + at + 0.05);
+  }
+}
+/** Chiado baixo de linha telefônica enquanto o recado toca. */
+function lineOn() {
+  const c = audioCtx();
+  if (!c || hiss) return;
+  const buffer = c.createBuffer(1, c.sampleRate * 2, c.sampleRate);
+  const data = buffer.getChannelData(0);
+  for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
+  const src = c.createBufferSource();
+  src.buffer = buffer;
+  src.loop = true;
+  const band = c.createBiquadFilter();
+  band.type = 'bandpass';
+  band.frequency.value = 1700;
+  band.Q.value = 0.9;
+  const gain = c.createGain();
+  gain.gain.value = 0;
+  gain.gain.setTargetAtTime(0.018, c.currentTime, 0.1);
+  src.connect(band).connect(gain).connect(c.destination);
+  src.start();
+  hiss = { src, gain };
+}
+function lineOff() {
+  if (!hiss || !fx) return;
+  const { src, gain } = hiss;
+  hiss = null;
+  gain.gain.setTargetAtTime(0, fx.currentTime, 0.08);
+  setTimeout(() => src.stop(), 400);
 }
 
 function advance(from: number) {
@@ -148,56 +171,22 @@ function speakCurrent() {
     return;
   }
   const current = ++token;
-  if (!aiAvailable() || Date.now() < aiPausedUntil || !navigator.onLine) {
-    speakSystem(item, current);
-    return;
-  }
-  loading = true;
-  emit();
-  void voiceAudio(item)
-    .then((blob) => {
-      if (current !== token) return;
-      loading = false;
-      emit();
-      const url = URL.createObjectURL(blob);
-      const player = new Audio(url);
-      audio = player;
-      const done = () => {
-        URL.revokeObjectURL(url);
-        if (audio === player) audio = null;
-        advance(current);
-      };
-      player.onended = done;
-      player.onerror = done;
-      // Já prepara o próximo recado enquanto este toca.
-      const next = queue[index + 1];
-      if (next) void voiceAudio(next).catch(() => undefined);
-      return player.play();
-    })
-    .catch(() => {
-      if (current !== token) return;
-      aiPausedUntil = Date.now() + 5 * 60_000;
-      loading = false;
-      emit();
-      speakSystem(item, current);
-    });
+  phoneClick();
+  lineOn();
+  // O clique do telefone vem antes da fala, como numa secretária eletrônica.
+  setTimeout(() => current === token && speakSystem(item, current), 260);
 }
 
 function silence() {
   token += 1;
   utterances.clear();
   loading = false;
-  if (audio) {
-    audio.onended = null;
-    audio.onerror = null;
-    audio.pause();
-    audio = null;
-  }
+  lineOff();
   if (speechAvailable()) speechSynthesis.cancel();
 }
 
 export function playVoice(items: VoiceItem[], asMailbox = items.length > 1) {
-  if ((!speechAvailable() && !aiAvailable()) || !items.length) return;
+  if (!speechAvailable() || !items.length) return;
   silence();
   queue = items;
   index = 0;

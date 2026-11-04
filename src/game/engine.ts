@@ -585,6 +585,14 @@ export function hireScout(career: Career, world: World, region: string): Career 
   return careerSchema.parse(c);
 }
 
+export function fireScout(career: Career, scoutId: string): Career {
+  const c = structuredClone(career);
+  const index = c.scouts.findIndex((s) => s.id === scoutId);
+  if (index < 0) throw new Error('Olheiro não encontrado.');
+  c.scouts.splice(index, 1);
+  return careerSchema.parse(c);
+}
+
 export function signProspect(career: Career, prospectId: string): Career {
   const c = structuredClone(career);
   const index = c.prospects.findIndex((player) => player.id === prospectId);
