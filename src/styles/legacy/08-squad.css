@@ -374,6 +374,15 @@
   background: var(--mando-petrol);
 }
 
+.squad-screen .roster-status-alert {
+  color: var(--mando-warning);
+}
+
+.squad-screen .sort-pill:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
 .squad-screen .roster-expand {
   background: var(--squad-coal);
   border-left-color: var(--mando-cyan);

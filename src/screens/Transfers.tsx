@@ -82,30 +82,134 @@ type Deal = {
   exchange: string;
 };
 
-const chance = (v: number) =>
-  v >= 85
-    ? 'Muito provável'
-    : v >= 60
-      ? 'Provável'
-      : v >= 35
-        ? 'Possível'
-        : v >= 15
-          ? 'Improvável'
-          : 'Muito improvável';
+const chanceLevels = [
+  [85, 'Muito provável'],
+  [60, 'Provável'],
+  [35, 'Possível'],
+  [15, 'Improvável'],
+  [-Infinity, 'Muito improvável'],
+] as const;
+const chanceLevel = (v: number) => 5 - chanceLevels.findIndex(([min]) => v >= min);
 
 function LikelihoodMeter({ label, value }: { label: string; value: number }) {
-  const tone = value >= 60 ? 'good' : value >= 35 ? 'mid' : 'bad';
+  const level = chanceLevel(value);
+  const tone = level >= 4 ? 'good' : level === 3 ? 'mid' : 'bad';
   return (
-    <div className={`likelihood ${tone}`}>
+    <div
+      className={`likelihood ${tone}`}
+      role="meter"
+      aria-valuemin={1}
+      aria-valuemax={5}
+      aria-valuenow={level}
+      aria-label={`${label}: ${chanceLevels[5 - level][1]}`}
+    >
       <span>
-        {label} <b>{chance(value)}</b>
+        {label} <b>{chanceLevels[5 - level][1]}</b>
       </span>
       <div className="likelihood-bar">
-        {Array.from({ length: 10 }, (_, i) => (
-          <i key={i} className={i < Math.round(value / 10) ? 'on' : ''} />
+        {Array.from({ length: 5 }, (_, i) => (
+          <i key={i} className={i < level ? 'on' : ''} />
         ))}
       </div>
     </div>
+  );
+}
+
+function ScoutReportPanel({
+  player: p,
+  career: c,
+  world,
+  title,
+  onNegotiate,
+  onShortlist,
+  shortlistLabel,
+}: {
+  player: Player | undefined;
+  career: Career;
+  world: World;
+  title: string;
+  onNegotiate: (p: Player) => void;
+  onShortlist: (id: string) => void;
+  shortlistLabel?: string;
+}) {
+  if (!p)
+    return (
+      <aside className="panel scout-report empty" aria-live="polite">
+        <p className="eyebrow">{title}</p>
+        <p className="muted">Foque um atleta para ver o relatório.</p>
+      </aside>
+    );
+  const s = c.players[p.id];
+  const club = clubById(world, s.clubId!);
+  const ovr = overall(p, p.position, s);
+  const watched = c.shortlist.includes(p.id);
+  const precontract = s.contractEnd > c.date && s.contractEnd <= addMonths(c.date, 6);
+  return (
+    <aside className="panel scout-report" aria-live="polite" aria-label={`${title}: ${p.name}`}>
+      <p className="eyebrow">{title}</p>
+      <div className="scout-head">
+        <div className={`hub-card scout-card ${cardTier(ovr)}`}>
+          <span className="hub-card-top">
+            <strong>{ovr}</strong>
+            <span>{p.position}</span>
+          </span>
+          <PlayerFace key={p.id} player={p} className="hub-card-face" />
+          <strong className="hub-card-name">{p.name.split(' ').at(-1)}</strong>
+        </div>
+        <div className="scout-identity">
+          <h2>{p.name}</h2>
+          <span className="scout-club">
+            <Badge club={club} size="small" /> {club.name}
+          </span>
+          <small>
+            {ageAt(p.birthDate, c.date)} anos · {p.nationality} · pé{' '}
+            {p.foot === 'E' ? 'esquerdo' : p.foot === 'A' ? 'ambos' : 'direito'}
+          </small>
+        </div>
+      </div>
+      <p className="scout-line">{scoutReport(c, p)}</p>
+      <dl className="scout-facts">
+        <div>
+          <dt>Valor de mercado</dt>
+          <dd>{money(marketValue(c, p))}</dd>
+        </div>
+        <div>
+          <dt>Salário/mês</dt>
+          <dd>{money(s.wage)}</dd>
+        </div>
+        <div>
+          <dt>Contrato até</dt>
+          <dd>{dateLabel(s.contractEnd)}</dd>
+        </div>
+        <div>
+          <dt>Divisão</dt>
+          <dd>{club.league === 'A' ? 'Série A' : club.league === 'B' ? 'Série B' : 'Outra'}</dd>
+        </div>
+      </dl>
+      <div className="scout-flags">
+        {watched && (
+          <span className="pill">
+            <Star size={12} className="star-on" /> Observado
+          </span>
+        )}
+        {s.loanFrom && <span className="pill">Emprestado</span>}
+        {precontract && <span className="pill">Pré-contrato liberado</span>}
+        {s.clause ? <span className="pill">Multa {money(s.clause)}</span> : null}
+      </div>
+      <div className="scout-actions">
+        <button type="button" className="primary" onClick={() => onNegotiate(p)}>
+          <Handshake size={16} /> Negociar
+        </button>
+        <button
+          type="button"
+          className={watched ? 'active' : ''}
+          aria-pressed={watched}
+          onClick={() => onShortlist(p.id)}
+        >
+          <Star size={16} /> {shortlistLabel ?? (watched ? 'Observado' : 'Observar')}
+        </button>
+      </div>
+    </aside>
   );
 }
 
@@ -381,6 +485,8 @@ export function Transfers({
   const [step, setStep] = useState<'club' | 'player'>('club');
   const [pickExchange, setPickExchange] = useState(false);
   const [page, setPage] = useState(0);
+  const [marketFocus, setMarketFocus] = useState('');
+  const [shortlistFocus, setShortlistFocus] = useState('');
   const finance = c.finances[c.clubId];
   const open = transferWindow(c.date);
   const clubName = (p: Player) => clubById(world, c.players[p.id].clubId!).name;
@@ -454,9 +560,13 @@ export function Transfers({
     dealThread?.stage === 'player' &&
     (dealThread.status === 'countered' || dealThread.status === 'rejected');
   const pending = c.offers.filter((o) => needsAction(o) || o.status === 'pending').length;
+  const actionCount = c.offers.filter(needsAction).length;
   const shortlisted = c.shortlist
     .map((id) => world.players.find((p) => p.id === id))
     .filter((p): p is Player => Boolean(p) && c.players[p!.id]?.clubId !== c.clubId);
+  const pageRows = filtered.slice(page * 20, page * 20 + 20);
+  const marketPlayer = pageRows.find((p) => p.id === marketFocus) ?? pageRows[0];
+  const shortlistPlayer = shortlisted.find((p) => p.id === shortlistFocus) ?? shortlisted[0];
   const seasonYears = Array.from({ length: 6 }, (_, i) => c.season + i);
 
   const outlook =
@@ -505,11 +615,23 @@ export function Transfers({
             setInside(false);
           }}
         >
-          <MessageSquare size={16} /> Negociações <span className="count">{pending}</span>
+          <MessageSquare size={16} /> Negociações{' '}
+          <span
+            className={`count ${actionCount ? 'attention' : ''}`}
+            aria-label={`${pending} em andamento${actionCount ? `, ${actionCount} exigem resposta` : ''}`}
+          >
+            {pending}
+            {actionCount ? ` · ${actionCount} !` : ''}
+          </span>
         </button>
       </div>
       {deal && outlook && (
-        <Modal title="Sala de negociação" onClose={() => setDeal(null)} wide>
+        <Modal
+          title={`Mesa de negociação · ${deal.player.name}`}
+          onClose={() => setDeal(null)}
+          wide
+          className="deal-desk"
+        >
           <div className="deal-room">
             <aside className="deal-target">
               <div
@@ -992,8 +1114,16 @@ export function Transfers({
                 <span>VALOR</span>
                 <span>SALÁRIO/MÊS</span>
               </div>
-              {filtered.slice(page * 20, page * 20 + 20).map((p) => (
-                <button className="market-row" key={p.id} onClick={() => startDeal(p)}>
+              {pageRows.map((p) => (
+                <button
+                  className={`market-row ${marketPlayer?.id === p.id ? 'focused' : ''}`}
+                  key={p.id}
+                  data-market-player={p.id}
+                  aria-current={marketPlayer?.id === p.id ? 'true' : undefined}
+                  onFocus={() => setMarketFocus(p.id)}
+                  onMouseEnter={() => setMarketFocus(p.id)}
+                  onClick={() => startDeal(p)}
+                >
                   <span>
                     <span className="position-tag">{p.position}</span>
                     <PlayerFace
@@ -1038,38 +1168,81 @@ export function Transfers({
               </button>
             </div>
           </section>
+          <ScoutReportPanel
+            player={marketPlayer}
+            career={c}
+            world={world}
+            title="RELATÓRIO DO OLHEIRO"
+            onNegotiate={(p) => startDeal(p)}
+            onShortlist={onShortlist}
+          />
         </div>
       )}
       {view === 'shortlist' && (
-        <section className="panel shortlist-panel">
-          <div className="panel-heading">
-            <h2>Lista de observação</h2>
-            <small>Abra um atleta no mercado e marque ★ para acompanhar.</small>
-          </div>
-          {shortlisted.length ? (
-            <div className="card-scroll">
-              <div className="card-grid">
-                {shortlisted.map((p, i) => (
-                  <PlayerCard
-                    key={p.id}
-                    player={p}
-                    career={c}
-                    autoFocus={i === 0}
-                    badge={<Badge club={clubById(world, c.players[p.id].clubId!)} size="small" />}
-                    note={money(marketValue(c, p))}
-                    onClick={() => startDeal(p)}
-                  />
-                ))}
+        <div className="shortlist-layout">
+          <section className="panel shortlist-panel">
+            <div className="panel-heading">
+              <h2>Lista de observação</h2>
+              <small>Abra um atleta no mercado e marque ★ para acompanhar.</small>
+            </div>
+            {shortlisted.length ? (
+              <div className="card-scroll">
+                <div className="card-grid">
+                  {shortlisted.map((p, i) => (
+                    <div
+                      key={p.id}
+                      className={`shortlist-slot ${shortlistPlayer?.id === p.id ? 'focused' : ''}`}
+                      onFocus={() => setShortlistFocus(p.id)}
+                      onMouseEnter={() => setShortlistFocus(p.id)}
+                    >
+                      <PlayerCard
+                        player={p}
+                        career={c}
+                        autoFocus={i === 0}
+                        badge={<Badge club={clubById(world, c.players[p.id].clubId!)} size="small" />}
+                        accessibilityNote={`${clubName(p)}, valor ${money(marketValue(c, p))}. Negociar`}
+                        onClick={() => startDeal(p)}
+                      />
+                    </div>
+                  ))}
+                </div>
               </div>
-            </div>
-          ) : (
-            <div className="empty-state">
-              <Star size={34} />
-              <h2>Nenhum alvo marcado.</h2>
-              <p>Use o mercado para encontrar e observar jogadores.</p>
-            </div>
+            ) : (
+              <div className="empty-state">
+                <Star size={34} />
+                <h2>Nenhum alvo marcado.</h2>
+                <p>Use o mercado para encontrar e observar jogadores.</p>
+                <button type="button" className="primary" onClick={() => setView('market')}>
+                  <Search size={16} /> Ir ao Mercado
+                </button>
+              </div>
+            )}
+          </section>
+          {shortlisted.length > 0 && (
+            <ScoutReportPanel
+              player={shortlistPlayer}
+              career={c}
+              world={world}
+              title="ALVO OBSERVADO"
+              onNegotiate={(p) => startDeal(p)}
+              onShortlist={(id) => {
+                const index = shortlisted.findIndex((p) => p.id === id);
+                const next = shortlisted[index + 1] ?? shortlisted[index - 1];
+                onShortlist(id);
+                setShortlistFocus(next?.id ?? '');
+                requestAnimationFrame(() =>
+                  (next
+                    ? document.querySelector<HTMLElement>(
+                        `.shortlist-slot [data-player="${next.id}"]`,
+                      )
+                    : null
+                  )?.focus(),
+                );
+              }}
+              shortlistLabel="Remover dos observados"
+            />
           )}
-        </section>
+        </div>
       )}
       {view === 'negotiations' &&
         (current ? (

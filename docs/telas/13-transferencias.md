@@ -21,6 +21,16 @@ A tela tem **3 subvistas** (botões segmentados, alternáveis com LT/RT) e **1 m
 | E6 | ↳ Resumo financeiro | sempre no modal | Orçamento, caixa, custos, medidores, botão Enviar |
 | F | Avisos (toasts) globais | App | Sucesso/erro das ações desta tela |
 
+## Ato 5 implementado
+
+- **Mercado em três colunas** (filtros | lista | `ScoutReportPanel` "Relatório do olheiro"). A linha focada (foco ou mouse) fica petróleo com borda ciano (`focused`, `data-market-player`, `aria-current`); sem foco, o relatório mostra o primeiro da página. Clique/A na linha continua abrindo a mesa. O relatório traz card com tier, clube, idade/nacionalidade/pé, a linha de `scoutReport()` (faixa de OVR no Profissional, sem atributos inventados), valor, salário, contrato, divisão, flags (Observado, Emprestado, Pré-contrato liberado, Multa) e ações Negociar/Observar.
+- **Observados** com grade de slots + painel lateral "Alvo observado" (mesmo `ScoutReportPanel`) com "Remover dos observados"; ao remover, o foco vai ao alvo seguinte/anterior. Estado vazio tem "Ir ao Mercado".
+- **Contador de Negociações** destaca as que exigem resposta: `"{pendentes} · {n} !"` com classe `count attention`.
+- **Medidor de chance em 5 níveis** (≥85, ≥60, ≥35, ≥15, resto), cinco barras, `role="meter"`, tons bom/médio/ruim.
+- **Mesa de negociação** (modal `deal-desk`, "Mesa de negociação · {nome}"): três colunas grafite, bolhas violeta (eles) e ciano (eu), saldo negativo marcado com "· negativo".
+- **Mobile somente landscape:** até 1100px, três colunas compactas; até 700px, filtros à esquerda e lista à direita (o relatório do Mercado é ocultado; a mesa mostra os mesmos dados) e a mesa passa a duas colunas com o resumo abaixo.
+- CSS em `src/styles/legacy/09-transfers.css`, escopado em `.transfers-screen`/`.deal-desk` (`.market-row` também é usado no elenco do Time).
+
 **Não existem nesta tela** (descrito para evitar suposições do redesign): lista de venda dos próprios atletas (fica na ficha do jogador da aba TIME — "Atleta à venda. As propostas chegam em Transferências › Negociações."), histórico de transferências concluídas (só aparece como conversas com status "Concluída"), aviso visual de *transfer ban* (só aparece como toast de erro ao enviar proposta), busca de agentes livres e de jogadores de clubes do exterior.
 
 ## Como se chega / como se sai

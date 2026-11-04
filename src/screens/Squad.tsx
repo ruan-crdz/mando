@@ -1100,8 +1100,10 @@ export function Squad({
                     <button
                       type="button"
                       className="sort-pill"
+                      disabled={!!d || !!kitId}
+                      title={d || kitId ? 'Feche a linha aberta para mudar a ordenação' : undefined}
                       onClick={() => cycleSort(1)}
-                      aria-label={`Ordenando por ${mode.label.toLowerCase()}. Trocar ordenação`}
+                      aria-label={`Ordenando por ${mode.label.toLowerCase()}. ${d || kitId ? 'Feche a linha aberta para mudar a ordenação' : 'Trocar ordenação'}`}
                     >
                       ◀ ▶ Ordenando por <strong>{mode.label}</strong>
                     </button>
@@ -1137,13 +1139,15 @@ export function Squad({
                                     {ageAt(p.birthDate, c.date)} anos · {money(s.wage)}/mês · até{' '}
                                     {s.contractEnd.slice(0, 4)}
                                     {s.listed ? ' · À VENDA' : ''}
-                                    {s.injuryDays ? ' · Lesionado' : ''}
                                   </small>
                                 </span>
                               </span>
                               <b className="roster-ovr">{overall(p, p.position, s)}</b>
                               <strong>{money(marketValue(c, p))}</strong>
-                              <span>{c.lineup.includes(p.id) ? 'Titular' : 'Reserva'}</span>
+                              <span className={available(c, p.id) ? '' : 'roster-status-alert'}>
+                                {c.lineup.includes(p.id) ? 'Titular' : 'Reserva'}
+                                {available(c, p.id) ? '' : ` · ${availability(p)}`}
+                              </span>
                             </button>
                             {open && ds && (
                               <div className="roster-expand">

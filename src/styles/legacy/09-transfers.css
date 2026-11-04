@@ -1,0 +1,690 @@
+/* ---------- Ato 5: Transferências (Global Transfer Network em grafite) ---------- */
+.transfers-screen,
+.deal-desk {
+  --tr-coal: #151d2b;
+  --tr-slate: #253348;
+  --tr-raised: #334258;
+}
+
+.transfers-screen {
+  width: min(1720px, 100%);
+  margin-inline: auto;
+  gap: 10px;
+}
+
+.transfers-screen .segmented .count {
+  background: var(--mando-surface-soft);
+  color: var(--mando-text);
+}
+
+.transfers-screen .segmented .count.attention {
+  background: var(--mando-coral);
+  color: var(--mando-bg);
+}
+
+.transfers-screen .panel {
+  padding: 14px 16px;
+  border: 1px solid var(--mando-border);
+  border-top: 2px solid rgba(54, 214, 231, 0.5);
+  background: var(--tr-coal);
+  box-shadow: none;
+}
+
+.transfers-screen .panel h2 {
+  font-weight: 600;
+}
+
+.transfers-screen .star-on {
+  color: var(--mando-gold);
+  fill: var(--mando-gold);
+}
+
+/* ---------- Mercado: filtros | lista dominante | relatório ---------- */
+.transfers-screen .market-layout {
+  grid-template-columns: minmax(230px, 280px) minmax(0, 1fr) minmax(250px, 320px);
+  gap: 8px;
+}
+
+.transfers-screen .filter-panel {
+  background: var(--tr-slate);
+}
+
+.transfers-screen .market-results .panel-heading small {
+  color: var(--mando-text-muted);
+}
+
+.transfers-screen .market-table {
+  gap: 2px;
+}
+
+.transfers-screen .market-table-head {
+  background: var(--tr-slate);
+  color: var(--mando-text-muted);
+  font-weight: 700;
+}
+
+.transfers-screen .market-row {
+  border-left: 3px solid transparent;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.transfers-screen .market-row:nth-child(even) {
+  background: rgba(255, 255, 255, 0.055);
+}
+
+.transfers-screen .market-row:hover:not(:disabled),
+.transfers-screen .market-row.focused {
+  border-left-color: var(--mando-cyan);
+  background: var(--mando-petrol);
+  filter: none;
+}
+
+.transfers-screen .market-row.focused small {
+  color: var(--mando-text-secondary);
+}
+
+.transfers-screen .scouting-label {
+  color: var(--mando-text-secondary);
+  font-weight: 600;
+}
+
+.transfers-screen .pagination {
+  font-weight: 600;
+}
+
+.scout-report {
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
+  gap: 10px;
+  overflow-y: auto;
+}
+
+.transfers-screen .scout-report {
+  border-top-color: var(--mando-violet);
+}
+
+.scout-report.empty {
+  justify-content: center;
+}
+
+.scout-head {
+  display: grid;
+  grid-template-columns: 112px minmax(0, 1fr);
+  align-items: end;
+  gap: 12px;
+}
+
+.hub-card.scout-card {
+  width: 112px;
+  border-radius: 6px;
+}
+
+.scout-card .hub-card-top {
+  top: 7px;
+  left: 8px;
+}
+
+.scout-card .hub-card-top strong {
+  font-size: 28px;
+}
+
+.scout-card .hub-card-top span {
+  font-size: 13px;
+}
+
+.scout-card .hub-card-name {
+  padding: 8px 4px 7px;
+  font-size: 13px;
+}
+
+.scout-identity {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.scout-identity h2 {
+  margin: 0;
+  font: 700 20px/1.1 var(--mando-title-font);
+  text-transform: uppercase;
+}
+
+.scout-club {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--mando-text-secondary);
+  font-weight: 600;
+}
+
+.scout-identity small {
+  color: var(--mando-text-muted);
+}
+
+.scout-line {
+  margin: 0;
+  padding: 7px 9px;
+  border-left: 3px solid var(--mando-violet);
+  border-radius: 3px;
+  background: var(--tr-slate);
+  color: var(--mando-text-secondary);
+  font-weight: 600;
+}
+
+.scout-facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px;
+  margin: 0;
+}
+
+.scout-facts > div {
+  padding: 6px 8px;
+  border-radius: 3px;
+  background: var(--tr-slate);
+}
+
+.scout-facts dt {
+  color: var(--mando-text-muted);
+  font-size: 11px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.scout-facts dd {
+  margin: 0;
+  font-weight: 700;
+}
+
+.scout-flags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.scout-flags .pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+}
+
+.scout-actions {
+  display: grid;
+  gap: 6px;
+  margin-top: auto;
+}
+
+/* ---------- Observados: grade de fotos + resumo ---------- */
+.shortlist-layout {
+  display: grid;
+  flex: 1;
+  min-height: 0;
+  grid-template-columns: minmax(0, 1fr) minmax(250px, 320px);
+  gap: 8px;
+}
+
+.shortlist-layout > :only-child {
+  grid-column: 1 / -1;
+}
+
+.transfers-screen .shortlist-panel .card-grid {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.shortlist-slot {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+}
+
+.shortlist-slot.focused .player-card {
+  outline: 2px solid var(--mando-petrol-bright);
+  outline-offset: 2px;
+}
+
+.transfers-screen .empty-state .primary {
+  margin-top: 8px;
+}
+
+/* ---------- Negociações: correspondência ---------- */
+.transfers-screen .negotiations-layout {
+  gap: 8px;
+}
+
+.transfers-screen .thread-list {
+  background: var(--tr-slate);
+}
+
+.transfers-screen .thread-item {
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.transfers-screen .thread-item.attention {
+  border-left-color: var(--mando-coral);
+}
+
+.transfers-screen .thread-item.active {
+  border-left-color: var(--mando-cyan);
+  background: var(--mando-petrol);
+}
+
+.transfers-screen .thread-text small,
+.transfers-screen .thread-text em {
+  color: var(--mando-text-secondary);
+}
+
+.transfers-screen .thread-status {
+  border-radius: 3px;
+  background: var(--tr-raised);
+  color: var(--mando-text);
+}
+
+.transfers-screen .thread-status.s-pending {
+  background: var(--tr-raised);
+}
+
+.transfers-screen .thread-status.s-countered,
+.transfers-screen .thread-item.attention .thread-status {
+  background: var(--mando-coral);
+  color: var(--mando-bg);
+}
+
+.transfers-screen .thread-status.s-completed,
+.transfers-screen .thread-status.s-accepted {
+  background: var(--mando-positive);
+  color: var(--mando-bg);
+}
+
+.transfers-screen .thread-status.s-rejected {
+  background: #8f2f3e;
+  color: var(--mando-text);
+}
+
+.transfers-screen .chat-panel {
+  padding: 0;
+}
+
+.transfers-screen .chat-head {
+  border-bottom: 1px solid var(--mando-border);
+  background: var(--tr-slate);
+}
+
+.transfers-screen .chat-stages span {
+  border-radius: 3px;
+  background: var(--tr-raised);
+  color: var(--mando-text-secondary);
+}
+
+.transfers-screen .chat-stages span.active {
+  background: var(--mando-petrol);
+  color: var(--mando-text);
+  box-shadow: inset 0 -2px 0 var(--mando-cyan);
+}
+
+.transfers-screen .chat-stages span.done {
+  background: var(--mando-positive);
+  color: var(--mando-bg);
+}
+
+.transfers-screen .chat-scroll {
+  background: var(--tr-coal);
+}
+
+.transfers-screen .chat-date span {
+  border-radius: 3px;
+  background: var(--tr-raised);
+  color: var(--mando-text-secondary);
+}
+
+.transfers-screen .chat-system {
+  border-left: 3px solid var(--mando-warning);
+  border-radius: 3px;
+  background: var(--tr-slate);
+  color: var(--mando-text);
+}
+
+.transfers-screen .bubble {
+  border-radius: 4px;
+  box-shadow: none;
+}
+
+.transfers-screen .bubble.from-them {
+  border-left: 3px solid var(--mando-violet);
+  background: var(--tr-slate);
+}
+
+.transfers-screen .bubble.from-me {
+  border-right: 3px solid var(--mando-cyan);
+  background: #134653;
+}
+
+.transfers-screen .bubble-tag,
+.transfers-screen .bubble-figures span {
+  border-radius: 3px;
+}
+
+.transfers-screen .kind-counter .bubble-tag {
+  background: var(--mando-coral);
+  color: var(--mando-bg);
+}
+
+.transfers-screen .kind-accept .bubble-tag {
+  background: var(--mando-positive);
+  color: var(--mando-bg);
+}
+
+.transfers-screen .kind-reject .bubble-tag {
+  background: #8f2f3e;
+}
+
+.transfers-screen .chat-actions {
+  border-top-color: var(--mando-border);
+  background: var(--tr-slate);
+}
+
+.transfers-screen .chat-wait {
+  color: var(--mando-text-secondary);
+}
+
+.transfers-screen .chat-wait.done {
+  color: var(--mando-positive);
+}
+
+.agent-avatar {
+  border-radius: 3px;
+  background: var(--mando-violet);
+  color: var(--mando-bg);
+}
+
+/* ---------- Mesa de negociação (E1–E6) ---------- */
+.dialog.deal-desk {
+  width: min(1480px, 100%);
+  height: min(860px, 94dvh);
+  border-top-color: var(--mando-violet);
+  background: var(--tr-coal);
+}
+
+.deal-desk .dialog-body {
+  flex: 1;
+  padding: 4px 16px 16px;
+}
+
+.deal-desk .deal-room {
+  flex: 1;
+  min-height: 0;
+  grid-template-columns: minmax(220px, 0.8fr) minmax(0, 1.6fr) minmax(240px, 0.9fr);
+  gap: 8px;
+}
+
+.deal-desk .deal-target,
+.deal-desk .deal-summary {
+  min-height: 0;
+  padding: 12px;
+  overflow-y: auto;
+  border: 1px solid var(--mando-border);
+  border-radius: var(--mando-radius-panel);
+  background: var(--tr-slate);
+}
+
+.deal-desk .deal-card {
+  flex-shrink: 0;
+  border-radius: 6px;
+  box-shadow: none;
+}
+
+.deal-desk .deal-facts > div,
+.deal-desk .deal-summary dl > div {
+  border-bottom-color: var(--mando-border);
+}
+
+.deal-desk .deal-facts dt,
+.deal-desk .deal-summary dt {
+  color: var(--mando-text-muted);
+}
+
+.deal-desk .deal-summary dl > .total {
+  border-bottom: 2px solid var(--mando-cyan);
+}
+
+.deal-desk .deal-summary dl > .total dd {
+  color: var(--mando-cyan);
+}
+
+.deal-desk .deal-summary dl > .negative dd {
+  color: var(--mando-danger);
+}
+
+.deal-desk .deal-summary dl > .negative dt::after {
+  content: ' · negativo';
+}
+
+.deal-desk .deal-target > button.active {
+  background: var(--mando-petrol);
+  color: var(--mando-text);
+}
+
+.deal-desk .deal-table {
+  overflow-y: auto;
+  border: 1px solid var(--mando-border);
+  border-top: 2px solid var(--mando-violet);
+  border-radius: var(--mando-radius-panel);
+  background: var(--tr-coal);
+}
+
+.deal-desk .deal-steps > button {
+  border-radius: 3px;
+  background: var(--tr-raised);
+}
+
+.deal-desk .deal-steps > button span {
+  border-radius: 3px;
+}
+
+.deal-desk .deal-steps > button.active {
+  background: var(--mando-petrol);
+  box-shadow: inset 0 -3px 0 var(--mando-cyan);
+}
+
+.deal-desk .deal-steps > button.active span {
+  background: var(--mando-text);
+  color: var(--mando-petrol);
+}
+
+.deal-desk .call-bubble {
+  border-left: 3px solid var(--mando-text-muted);
+  border-radius: 3px;
+  background: var(--tr-slate);
+}
+
+.deal-desk .call-bubble.agent {
+  border-left-color: var(--mando-violet);
+  background: #2d2a4a;
+}
+
+.deal-desk .quick-chips > button {
+  background: var(--tr-raised);
+}
+
+.deal-desk .likelihood-bar {
+  grid-template-columns: repeat(5, 1fr);
+}
+
+.deal-desk .likelihood-bar i {
+  height: 9px;
+  background: var(--tr-raised);
+}
+
+.deal-desk .likelihood > span {
+  color: var(--mando-text-secondary);
+}
+
+.deal-desk .likelihood.good b,
+.deal-desk .likelihood.good .likelihood-bar i.on {
+  color: var(--mando-positive);
+  background-color: var(--mando-positive);
+}
+
+.deal-desk .likelihood.mid b,
+.deal-desk .likelihood.mid .likelihood-bar i.on {
+  color: var(--mando-warning);
+  background-color: var(--mando-warning);
+}
+
+.deal-desk .likelihood.bad b,
+.deal-desk .likelihood.bad .likelihood-bar i.on {
+  color: var(--mando-danger);
+  background-color: var(--mando-danger);
+}
+
+.deal-desk .likelihood b {
+  background: none !important;
+}
+
+/* ---------- Landscape compacto (celular deitado / 1280×720) ---------- */
+@media (max-width: 1100px) and (orientation: landscape) {
+  .transfers-screen {
+    gap: 7px;
+  }
+
+  .transfers-screen .section-title h1 {
+    font-size: clamp(20px, 3vw, 26px);
+  }
+
+  .transfers-screen .segmented > button {
+    padding: 5px 10px;
+    font-size: 12px;
+  }
+
+  .transfers-screen .market-layout,
+  .shortlist-layout,
+  .transfers-screen .negotiations-layout {
+    flex: none;
+    height: clamp(300px, calc(100vh - 150px), 560px);
+  }
+
+  .transfers-screen .market-layout {
+    grid-template-columns: minmax(170px, 0.75fr) minmax(0, 1.4fr) minmax(190px, 0.85fr);
+  }
+
+  .transfers-screen .negotiations-layout {
+    grid-template-columns: minmax(190px, 0.8fr) minmax(0, 1.6fr);
+  }
+
+  .transfers-screen .panel {
+    min-height: 0;
+    padding: 9px 10px;
+    overflow: hidden;
+  }
+
+  .transfers-screen .scout-report {
+    overflow-y: auto;
+  }
+
+  .transfers-screen .chat-panel {
+    padding: 0;
+  }
+
+  .transfers-screen .market-table-head,
+  .transfers-screen .market-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .transfers-screen .market-table-head > :nth-child(n + 2),
+  .transfers-screen .market-row > :nth-child(n + 2) {
+    display: none;
+  }
+
+  .transfers-screen .shortlist-panel .card-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .scout-head {
+    grid-template-columns: 78px minmax(0, 1fr);
+    gap: 8px;
+  }
+
+  .hub-card.scout-card {
+    width: 78px;
+  }
+
+  .scout-card .hub-card-top strong {
+    font-size: 20px;
+  }
+
+  .scout-card .hub-card-name {
+    font-size: 10px;
+  }
+
+  .scout-identity h2 {
+    font-size: 15px;
+  }
+
+  .scout-facts {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .scout-facts > div {
+    display: flex;
+    justify-content: space-between;
+    gap: 6px;
+    padding: 4px 6px;
+  }
+
+  .dialog.deal-desk {
+    height: 96dvh;
+  }
+
+  .deal-desk .dialog-heading {
+    padding: 8px 14px 4px;
+  }
+
+  .deal-desk .dialog-body {
+    padding: 2px 10px 10px;
+  }
+
+  .deal-desk .deal-room {
+    grid-template-columns: minmax(170px, 0.75fr) minmax(0, 1.5fr) minmax(180px, 0.85fr);
+  }
+
+  .deal-desk .deal-summary {
+    grid-column: auto;
+  }
+
+  .deal-desk .deal-target,
+  .deal-desk .deal-summary,
+  .deal-desk .deal-table {
+    padding: 8px;
+  }
+}
+
+@media (max-width: 700px) and (orientation: landscape) {
+  .transfers-screen .market-layout {
+    grid-template-columns: minmax(150px, 0.8fr) minmax(0, 1.2fr);
+    grid-template-rows: minmax(0, 1fr);
+  }
+
+  .transfers-screen .market-layout > .scout-report {
+    display: none;
+  }
+
+  .transfers-screen .filter-panel {
+    grid-row: auto;
+  }
+
+  .shortlist-layout {
+    grid-template-columns: minmax(0, 1.2fr) minmax(170px, 0.8fr);
+  }
+
+  .deal-desk .deal-room {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr);
+  }
+
+  .deal-desk .deal-summary {
+    grid-column: 1 / -1;
+  }
+}
