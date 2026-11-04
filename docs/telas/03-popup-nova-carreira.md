@@ -86,3 +86,8 @@ Os botões não usam a classe `.tile`, mas imitam o tile (sem as listras do `::b
 - A hierarquia não deixa claro que a demo é secundária; poderia ser um cartão menor ou um botão "Experimentar demonstração".
 - Fechar o modal durante o download não cancela a ação.
 - O título "Nova carreira" + "Voltar" no topo é idêntico a todos os modais; aqui caberia um cabeçalho de etapa ("ESCOLHA O MUNDO") alinhado ao fluxo de criação (MANAGER › CLUBE › DESAFIO).
+
+## Estado do redesign MANDO 27 LEGACY
+- **Lote 2 implementado:** o mundo oficial recebe o tile hero petróleo/ciano; a demonstração tem tratamento violeta secundário. Foco de controle usa contorno de alto contraste.
+- Durante o carregamento oficial, o próprio tile mostra spinner e "Carregando elencos…"; falha e retry continuam usando o fluxo existente.
+- A escolha do mundo, foco inicial, fechar/voltar e criação imediata do manager preservam a lógica atual.

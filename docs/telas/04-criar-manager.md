@@ -221,3 +221,8 @@ Vibração: `confirm` quando o retrato fica pronto; `error` nos toasts de erro (
 - O retrato sem IA mostra **iniciais** na silhueta (contraria a regra "silhueta sem sigla").
 - O botão de retrato fica ativo mesmo sem IA disponível (offline/sem Supabase) e só falha depois; poderia ser desabilitado com explicação.
 - Não há resumo final antes de "Assumir o clube" (manager + clube + desafio + dificuldade num cartão de confirmação).
+
+## Estado do redesign MANDO 27 LEGACY
+- **Lote 2 implementado:** trilha dos três passos, editor/retrato, seleção de clube e desafio agora usam a paleta escura e estados selecionados/foco separados.
+- Mantidos campos, validações, opções, ordem dos passos, atalhos, seleções e estado do save; não houve mudança na engine.
+- Revisei visualmente as três etapas em desktop e os estados de manager/clube no viewport móvel; a etapa de desafio em mobile ainda requer revisão por lote.

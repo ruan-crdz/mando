@@ -115,3 +115,8 @@ Ao focar um tile com controle/teclado: escala 1.025, contorno branco 4px e halo 
 - Sem estado "carregando saves"; a tela pode piscar de 1 para 2+ tiles.
 - Sem indicação de backup em nuvem (sessão anônima existe, mas o jogador não sabe se está salvo na nuvem).
 - Cores dos slots são aleatórias por índice (laranja/roxo/rosa) e não ligadas ao clube; usar a cor do clube daria identidade.
+
+## Estado do redesign MANDO 27 LEGACY
+- **Lote 2 implementado:** cards de save com superfícies escuras, acentos semânticos, título/call-to-action mais contidos e carrossel horizontal com snap.
+- O fluxo de continuar, criar carreira e excluir save não mudou; não foram adicionadas opções secundárias nem novos dados ao save.
+- Verifiquei visualmente Menu em desktop e o fluxo de criação em viewport móvel; os demais estados ainda precisam da revisão por lote.

@@ -74,3 +74,7 @@ Sem ícones nos botões, sem escudo, sem retrato.
 - No estilo FIFA/console, ações destrutivas costumam exigir **segurar ✕** (barra de progresso) em vez de um toque — reduz exclusões acidentais no controle.
 - O save mais recente não pode ser excluído pelo menu (sem lixeira no tile "CONTINUAR"); considerar um gerenciador de saves com △ = excluir em qualquer slot.
 - Só o primeiro nome do manager aparece; usar nome completo.
+
+## Estado do redesign MANDO 27 LEGACY
+- **Lote 2 implementado:** a confirmação mostra o nome completo, clube e data em uma superfície de aviso coral, informa que a ação é irreversível e que o backup em nuvem permanece.
+- Cancelar, confirmação, foco inicial seguro e remoção do save local continuam com os handlers originais.

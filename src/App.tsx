@@ -865,7 +865,15 @@ function Game() {
               <h2>Brasileirão 2026</h2>
               <p>Séries A e B com elencos reais e escudos. Mundo congelado em 01/01/2026.</p>
               <span>
-                JOGAR <ArrowRight size={18} />
+                {busy ? (
+                  <>
+                    <LoaderCircle className="spin" size={18} /> CARREGANDO ELENCOS…
+                  </>
+                ) : (
+                  <>
+                    JOGAR <ArrowRight size={18} />
+                  </>
+                )}
               </span>
             </button>
             <button
@@ -1125,11 +1133,16 @@ function Game() {
       )}
       {deleting && (
         <Modal title="Excluir carreira?" onClose={() => setDeleting(null)}>
-          <p>
-            {deleting.career.manager.firstName} ·{' '}
-            {deleting.world.clubs.find((c) => c.id === deleting.career.clubId)?.name} ·{' '}
-            {dateLabel(deleting.career.date)}
-          </p>
+          <div className="delete-save-summary">
+            <strong>
+              {deleting.career.manager.firstName} {deleting.career.manager.lastName}
+            </strong>
+            <span>
+              {deleting.world.clubs.find((c) => c.id === deleting.career.clubId)?.name} ·{' '}
+              {dateLabel(deleting.career.date)}
+            </span>
+            <p>Esta ação não pode ser desfeita. O backup em nuvem não será removido.</p>
+          </div>
           <div className="button-row">
             <button onClick={() => setDeleting(null)}>Cancelar</button>
             <button
