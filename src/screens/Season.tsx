@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { TrophyArt } from '../components/TrophyArt';
 import { PlayerFace } from '../components/PlayerFace';
+import { LegacyPanel } from '../components/LivingPanels';
 import { Award, CalendarDays, ChevronLeft, ChevronRight, Medal, Trophy } from 'lucide-react';
 import { Badge, dateLabel, SectionTitle } from '../components/ui';
 import { standings } from '../game/engine';
@@ -97,7 +98,9 @@ export function Season({ career: c, world }: { career: Career; world: World }) {
   const club = world.clubs.find((club) => club.id === c.clubId)!;
   const { input, hints } = useGamepad();
   const [comp, setComp] = useState<string>(c.leagues[c.clubId] || club.league);
-  const [view, setView] = useState<'table' | 'calendar' | 'stats' | 'trophies' | 'awards'>('table');
+  const [view, setView] = useState<
+    'table' | 'calendar' | 'stats' | 'trophies' | 'awards' | 'legacy'
+  >('table');
   const [month, setMonth] = useState(c.date.slice(0, 7));
   const [day, setDay] = useState(c.date);
   const available = ['A', 'B', `EST-${club.state}`, 'CDB', 'SUP', 'LIB', 'SUL'].filter(
@@ -116,7 +119,7 @@ export function Season({ career: c, world }: { career: Career; world: World }) {
   useStickX((dir) =>
     view === 'calendar'
       ? cycleMonth(dir)
-      : view !== 'trophies' && view !== 'awards' && cycleComp(dir),
+      : view !== 'trophies' && view !== 'awards' && view !== 'legacy' && cycleComp(dir),
   );
   const pad = input === 'xbox' || input === 'playstation';
   const isLeague = comp === 'A' || comp === 'B';
@@ -190,6 +193,7 @@ export function Season({ career: c, world }: { career: Career; world: World }) {
             ['stats', 'Estatísticas', Medal],
             ['trophies', 'Troféus', Trophy],
             ['awards', 'Prêmios', Award],
+            ['legacy', 'Legado', Medal],
           ] as const
         ).map(([id, name, Icon]) => (
           <button className={view === id ? 'active' : ''} key={id} onClick={() => setView(id)}>
@@ -510,6 +514,7 @@ export function Season({ career: c, world }: { career: Career; world: World }) {
           </div>
         </div>
       )}
+      {view === 'legacy' && <LegacyPanel career={c} world={world} />}
       {view === 'awards' && (
         <div className="stats-grid">
           {c.awards.length === 0 ? (

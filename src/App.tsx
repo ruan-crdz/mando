@@ -82,6 +82,8 @@ import {
 } from './audio/music';
 import { startCrowd, stopCrowd } from './audio/crowd';
 import { applyPress, buildPress, buildPreMatchPress, type PressSession } from './game/press';
+import { upgradeAnalyst } from './game/living';
+import { MatchOdds } from './components/LivingPanels';
 import { playVoice, skipVoice, stopVoice, useVoice } from './components/voice';
 import { achievements, unlockAchievements, type Achievement } from './game/achievements';
 
@@ -746,6 +748,15 @@ function Game() {
                       setNotice('Novo clube aceito. A carreira continua em um novo desafio.');
                     })
                   }
+                  onLiving={(patch) =>
+                    setCareer({ ...career, living: { ...career.living, ...patch } })
+                  }
+                  onUpgradeAnalyst={() =>
+                    act(() => {
+                      setCareer(upgradeAnalyst(career));
+                      setNotice('Novo analista de desempenho contratado.');
+                    })
+                  }
                   onDeclineJob={(id) =>
                     setCareer({
                       ...career,
@@ -1067,6 +1078,10 @@ function Game() {
               {career.tactic.formation} · {career.tactic.mentality}
             </h2>
             <p>Confira lesões, suspensões e condição física antes de entrar em campo.</p>
+            {(() => {
+              const f = nextFixture(career);
+              return f ? <MatchOdds career={career} world={live!} fixture={f} /> : null;
+            })()}
           </div>
           <div className="button-row">
             <button

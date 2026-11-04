@@ -6285,3 +6285,18 @@ button.danger {
     grid-template-columns: 1fr;
   }
 }
+/* Mundo vivo */
+.living-feed { margin: 12px 0; }
+.living-feed ul { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 4px; }
+.living-feed li { font-size: 0.9rem; }
+.living-headline { font-weight: 700; color: #b45309; }
+.living-bar { display: grid; grid-template-columns: 110px 1fr 36px; align-items: center; gap: 8px; margin: 4px 0; }
+.living-bar meter { width: 100%; height: 10px; }
+.living-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin: 8px 0; }
+.living-odds { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 12px; text-align: center; }
+.living-odds div { background: rgba(255, 255, 255, 0.12); border-radius: 8px; padding: 8px; }
+.living-odds div span { display: block; font-size: 0.75rem; text-transform: uppercase; opacity: 0.8; }
+.living-odds div strong { font-size: 1.4rem; }
+.living-odds p { grid-column: 1 / -1; margin: 0; }
+.match-analysis { margin-top: 12px; }
+.match-analysis svg { width: 100%; height: 90px; }

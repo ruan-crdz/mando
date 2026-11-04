@@ -1,4 +1,4 @@
-import { hash } from './random';
+import { addDays, hash } from './random';
 import { matchRatings, manOfTheMatch } from './matchRatings';
 import { clubById, findPlayer } from './npc';
 import { currentLeague, standings } from './engine';
@@ -297,10 +297,28 @@ export function applyPress(
   const players = { ...career.players };
   const squadIds = Object.keys(players).filter((id) => players[id].clubId === career.clubId);
   const quotes: string[] = [];
+  const media = { ...(career.living?.media || {}) };
+  let headline = career.living?.headline;
   for (const q of session.questions) {
     const answer = q.answers[answers[q.id] ?? -1];
     if (!answer) continue;
     quotes.push(`"${answer.text}"`);
+    // Jornalistas lembram do tratamento recebido; falas duras viram manchete por uma semana.
+    const harsh = ['Duro', 'Cobrança', 'Pressão', 'Exigente'].includes(answer.tone);
+    const warm = ['Apoio', 'Elogio', 'Leve', 'Humilde', 'Positivo', 'Sereno'].includes(answer.tone);
+    media[q.reporter] = clamp(
+      (media[q.reporter] ?? 50) + (warm ? 4 : harsh ? -5 : answer.tone === 'Reservado' ? -2 : 1),
+    );
+    if (harsh && q.playerId && players[q.playerId])
+      players[q.playerId] = {
+        ...players[q.playerId],
+        relationship: clamp(players[q.playerId].relationship - 6),
+      };
+    if (harsh || answer.tone === 'Ambicioso')
+      headline = {
+        text: `"${answer.text.slice(0, 90)}": fala do técnico repercute`,
+        until: addDays(career.date, 7),
+      };
     const { effect } = answer;
     confidence += effect.confidence || 0;
     if (effect.squad)
@@ -320,6 +338,7 @@ export function applyPress(
     ...career,
     confidence: clamp(confidence),
     players,
+    living: { ...career.living, media, ...(headline ? { headline } : {}) },
     messages: [
       {
         id: `msg-${hash(`${career.id}:${session.fixtureId}:press`)}`,

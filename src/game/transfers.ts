@@ -2,7 +2,17 @@ import { addDays, addMonths, ageAt, clamp, hash, random } from './random';
 import { overall } from './ratings';
 import { reconcileSquad, squad } from './matches';
 import { transferWindow } from './calendar';
+import { clubById, foreignClubs, isForeign } from './npc';
+import { recordMove } from './chronicle';
 import { type Career, type NegotiationMessage, type Offer, type Player, type World } from './types';
+
+/** Finanças de um clube; estrangeiros usam um caixa temporário pela reputação (não é salvo). */
+export function financeOf(c: Career, world: World, clubId: string): Career['finances'][string] {
+  const own = c.finances[clubId];
+  if (own) return own;
+  const budget = Math.max(8e6, (clubById(world, clubId).reputation - 60) * 6e6);
+  return { cash: budget * 2, transferBudget: budget, debt: 0, history: [] };
+}
 
 export function marketValue(career: Career, player: Player) {
   const state = career.players[player.id];
@@ -15,7 +25,7 @@ export function marketValue(career: Career, player: Player) {
 export function askingPrice(career: Career, world: World, player: Player, buyerId = career.clubId) {
   const state = career.players[player.id];
   const seller = world.clubs.find((c) => c.id === state.clubId);
-  const buyer = world.clubs.find((c) => c.id === buyerId)!;
+  const buyer = clubById(world, buyerId);
   const years = Math.max(
     0,
     (Date.parse(state.contractEnd) - Date.parse(career.date)) / (365 * 86400000),
@@ -163,6 +173,8 @@ export function createOffer(
 ): Career {
   const c = structuredClone(career);
   if (!transferWindow(c.date)) throw new Error('A janela de transferências está fechada.');
+  if (c.living.transferBan && c.living.transferBan >= c.date)
+    throw new Error(`Transfer ban da FIFA até ${c.living.transferBan.split('-').reverse().join('/')}: o clube não pode contratar.`);
   if (!Number.isFinite(fee) || fee < 0 || !Number.isFinite(wage) || wage <= 0)
     throw new Error('Informe valores válidos.');
   const player = world.players.find((p) => p.id === playerId);
@@ -496,8 +508,8 @@ export function respondCounter(
 
 export function completeTransfer(c: Career, world: World, offer: Offer) {
   if (!transferWindow(c.date)) throw new Error('Transferência fora da janela.');
-  const buyer = c.finances[offer.fromClubId];
-  const seller = c.finances[offer.toClubId];
+  const buyer = financeOf(c, world, offer.fromClubId);
+  const seller = financeOf(c, world, offer.toClubId);
   if (c.players[offer.playerId].clubId !== offer.toClubId)
     throw new Error('O atleta já mudou de clube.');
   const bonus = offer.bonus || 0;
@@ -543,6 +555,7 @@ export function completeTransfer(c: Career, world: World, offer: Offer) {
   delete p.listed;
   offer.status = 'completed';
   if (offer.toClubId === c.clubId) c.sales += offer.fee;
+  recordMove(c, world, offer.playerId, offer.toClubId, offer.fromClubId, offer.fee, isForeign(offer.fromClubId) ? 'exterior' : 'compra');
   reconcileSquad(c, world);
 }
 
@@ -581,6 +594,26 @@ export function answerIncoming(
       kind: 'reject',
       text: 'O atleta não está à venda por esse valor.',
     });
+    const s = c.players[offer.playerId];
+    // Recusar o exterior frustra o atleta ambicioso, que passa a forçar a saída.
+    if (isForeign(offer.fromClubId) && s && (s.personality === 'Ambicioso' || offer.fee >= 3e7)) {
+      s.morale = clamp(s.morale - 15);
+      s.relationship = clamp(s.relationship - 12);
+      s.listed ??= offer.fee;
+      const player = world.players.find((p) => p.id === offer.playerId)!;
+      c.messages.unshift({
+        id: `msg-force-${offer.id}`,
+        date: c.date,
+        kind: 'player',
+        from: player.name,
+        title: 'Quero jogar na Europa',
+        body: `Professor, era o sonho da minha vida. Peço que o clube me libere na próxima proposta. A partir de agora estou na lista de transferências.`,
+        important: false,
+        read: false,
+        resolved: true,
+        playerId: player.id,
+      });
+    }
   }
   return c;
 }
@@ -601,7 +634,7 @@ export function counterIncoming(
   offer.messages = threadOf(offer);
   const player = world.players.find((p) => p.id === offer.playerId)!;
   const ceiling = Math.min(
-    c.finances[offer.fromClubId].transferBudget,
+    financeOf(c, world, offer.fromClubId).transferBudget,
     Math.max(offer.fee * 1.1, offer.minimum * (0.95 + (hash(offer.id) % 20) / 100)),
   );
   const patience = offer.patience ?? 3;
@@ -689,17 +722,22 @@ export function processOffers(c: Career, world: World) {
   if (!forSale && roll > 0.045) return;
   const pool = forSale ? listed : own;
   const player = pool[Math.floor(rng() * pool.length)];
-  const buyers = world.clubs.filter((club) => club.id !== c.clubId);
+  // Destaques atraem o mercado europeu e árabe, que paga acima do valor.
+  const ovr = player ? overall(player) : 99;
+  const abroad = ovr >= 70 && rng() < (c.date.slice(5, 7) >= '07' ? 0.45 : 0.25);
+  const buyers = abroad
+    ? foreignClubs.filter((club) => club.reputation >= ovr + 2)
+    : world.clubs.filter((club) => club.id !== c.clubId);
   const buyer = buyers[Math.floor(rng() * buyers.length)];
   if (!player || !buyer) return;
   const asking = c.players[player.id].listed;
   const fee = roundUp(
     forSale && asking
       ? asking * (0.6 + rng() * 0.35)
-      : marketValue(c, player) * (0.75 + rng() * 0.5),
+      : marketValue(c, player) * (abroad ? 1.2 + rng() * 0.6 : 0.75 + rng() * 0.5),
     50000,
   );
-  if (fee > c.finances[buyer.id].transferBudget) return;
+  if (fee > financeOf(c, world, buyer.id).transferBudget) return;
   const id = `incoming-${hash(`${c.date}:${player.id}`)}`;
   c.offers.push({
     id,

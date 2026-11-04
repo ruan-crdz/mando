@@ -7,10 +7,13 @@ import {
   applyTactic,
   npcTactic,
   profile,
+  rivalPlan,
   shotChance,
   strength,
   tacticalEdge,
+  type Strength,
 } from './tactics';
+import { matchConditions } from './context';
 import { manOfTheMatch, matchRatings } from './matchRatings';
 import {
   formations,
@@ -118,15 +121,32 @@ export function beginMatch(career: Career, world: World, fixture: Fixture): Matc
   if (ours) validateLineup(career, world);
   const empty = { shots: 0, xg: 0, possession: 50, passes: 0 };
   const own = ours ? profile(career, world, career.lineup, career.tactic.formation).ovr : undefined;
-  const homePlan =
-    fixture.homeId === career.clubId ? null : npcTactic(career, world, fixture.homeId);
-  const awayPlan =
-    fixture.awayId === career.clubId ? null : npcTactic(career, world, fixture.awayId);
+  // Contra o usuário, o técnico rival pode ter estudado o padrão dele.
+  const plan = (clubId: string, home: boolean) =>
+    ours ? rivalPlan(career, world, clubId, home, own) : npcTactic(career, world, clubId);
+  const homePlan = fixture.homeId === career.clubId ? null : plan(fixture.homeId, true);
+  const awayPlan = fixture.awayId === career.clubId ? null : plan(fixture.awayId, false);
   const homeOvr = own ?? homePlan!.ovr;
   const awayOvr = own ?? awayPlan!.ovr;
-  if (homePlan) homePlan.tactic = adjustMentality(homePlan.tactic, homePlan.ovr - awayOvr);
-  if (awayPlan) awayPlan.tactic = adjustMentality(awayPlan.tactic, awayPlan.ovr - homeOvr);
+  if (homePlan && !ours) homePlan.tactic = adjustMentality(homePlan.tactic, homePlan.ovr - awayOvr);
+  if (awayPlan && !ours) awayPlan.tactic = adjustMentality(awayPlan.tactic, awayPlan.ovr - homeOvr);
+  const homeLineup = homePlan ? homePlan.lineup : [...career.lineup];
+  const awayLineup = awayPlan ? awayPlan.lineup : [...career.lineup];
+  const conditions = matchConditions(career, world, fixture, homeLineup, awayLineup);
+  const rivalLineup = fixture.homeId === career.clubId ? awayLineup : homeLineup;
+  const marked =
+    ours && career.living?.marking
+      ? rivalLineup
+          .map((id) => findPlayer(world, id))
+          .filter((p): p is Player => Boolean(p) && p!.position !== 'GK')
+          .sort((a, b) => overall(b) + b.attributes.finishing - overall(a) - a.attributes.finishing)[0]?.id
+      : undefined;
+  const studied = Boolean(homePlan && 'studied' in homePlan && homePlan.studied) ||
+    Boolean(awayPlan && 'studied' in awayPlan && awayPlan.studied);
   return {
+    conditions,
+    ...(marked ? { marked } : {}),
+    ...(ours ? { studied, aiSubs: 0 } : {}),
     fixtureId: fixture.id,
     seed: hash(`${career.seed}:${fixture.id}`),
     minute: 0,
@@ -134,8 +154,8 @@ export function beginMatch(career: Career, world: World, fixture: Fixture): Matc
     awayGoals: 0,
     home: { ...empty },
     away: { ...empty },
-    homeLineup: homePlan ? homePlan.lineup : [...career.lineup],
-    awayLineup: awayPlan ? awayPlan.lineup : [...career.lineup],
+    homeLineup,
+    awayLineup,
     ...(homePlan ? { homeTactic: homePlan.tactic } : {}),
     ...(awayPlan ? { awayTactic: awayPlan.tactic } : {}),
     bonus: {},
@@ -192,16 +212,19 @@ export function stepMatch(
   const ht = ownHome ? career.tactic : ours ? npc : match.homeTactic || legacy;
   const at =
     fixture.awayId === career.clubId ? career.tactic : ours ? npc : match.awayTactic || legacy;
-  for (const [ids, tactic] of [
-    [match.homeLineup, ht],
-    [match.awayLineup, at],
+  const cond = match.conditions;
+  for (const [ids, tactic, tire] of [
+    [match.homeLineup, ht, cond?.homeTire ?? 1],
+    [match.awayLineup, at, cond?.awayTire ?? 1],
   ] as const) {
     for (const id of ids) {
       match.minutesPlayed[id] = (match.minutesPlayed[id] || 0) + 1;
       match.energySpent[id] =
-        (match.energySpent[id] || 0) + 0.155 + tactic.pressure * 0.03 + tactic.tempo * 0.01;
+        (match.energySpent[id] || 0) +
+        (0.155 + tactic.pressure * 0.03 + tactic.tempo * 0.01) * tire;
     }
   }
+  if (ours) aiSubstitutions(career, world, match, fixture, minute);
   const homeSide = {
     tactic: ht,
     profile: profile(career, world, match.homeLineup, ht.formation),
@@ -210,15 +233,29 @@ export function stepMatch(
     tactic: at,
     profile: profile(career, world, match.awayLineup, at.formation),
   };
-  const home = applyTactic(
-    strength(career, world, match.homeLineup, ht.formation, match.energySpent, match.injured),
-    ht,
-    tacticalEdge(homeSide, awaySide),
+  const scale = (s: Strength, k: number, markCost: boolean): Strength => ({
+    attack: s.attack * k,
+    midfield: s.midfield * k * (markCost ? 0.985 : 1),
+    defense: s.defense * k,
+  });
+  const ourSideHome = fixture.homeId === career.clubId;
+  const home = scale(
+    applyTactic(
+      strength(career, world, match.homeLineup, ht.formation, match.energySpent, match.injured),
+      ht,
+      tacticalEdge(homeSide, awaySide),
+    ),
+    cond?.home ?? 1,
+    Boolean(match.marked) && ourSideHome,
   );
-  const away = applyTactic(
-    strength(career, world, match.awayLineup, at.formation, match.energySpent, match.injured),
-    at,
-    tacticalEdge(awaySide, homeSide),
+  const away = scale(
+    applyTactic(
+      strength(career, world, match.awayLineup, at.formation, match.energySpent, match.injured),
+      at,
+      tacticalEdge(awaySide, homeSide),
+    ),
+    cond?.away ?? 1,
+    Boolean(match.marked) && !ourSideHome && ours,
   );
   const share = clamp(
     home.midfield / (home.midfield + away.midfield) + 0.025 + (ht.pressure - at.pressure) * 0.008,
@@ -253,6 +290,7 @@ export function stepMatch(
   const scorer = pick(
     (p, role) =>
       (shooterWeight[role] || 1) *
+      (p.id === match.marked ? 0.45 : 1) *
       Math.pow((p.attributes.finishing * familiarity(p, role, stateOf(career, p.id))) / 7000, 3),
   );
   if (
@@ -291,6 +329,7 @@ export function stepMatch(
       clubId,
       playerId: scorer.id,
       ...(helper ? { assistId: helper.id } : {}),
+      xg: Math.round(xg * 100) / 100,
       text: goal
         ? `GOL! ${scorer.name} marca para o ${club.name}!${helper ? ` Passe de ${helper.name}.` : ''}`
         : type === 'save'
@@ -343,6 +382,57 @@ export function stepMatch(
       text: 'Fim de jogo. Cada decisão deixa uma história.',
     });
   return match;
+}
+
+/** Técnico da IA mexe no time aos 60, 70 e 80 minutos, sempre com um motivo. */
+function aiSubstitutions(
+  career: Career,
+  world: World,
+  match: Match,
+  fixture: Fixture,
+  minute: number,
+) {
+  if (![60, 70, 80].includes(minute) || (match.aiSubs ?? 0) >= 3) return;
+  const rivalHome = fixture.awayId === career.clubId;
+  const clubId = rivalHome ? fixture.homeId : fixture.awayId;
+  const lineup = rivalHome ? match.homeLineup : match.awayLineup;
+  const formation = (rivalHome ? match.homeTactic : match.awayTactic)?.formation || npcFormation;
+  const roles = formations[formation];
+  const losing = rivalHome ? match.homeGoals < match.awayGoals : match.awayGoals < match.homeGoals;
+  const bench = squad(career, world, clubId).filter(
+    (p) =>
+      !lineup.includes(p.id) &&
+      !match.replaced.includes(p.id) &&
+      available(career, p.id) &&
+      p.position !== 'GK',
+  );
+  if (!bench.length) return;
+  const energy = (id: string) => (stateOf(career, id)?.fitness ?? 80) - (match.energySpent[id] || 0);
+  const slots = lineup.map((id, i) => ({ id, i, role: roles[i] })).filter((s) => s.role !== 'GK');
+  const hurt = slots.find((s) => match.injured.includes(s.id));
+  const chasing = losing && minute >= 70 ? slots.filter((s) => ['DM', 'CM', 'CB', 'LB', 'RB'].includes(s.role)) : [];
+  const tiredest = [...slots].sort((a, b) => energy(a.id) - energy(b.id))[0];
+  const out = hurt || (chasing.length ? chasing.sort((a, b) => energy(a.id) - energy(b.id))[0] : tiredest);
+  if (!out || (!hurt && !chasing.length && energy(out.id) > 55)) return;
+  const role = chasing.length && !hurt ? 'AM' : out.role;
+  const incoming = bench.sort((a, b) => overall(b, role) - overall(a, role))[0];
+  const outgoing = findPlayer(world, out.id);
+  if (!incoming || !outgoing) return;
+  lineup[out.i] = incoming.id;
+  match.replaced.push(out.id);
+  match.aiSubs = (match.aiSubs ?? 0) + 1;
+  const reason = hurt
+    ? 'lesão'
+    : chasing.length
+      ? 'precisa do gol, tira um homem de marcação e coloca mais um ofensivo'
+      : 'renova o fôlego';
+  match.events.push({
+    minute,
+    type: 'sub',
+    clubId,
+    playerId: incoming.id,
+    text: `${clubById(world, clubId).name} mexe: sai ${outgoing.name}, entra ${incoming.name} (${reason}).`,
+  });
 }
 
 const shooterWeight: Record<string, number> = {

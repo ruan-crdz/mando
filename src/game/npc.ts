@@ -12,7 +12,7 @@ import {
 /** Clubes NPC: força, orçamento, reputação e elenco simplificado gerado por seed. */
 export type NpcClub = Omit<Club, 'league'> & {
   league?: undefined;
-  tier: 'nacional' | 'continental';
+  tier: 'nacional' | 'continental' | 'exterior';
   country: string;
 };
 export type AnyClub = Club | NpcClub;
@@ -228,7 +228,7 @@ const slug = (s: string) =>
 function make(row: Row, state: string, tier: NpcClub['tier'], country: string): NpcClub {
   const [name, short, reputation, color] = row;
   return {
-    id: `npc-${tier === 'continental' ? 'c' : 'b'}-${slug(name)}`,
+    id: `npc-${tier === 'continental' ? 'c' : tier === 'exterior' ? 'x' : 'b'}-${slug(name)}`,
     name,
     short: short.slice(0, 4),
     color,
@@ -248,8 +248,25 @@ export const brazilianNpcClubs: NpcClub[] = Object.entries(br).flatMap(([uf, row
 export const continentalNpcClubs: NpcClub[] = cont.flatMap(([country, rows]) =>
   rows.map((r) => make(r, country.slice(0, 2).toUpperCase(), 'continental', country)),
 );
+const abroad: [string, Row[]][] = [
+  ['Portugal', [['Benfica', 'BEN', 84, '#d0202e'], ['Porto', 'POR', 84, '#1f4fa0'], ['Sporting', 'SCP', 83, '#1f8a4a'], ['Braga', 'BRA', 78, '#c8333f']]],
+  ['Espanha', [['Atlético de Madrid', 'ATM', 88, '#c8333f'], ['Sevilla', 'SEV', 80, '#d0202e'], ['Real Betis', 'BET', 80, '#1f8a4a'], ['Villarreal', 'VIL', 82, '#e8c800']]],
+  ['Inglaterra', [['Chelsea', 'CHE', 89, '#1f3fa0'], ['West Ham', 'WHU', 82, '#7a2e3a'], ['Brighton', 'BHA', 83, '#1f5fb0'], ['Nottingham Forest', 'NFO', 81, '#c8333f'], ['Wolverhampton', 'WOL', 80, '#e8a000']]],
+  ['Itália', [['Milan', 'MIL', 87, '#c8202e'], ['Roma', 'ROM', 84, '#8a1f2e'], ['Fiorentina', 'FIO', 81, '#6a2e9a'], ['Atalanta', 'ATA', 84, '#1f3f8a']]],
+  ['França', [['Lyon', 'LYO', 82, '#1f3f8a'], ['Monaco', 'MON', 82, '#d0202e'], ['Lille', 'LIL', 81, '#c8202e']]],
+  ['Alemanha', [['Bayer Leverkusen', 'B04', 86, '#d0202e'], ['Wolfsburg', 'WOB', 79, '#1f8a4a']]],
+  ['Arábia Saudita', [['Al-Hilal', 'HIL', 82, '#1f3fa0'], ['Al-Nassr', 'NAS', 81, '#e8c800'], ['Al-Ahli', 'AHL', 79, '#1f8a4a'], ['Al-Ittihad', 'ITT', 80, '#e8c800']]],
+  ['Estados Unidos', [['Inter Miami', 'MIA', 75, '#f0a0b8'], ['Atlanta United', 'ATL', 72, '#a01f2e']]],
+  ['Rússia', [['Zenit', 'ZEN', 79, '#1f6fd0']]],
+  ['Ucrânia', [['Shakhtar Donetsk', 'SHA', 78, '#e86a00']]],
+];
+/** Clubes estrangeiros que compram atletas do Brasil (não disputam competições do jogo). */
+export const foreignClubs: NpcClub[] = abroad.flatMap(([country, rows]) =>
+  rows.map((r) => make(r, country.slice(0, 2).toUpperCase(), 'exterior', country)),
+);
+export const isForeign = (id: string | null | undefined) => Boolean(id?.startsWith('npc-x-'));
 const npcById = new Map<string, NpcClub>(
-  [...brazilianNpcClubs, ...continentalNpcClubs].map((c) => [c.id, c]),
+  [...brazilianNpcClubs, ...continentalNpcClubs, ...foreignClubs].map((c) => [c.id, c]),
 );
 
 /** Completa estaduais de UFs sem lista curada com clubes NPC genéricos e estáveis. */

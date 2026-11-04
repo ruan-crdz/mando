@@ -7,6 +7,7 @@ import { squad } from '../game/matches';
 import { standings } from '../game/engine';
 import { overall } from '../game/ratings';
 import { type Career, type World } from '../game/types';
+import { MarketFeed } from '../components/LivingPanels';
 
 export function CareerCentral({
   career: c,
@@ -217,6 +218,7 @@ export function CareerCentral({
           </span>
         </button>
       </div>
+      <MarketFeed career={c} world={world} />
       <div className="news-ticker">
         <span>MANDO NEWS</span>
         <p>

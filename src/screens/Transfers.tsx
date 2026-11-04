@@ -33,7 +33,7 @@ import { squad } from '../game/matches';
 import { addMonths, ageAt } from '../game/random';
 import { overall } from '../game/ratings';
 import { transferWindow } from '../game/calendar';
-import { clubById } from '../game/npc';
+import { clubById, isForeign } from '../game/npc';
 import { Badge, dateLabel, Modal, money, SectionTitle } from '../components/ui';
 import { ChipGroup, NumberStepper, OptionCycler } from '../components/controls';
 import { byPosition, PlayerCard } from '../components/PlayerCard';
@@ -395,6 +395,7 @@ export function Transfers({
           return (
             state.clubId !== c.clubId &&
             state.clubId !== null &&
+            !isForeign(state.clubId) &&
             p.name.toLocaleLowerCase('pt-BR').includes(filters.name.toLocaleLowerCase('pt-BR')) &&
             (!filters.club || state.clubId === filters.club) &&
             (!filters.league || club?.league === filters.league) &&

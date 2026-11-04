@@ -238,6 +238,8 @@ const eventSchema = z.object({
   playerId: z.string().optional(),
   /** Quem deu o passe para o gol. */
   assistId: z.string().optional(),
+  /** Qualidade da chance (gols esperados). */
+  xg: z.number().optional(),
   text: z.string(),
 });
 export type MatchEvent = z.infer<typeof eventSchema>;
@@ -288,6 +290,23 @@ export const matchSchema = z.object({
   bonus: z.record(z.string(), z.number()).optional(),
   /** Craque do jogo, definido no apito final. */
   mvp: z.string().optional(),
+  /** Fatores externos: viagem, clima, altitude, clássico, torcida, química e treino. */
+  conditions: z
+    .object({
+      home: z.number(),
+      away: z.number(),
+      homeTire: z.number(),
+      awayTire: z.number(),
+      derby: z.string().optional(),
+      notes: z.array(z.string()),
+    })
+    .optional(),
+  /** Atleta adversário com marcação individual. */
+  marked: z.string().optional(),
+  /** O técnico rival estudou o padrão do usuário. */
+  studied: z.boolean().optional(),
+  /** Trocas feitas pelo técnico da IA. */
+  aiSubs: z.number().int().optional(),
 });
 export type Match = z.infer<typeof matchSchema>;
 export const cupIds = ['EST', 'CDB', 'SUP', 'LIB', 'SUL'] as const;
@@ -373,6 +392,99 @@ export const offerSchema = z.object({
   messages: z.array(negotiationMessageSchema).optional(),
 });
 export type Offer = z.infer<typeof offerSchema>;
+export const coachStyles = ['Ofensivo', 'Retranqueiro', 'Pressão', 'Posse', 'Contra-ataque'] as const;
+export const clubPhilosophies = ['Revela e vende', 'Veteranos', 'Sul-americanos', 'Equilibrado'] as const;
+export const trainingFocus = ['Equilibrado', 'Físico', 'Tático', 'Finalização', 'Recuperação'] as const;
+const axis = percent.default(60);
+export const livingSchema = z.object({
+  /** Técnicos dos clubes da IA. */
+  coaches: z
+    .record(
+      z.string(),
+      z.object({
+        name: z.string(),
+        style: z.enum(coachStyles),
+        skill: z.number().int().min(1).max(5),
+        since: isoDate,
+        /** Sequência sem vencer (pressão no cargo). */
+        winless: z.number().int().nonnegative().default(0),
+      }),
+    )
+    .default({}),
+  /** Movimentações do mercado (inclusive entre clubes da IA e para o exterior). */
+  transfers: z
+    .array(
+      z.object({
+        date: isoDate,
+        playerId: z.string(),
+        from: z.string(),
+        to: z.string(),
+        fee: z.number().nonnegative(),
+        kind: z.enum(['compra', 'exterior', 'retorno', 'livre']),
+      }),
+    )
+    .default([]),
+  /** Humor da torcida. */
+  fans: axis,
+  /** Confiança da diretoria por eixo. */
+  board: z
+    .object({ results: axis, finances: axis, youth: axis, style: axis, derbies: axis })
+    .prefault({}),
+  /** Exigências concretas da diretoria, com prazo. */
+  demands: z
+    .array(
+      z.object({
+        id: z.string(),
+        kind: z.enum(['venda', 'base', 'classico', 'folha']),
+        text: z.string(),
+        deadline: isoDate,
+        baseline: z.number(),
+        done: z.boolean().default(false),
+      }),
+    )
+    .default([]),
+  /** Relações dentro do vestiário. */
+  relations: z
+    .array(z.object({ a: z.string(), b: z.string(), kind: z.enum(['amizade', 'rixa']) }))
+    .default([]),
+  /** Últimos planos usados pelo técnico (os rivais estudam). */
+  recentTactics: z.array(tacticSchema).default([]),
+  /** Linha do tempo da carreira. */
+  timeline: z
+    .array(
+      z.object({
+        date: isoDate,
+        kind: z.enum(['titulo', 'venda', 'contratacao', 'derrota', 'vitoria', 'marco', 'base', 'cargo']),
+        text: z.string(),
+      }),
+    )
+    .default([]),
+  /** Números de cada atleta pelo clube sob o seu comando (hall da fama). */
+  clubStats: z
+    .record(
+      z.string(),
+      z.object({
+        games: z.number().int().nonnegative(),
+        goals: z.number().int().nonnegative(),
+        assists: z.number().int().nonnegative(),
+      }),
+    )
+    .default({}),
+  /** Simpatia de cada jornalista (0–100). */
+  media: z.record(z.string(), percent).default({}),
+  headline: z.object({ text: z.string(), until: isoDate }).optional(),
+  training: z.enum(trainingFocus).default('Equilibrado'),
+  /** Nível do analista de desempenho (precisão do relatório do adversário). */
+  analyst: z.number().int().min(1).max(5).default(2),
+  /** Marcação individual no principal jogador adversário. */
+  marking: z.boolean().default(false),
+  election: z.object({ date: isoDate, rival: z.string(), threat: percent }).optional(),
+  owner: z.enum(['Associação', 'SAF']).default('Associação'),
+  transferBan: isoDate.optional(),
+  wagesLate: z.boolean().default(false),
+  nationalInvite: z.boolean().default(false),
+});
+export type Living = z.infer<typeof livingSchema>;
 export const careerSchema = z.object({
   version: z.literal(1),
   id: z.string().uuid(),
@@ -482,6 +594,8 @@ export const careerSchema = z.object({
       }),
     )
     .default([]),
+  /** Mundo vivo: técnicos da IA, mercado, vestiário, diretoria, torcida e legado. */
+  living: livingSchema.prefault({}),
 });
 export type Career = z.infer<typeof careerSchema>;
 export type TableRow = {

@@ -1,3 +1,4 @@
+import { MatchAnalysis } from '../components/LivingPanels';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Activity,
@@ -292,6 +293,7 @@ export function MatchScreen({
             </div>
           ))}
           <p className="muted small">Seed {match.seed} · A engine decide. A narração descreve.</p>
+          {match.minute === 90 && <MatchAnalysis match={match} fixture={fixture} clubId={c.clubId} />}
           <div className="match-ratings">
             <h3>{match.minute === 90 ? 'Melhores em campo' : 'Notas ao vivo'}</h3>
             {[...ratings]

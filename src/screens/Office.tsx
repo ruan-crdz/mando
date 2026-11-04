@@ -14,7 +14,8 @@ import {
   Voicemail,
   Volume2,
 } from 'lucide-react';
-import { type Career, type Message, type World } from '../game/types';
+import { type Career, type Living, type Message, type World } from '../game/types';
+import { ClubPanel } from '../components/LivingPanels';
 import {
   playVoice,
   stopVoice,
@@ -50,6 +51,8 @@ export function Office({
   onSignProspect,
   onAcceptJob,
   onDeclineJob,
+  onLiving,
+  onUpgradeAnalyst,
   aiAvailable,
   busy,
 }: {
@@ -64,11 +67,15 @@ export function Office({
   onSignProspect: (id: string) => void;
   onAcceptJob: (id: string) => void;
   onDeclineJob: (id: string) => void;
+  onLiving: (patch: Partial<Living>) => void;
+  onUpgradeAnalyst: () => void;
   aiAvailable: boolean;
   busy: boolean;
 }) {
   const [camera, setCamera] = useState(false);
-  const [view, setView] = useState<'inbox' | 'finances' | 'board' | 'staff' | 'scouts'>('inbox');
+  const [view, setView] = useState<'inbox' | 'finances' | 'board' | 'staff' | 'scouts' | 'club'>(
+    'inbox',
+  );
   const [selectedId, setSelected] = useState(
     c.messages.find((m) => m.important && !m.resolved)?.id || c.messages[0]?.id,
   );
@@ -184,6 +191,7 @@ export function Office({
             ['board', 'Diretoria', Landmark],
             ['staff', 'Comissão e perfil', Users],
             ['scouts', 'Olheiros e base', MapPinned],
+            ['club', 'Clube vivo', Landmark],
           ] as const
         ).map(([id, label, Icon]) => (
           <button key={id} className={view === id ? 'active' : ''} onClick={() => setView(id)}>
@@ -604,6 +612,9 @@ export function Office({
         </div>
       )}
       {view === 'scouts' && scoutingPanel}
+      {view === 'club' && (
+        <ClubPanel career={c} world={world} onUpdate={onLiving} onUpgradeAnalyst={onUpgradeAnalyst} />
+      )}
     </div>
   );
 }

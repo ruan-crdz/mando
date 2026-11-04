@@ -4,9 +4,12 @@ import { competitionName, createSchedule, fixtureLabel, nextFixture } from './ca
 import { expireThread, processOffers } from './transfers';
 import { overall } from './ratings';
 import { LEARNED, TRAIN_CAP, familiarity, positionNames, trainingGain } from './positions';
-import { clubById, findPlayer, knownClub } from './npc';
+import { clubById, findPlayer, isForeign, knownClub } from './npc';
 import { baseWorld, careerWorld } from './live';
 import { scoutReport } from './scouting';
+import { livingAfterMatch, livingDay, livingSeasonEnd } from './living';
+import { regionOf } from './context';
+import { remember } from './chronicle';
 import {
   createCups,
   cupsFinished,
@@ -18,6 +21,7 @@ import {
 import {
   attributeKeys,
   careerSchema,
+  livingSchema,
   roleNames,
   type Attributes,
   type Career,
@@ -160,6 +164,7 @@ export function createCareer(
     sacked: false,
     prefs: { advance: 'day' },
     history: [],
+    living: livingSchema.parse({}),
   };
   createCups(c, world, 2026, initialQualification(world));
   if (challenge === 'Do zero') c.finances[clubId].transferBudget = 0;
@@ -197,6 +202,7 @@ function applyMatch(c: Career, world: World, result: Match) {
   if (!fixture || fixture.result || result.minute !== 90)
     throw new Error('Resultado inválido ou já registrado.');
   fixture.result = result;
+  livingAfterMatch(c, world, fixture, result);
   const isOurs = fixture.homeId === c.clubId || fixture.awayId === c.clubId;
   const allIds = Object.keys(result.minutesPlayed);
   for (const clubId of [fixture.homeId, fixture.awayId]) {
@@ -293,6 +299,7 @@ function applyMatch(c: Career, world: World, result: Match) {
     });
     if (c.confidence < 15 && !c.sacked) {
       c.sacked = true;
+      remember(c, 'cargo', `Demitido do ${clubById(world, c.clubId).name}`);
       const fallbackJobs = world.clubs
         .filter((candidate) => candidate.id !== c.clubId)
         .sort((a, b) => b.reputation - a.reputation)
@@ -678,10 +685,28 @@ export function acceptJobOffer(career: Career, world: World, offerId: string): C
   const offer = c.jobOffers.find((job) => job.id === offerId);
   if (!offer || (!c.sacked && offer.expires < c.date))
     throw new Error('A proposta de trabalho expirou.');
+  const from = clubById(world, c.clubId).name;
   c.clubId = offer.clubId;
   c.confidence = 60;
+  const sacked = c.sacked;
   c.sacked = false;
   c.jobOffers = [];
+  // Diretoria, torcida e vestiário são do clube novo; a memória do técnico continua.
+  Object.assign(c.living, {
+    fans: 60,
+    board: { results: 60, finances: 60, youth: 60, style: 60, derbies: 60 },
+    demands: [],
+    relations: [],
+    wagesLate: false,
+    owner: 'Associação',
+  });
+  delete c.living.election;
+  delete c.living.transferBan;
+  remember(
+    c,
+    'cargo',
+    `${sacked ? 'Após a demissão no' : 'Deixou o'} ${from} e assumiu o ${clubById(world, c.clubId).name}`,
+  );
   c.lineup = bestLineup(c, careerWorld(world, c));
   for (const role of roleNames) c.roles[role] = c.lineup[role === 'Capitão' ? 2 : 10];
   message(c, {
@@ -903,6 +928,7 @@ export function advanceDay(career: Career, world: World): Career {
       body: 'Receitas de patrocínio, salários, operação e juros foram contabilizados. Acompanhe os gráficos no escritório.',
     });
   }
+  livingDay(c, live);
   processOffers(c, live);
   reconcileSquad(c, live);
   for (const offer of c.offers.filter(
@@ -1047,12 +1073,28 @@ function youthPlayer(
   reputation: number,
   index: number,
   forced?: Position,
+  state?: string,
 ): Player {
   const season = c.season + 1;
   const rng = random(hash(`${c.seed}:${season}:${clubId}:youth:${index}`));
   const drawn = youthRoles[Math.floor(rng() * youthRoles.length)];
   const position = forced || drawn;
   const base = Math.round(reputation * 0.62 + rng() * 10);
+  // Cada região revela um perfil: drible no Nordeste, força no Sul, passe no Sudeste, fôlego no Norte.
+  const region = state ? regionOf(state) : '';
+  const boost: Partial<Record<keyof Attributes, number>> =
+    region === 'Nordeste'
+      ? { dribbling: 6, pace: 5, acceleration: 4 }
+      : region === 'Sul'
+        ? { strength: 6, heading: 6, marking: 3 }
+        : region === 'Sudeste'
+          ? { shortPass: 5, vision: 5, control: 3 }
+          : region === 'Norte'
+            ? { stamina: 7, pace: 3 }
+            : region === 'Centro-Oeste'
+              ? { tackling: 4, interception: 4 }
+              : {};
+  const names = region === 'Nordeste' ? [...youthFirst, 'Wesley', 'Kaio', 'Ítalo', 'Wendel', 'Jhonata'] : region === 'Sul' ? [...youthFirst, 'Matheus', 'Eduardo', 'Guilherme', 'Bruno'] : youthFirst;
   const attributes = Object.fromEntries(
     attributeKeys.map((key) => {
       const gk = ['handling', 'diving', 'reflexes'].includes(key);
@@ -1060,13 +1102,13 @@ function youthPlayer(
         gk !== (position === 'GK')
           ? 10 + Math.round(rng() * 15)
           : base - 7 + Math.round(rng() * 14);
-      return [key, Math.max(8, Math.min(90, v))];
+      return [key, Math.max(8, Math.min(90, v + (gk ? 0 : boost[key] || 0)))];
     }),
   ) as Attributes;
   return {
     id: `y${season}-${clubId}-${index}`,
     clubId,
-    name: `${youthFirst[Math.floor(rng() * youthFirst.length)]} ${youthLast[Math.floor(rng() * youthLast.length)]}`,
+    name: `${names[Math.floor(rng() * names.length)]} ${youthLast[Math.floor(rng() * youthLast.length)]}`,
     birthDate: `${season - 17}-${String(1 + Math.floor(rng() * 12)).padStart(2, '0')}-10`,
     nationality: 'Brasil',
     position,
@@ -1088,6 +1130,7 @@ export function startNextSeason(career: Career, world: World): Career {
   const live = careerWorld(base, c);
   const y = c.season;
   const next = `${y + 1}-01-01`;
+  livingSeasonEnd(c, y);
   const tableA = standings(c, base, 'A');
   const tableB = standings(c, base, 'B');
   const league = live.clubs.find((x) => x.id === c.clubId)!.league;
@@ -1165,6 +1208,7 @@ export function startNextSeason(career: Career, world: World): Career {
       s.retired = true;
       continue;
     }
+    if (isForeign(s.clubId) && s.contractEnd < next) s.clubId = null;
     if (s.clubId && s.clubId !== c.clubId && s.contractEnd < next) {
       if (age < 34) s.contractEnd = `${y + 2}-12-31`;
       else s.clubId = null;
@@ -1194,12 +1238,30 @@ export function startNextSeason(career: Career, world: World): Career {
     }
   }
   // Categorias de base: três atletas por clube principal.
+  const revealed: Player[] = [];
   for (const club of live.clubs) {
     for (let i = 0; i < 3; i++) {
-      const p = youthPlayer(c, club.id, club.reputation, i);
+      const p = youthPlayer(c, club.id, club.reputation, i, undefined, club.state);
       c.youth.push(p);
       c.players[p.id] = freshState(p);
+      if (club.id === c.clubId) revealed.push(p);
     }
+  }
+  if (revealed.length) {
+    const like = (p: Player) =>
+      live.players
+        .filter((x) => x.position === p.position && ageAt(x.birthDate, next) >= 24 && c.players[x.id]?.clubId)
+        .sort((a, b) => Math.abs(a.potential - p.potential) - Math.abs(b.potential - p.potential))[0];
+    const region = regionOf(live.clubs.find((x) => x.id === c.clubId)!.state);
+    message(c, {
+      kind: 'staff',
+      from: 'Categorias de base',
+      title: 'A base revelou novos talentos',
+      body: revealed
+        .map((p) => `${p.name} (${p.position}, potencial ~${p.potential}${like(p) ? `, lembra ${like(p)!.name}` : ''})`)
+        .join('; ') + `. Perfil típico da garotada do ${region}.`,
+    });
+    remember(c, 'base', `Base revelou ${revealed.map((p) => p.name).join(', ')}`);
   }
   const nextWorld = careerWorld(base, c);
   // O elenco do usuário precisa de 18 atletas e dois goleiros para jogar.
@@ -1336,7 +1398,9 @@ export function validateCareerForWorld(career: Career, world: World) {
     !clubIds.has(c.clubId) ||
     Object.keys(c.players).length !== playerIds.size ||
     Object.entries(c.players).some(
-      ([id, s]) => !playerIds.has(id) || (s.clubId !== null && !clubIds.has(s.clubId)),
+      ([id, s]) =>
+        !playerIds.has(id) ||
+        (s.clubId !== null && !clubIds.has(s.clubId) && !isForeign(s.clubId)),
     ) ||
     c.lineup.some((id) => !playerIds.has(id)) ||
     Object.keys(c.finances).length !== 40 ||
