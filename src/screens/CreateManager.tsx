@@ -84,11 +84,11 @@ export function CreateManager({
   const [generating, setGenerating] = useState(false);
   const [camera, setCamera] = useState(false);
   const [league, setLeague] = useState<'A' | 'B'>('A');
-  const [clubId, setClub] = useState('sao-paulo');
+  const [clubId, setClub] = useState<string | null>(null);
   const [challenge, setChallenge] = useState<Career['challenge']>('Realista');
   const [difficulty, setDifficulty] = useState<Career['difficulty']>('Amador');
   const carousel = useRef<HTMLDivElement>(null);
-  const club = world.clubs.find((c) => c.id === clubId) || world.clubs[0];
+  const club = world.clubs.find((c) => c.id === clubId);
   const clubs = world.clubs.filter((c) => c.league === league);
   useEffect(() => {
     if (step !== 1) return;
@@ -103,8 +103,16 @@ export function CreateManager({
       onError(result.error.issues[0].message);
       return;
     }
+    if (step === 0) {
+      setStep(1);
+      return;
+    }
+    if (!club) {
+      onError('Escolha um clube antes de continuar.');
+      return;
+    }
     if (step === 2) onStart(result.data, club.id, difficulty, challenge);
-    else setStep(step + 1);
+    else setStep(2);
   };
   const openCamera = () => {
     if (!manager.firstName.trim() || !manager.lastName.trim()) {
@@ -258,7 +266,12 @@ export function CreateManager({
                 <button
                   key={l}
                   className={league === l ? 'active' : ''}
-                  onClick={() => setLeague(l)}
+                  onClick={() => {
+                    if (league !== l) {
+                      setLeague(l);
+                      setClub(null);
+                    }
+                  }}
                 >
                   SÉRIE {l}
                 </button>
@@ -283,10 +296,9 @@ export function CreateManager({
             {clubs.map((c, i) => (
               <button
                 key={c.id}
-                className={`club-option ${tileColors[i % tileColors.length]} ${club.id === c.id ? 'selected' : ''}`}
+                className={`club-option ${tileColors[i % tileColors.length]} ${clubId === c.id ? 'selected' : ''}`}
                 onClick={() => setClub(c.id)}
-                onFocus={() => setClub(c.id)}
-                aria-pressed={club.id === c.id}
+                aria-pressed={clubId === c.id}
               >
                 <Badge club={c} size="large" />
                 <h3>{c.name}</h3>
@@ -300,7 +312,7 @@ export function CreateManager({
                 <small>
                   {world.players.filter((p) => p.clubId === c.id).length} atletas · {c.state}
                 </small>
-                {club.id === c.id && <Check className="selected-check" size={20} />}
+                {clubId === c.id && <Check className="selected-check" size={20} />}
               </button>
             ))}
           </div>
@@ -342,12 +354,21 @@ export function CreateManager({
         <button className="ghost-button" onClick={back}>
           <ArrowLeft size={17} /> Voltar
         </button>
-        <div className="selected-club">
-          <Badge club={club} size="small" />
-          <span>
-            {club.name}
-            <small>01 JAN 2026</small>
-          </span>
+        <div className="selected-club" aria-live="polite">
+          {club ? (
+            <>
+              <Badge club={club} size="small" />
+              <span>
+                {club.name}
+                <small>01 JAN 2026</small>
+              </span>
+            </>
+          ) : (
+            <span>
+              Clube não selecionado
+              <small>Escolha na etapa CLUBE</small>
+            </span>
+          )}
         </div>
         <button className="primary big" onClick={next}>
           {step === 2 ? 'Assumir o clube' : 'Continuar'}

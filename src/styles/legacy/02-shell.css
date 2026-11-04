@@ -17,6 +17,19 @@
   font-style: normal;
   letter-spacing: 4px;
 }
+.brand picture {
+  display: flex;
+  align-items: center;
+}
+.brand-logo {
+  width: 150px;
+  height: 42px;
+}
+@media (max-width: 1000px) {
+  .brand-logo {
+    width: 46px;
+  }
+}
 .main-nav {
   align-items: stretch;
   gap: 2px;

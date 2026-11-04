@@ -10,13 +10,19 @@ export default defineConfig(({ mode }) => {
       react(),
       VitePWA({
         registerType: 'prompt',
-        includeAssets: ['icon.svg', 'icon-192.png', 'icon-512.png', 'icon-maskable.png'],
+        includeAssets: [
+          'logo-mando.png',
+          'logo-mando-160.png',
+          'icon-192.png',
+          'icon-512.png',
+          'icon-maskable.png',
+        ],
         manifest: {
           name: 'Mando â€” Carreira de manager',
           short_name: 'Mando',
           description: 'Seu clube. Suas decisÃµes.',
-          theme_color: '#0a1f5c',
-          background_color: '#071447',
+          theme_color: '#0b1020',
+          background_color: '#080c18',
           display: 'standalone',
           orientation: 'landscape',
           icons: [
@@ -27,8 +33,8 @@ export default defineConfig(({ mode }) => {
         },
         workbox: {
           globPatterns: ['**/*.{js,css,html,svg,png,woff2}', 'data/*.json'],
-          // Rostos dos atletas ficam fora do pré-cache e entram no cache conforme aparecem.
-          globIgnores: ['**/assets/jogadores/**'],
+          // Fontes de branding não são usadas em runtime; rostos entram no cache sob demanda.
+          globIgnores: ['**/assets/jogadores/**', '**/assets/Logo*.png'],
           runtimeCaching: [
             {
               urlPattern: /\/assets\/jogadores\/.+\.webp$/,

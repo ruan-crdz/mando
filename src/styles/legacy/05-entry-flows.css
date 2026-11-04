@@ -18,10 +18,14 @@
 }
 
 .menu-logo {
-  width: clamp(64px, 10vh, 104px);
-  height: clamp(64px, 10vh, 104px);
+  width: clamp(170px, 24vw, 340px);
+  height: auto;
   object-fit: contain;
   filter: drop-shadow(0 10px 24px rgba(0, 0, 0, 0.4));
+}
+
+.menu-intro {
+  min-width: 0;
 }
 
 .menu-heading .eyebrow {

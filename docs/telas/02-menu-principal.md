@@ -45,7 +45,7 @@ Sem saves: só o tile NOVA CARREIRA (azul, com foco inicial).
 ## Elementos
 | # | Elemento | Classe | Conteúdo / dados | Observações |
 |---|---|---|---|---|
-| 1 | Logo grande | `img.menu-logo` | `/logo-mando.png`, alt "Mando", largura `clamp(90px,15vh,150px)` | Sombra; duplica a marca do header |
+| 1 | Logo grande | `img.menu-logo` | Nova marca horizontal `/logo-mando.png`, alt "Mando", largura `clamp(170px,24vw,340px)` e altura automática | Arte ciano/roxo, sem fundo; texto de apresentação agrupado ao lado |
 | 2 | Eyebrow | `p.eyebrow` | Texto fixo **"CARREIRA DE MANAGER · FUTEBOL BRASILEIRO 2026"** | Ciano 12px, letter-spacing 2px |
 | 3 | Título | `.menu-heading h1` | **"O clube é seu."** + `span` **"A história também."** | `italic 800 clamp(40px,6.4vw,92px)/0.9`, caixa alta; a 2ª linha em lima com glow |
 | 4 | Faixa de tiles | `.menu-row.carousel` | Altura `clamp(260px,50vh,470px)`; rolagem horizontal com snap; sem scrollbar | |

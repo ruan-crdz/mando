@@ -10,7 +10,7 @@ Mando é um jogo web (React + TypeScript + Vite, PWA) de carreira de técnico no
 |---|---|
 | `src/styles/index.css` + 48 arquivos em `src/styles/` | Tokens (`:root`), reset, botões, inputs, shell, tiles, painéis, modais, cards, telas, responsivo. Era o antigo `src/styles.css` (~6.300 linhas), dividido sem mudar a cascata; veja a tabela "Mapa do antigo styles.css" abaixo |
 | `src/main.tsx` | Carrega as fontes (`@fontsource/saira-condensed` 500/600/700/800 e `@fontsource/saira-semi-condensed` 400/500/600) e o `ErrorBoundary` (tela `.fatal-error`) |
-| `index.html` | Splash de boot: logo `logo-mando.png` 220px pulsando (`@keyframes boot`) sobre `radial-gradient(#1f6fff → #0a1f5c)`; `theme-color #0a1f5c`; título "Mando \| Carreira de manager" |
+| `index.html` | Splash de boot: nova marca horizontal `logo-mando.png` até 520px, sem distorcer a proporção, pulsando (`@keyframes boot`) sobre fundo noturno; `theme-color #0b1020`; título "Mando \| Carreira de manager" |
 | `src/components/ui.tsx` | `money`, `dateLabel`, `Badge`, `Tile`, `SectionTitle`, `Metric`, `Modal`, `ManagerPortrait` |
 | `src/components/controls.tsx` | `OptionCycler`, `TacticSlider`, `ChipGroup`, `NumberStepper`, `ShirtNumberDial`, `niceStep` |
 | `src/components/PlayerCard.tsx` | `PlayerCard`, `PlayerPicker`, `positionOrder`, `shortName`, `byPosition`, `roleFits` |

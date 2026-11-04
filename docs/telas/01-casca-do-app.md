@@ -51,7 +51,7 @@ No menu e na criação o header tem só marca + status (sem abas e sem clube); n
 ### Header (`header.app-header`, grid `auto 1fr auto auto`, min-height 64px)
 | Elemento | O que mostra | Quando |
 |---|---|---|
-| `.brand` | `img.brand-logo` (`/logo-mando-160.png`, 46px, sombra) + `.brand-word` "MANDO" (800, 24px, itálico, letter-spacing 3px) | Sempre |
+| `.brand` | `picture` com a nova marca horizontal `/logo-mando.png` (150×42, object-fit contain); até 1000px usa o símbolo `/logo-mando-160.png` (46×42). Sem repetir "MANDO" como texto | Sempre |
 | `nav.main-nav` (`aria-label="Áreas do clube"`) | `.nav-shoulder` com dica `previousTab` (L1/LB, sem texto) · 5 botões `tabs = ['CENTRAL','TIME','TRANSFERÊNCIAS','ESCRITÓRIO','TEMPORADA']` · `.nav-shoulder` com dica `nextTab` (R1/RB). Ativa: branca com brilho ciano e sublinhado ciano→lima de 4px (`::after`); inativas: `--ink-3`; `aria-current="page"` | `screen==='career'` e fora de partida |
 | `b.nav-dot` | Bolinha laranja com glow no canto da aba **ESCRITÓRIO** (índice 3) | Quando `career.messages` tem alguma com `important && !resolved` |
 | `.club-header` | `Badge` small do clube + `strong` data `dateLabel(career.date)` (ex.: "01 de jan. de 2026", caixa alta 17px) + `small` caixa `money(career.finances[career.clubId].cash)` em lima. Fundo branco 10%, borda esquerda lima 4px | `screen==='career'` (inclusive na partida) |

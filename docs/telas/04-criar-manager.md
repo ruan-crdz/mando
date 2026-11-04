@@ -122,7 +122,7 @@ Aberto pelo botão de retrato ou △/Y — **só se Nome e Sobrenome estiverem p
 | Conteúdo do cartão | `Badge` large (escudo `clamp(76px,12vh,120px)`); `h3` **`club.name`** (itálico 22px); `.stars` = `★` × `max(1, round(club.reputation/20))` em amarelo + restantes até 5 em branco 30%; `p` **`money(club.budget)`** + "orçamento"; `small` **"{nº de atletas do clube em world.players} atletas · {club.state}"** |
 | Selecionado | `.selected` (opacidade 1, contorno branco 4px interno), `aria-pressed`, ícone `Check` em círculo branco no canto superior direito (`.selected-check`) |
 - Ao entrar no passo ou trocar de série, o cartão selecionado é rolado para o centro.
-- **Focar um cartão já seleciona o clube** (`onFocus`), além do clique.
+- Foco apenas navega pelos cartões; a seleção exige clique, toque ou confirmação ✕/A. O botão Aleatório também confirma uma escolha.
 
 ### Passo 2 — Desafio (`.challenge-layout`)
 **Desafios** (`.challenge-grid.carousel`, `button.choice-card`, cores ciclando, largura `clamp(220px,21vw,300px)`, texto embaixo; ícone `Flag` 24; `h3` itálico 28px; `p` 14px):
@@ -149,18 +149,19 @@ Selecionada: fundo branco, texto azul, borda esquerda lima.
 | Elemento | Detalhe |
 |---|---|
 | `button.ghost-button` | `ArrowLeft` + "Voltar" (passo anterior ou menu) |
-| `.selected-club` | `Badge` small + **nome do clube selecionado** (800 18px caixa alta) + `small` fixo **"01 JAN 2026"** (lima) |
+| `.selected-club` | Sem escolha: **"Clube não selecionado"**, sem escudo. Após escolher: `Badge` small + **nome do clube selecionado** + data fixa **"01 JAN 2026"** |
 | `button.primary.big` | "Continuar →" (passos 0–1) / **"Assumir o clube →"** (passo 2) |
 
-Valores padrão: clube `'sao-paulo'` (se não existir no mundo, usa `world.clubs[0]`), série A, desafio Realista, dificuldade Amador.
+Valores padrão: nenhum clube selecionado, série A, desafio Realista, dificuldade Amador. Não há clube de fallback.
 
 ## Estados e variações
 - **Validação**: "Continuar"/"Assumir" valida `managerSchema` em **todos** os passos; falha → toast vermelho 4s com a primeira mensagem e o passo não muda (não há destaque no campo).
+- **Clube obrigatório**: na etapa CLUBE, continuar sem seleção exibe "Escolha um clube antes de continuar." e não avança. A mesma proteção existe ao assumir.
 - **Retrato**: sem avatar (silhueta), gerando (overlay + botão desabilitado "Gerando…"), com avatar (foto + "Gerar outro retrato"), erro (toast; mantém o anterior).
 - **Câmera**: carregando, ao vivo (guia oval), negada/indisponível (mensagem + só "Gerar pela descrição"), foto capturada (prévia + gerar/tirar outra).
 - **Sem IA / Supabase não configurado / offline**: o botão de retrato continua ativo; ao gerar, toast de erro (ex.: "Supabase não configurado. Consulte a conexão no menu." ou "Não foi possível gerar o retrato…"). O manager segue com a silhueta — o retrato é opcional.
 - **Mundo demo**: chip DEMONSTRAÇÃO; clubes com nomes/escudos reais e atletas fictícios.
-- **Série B**: troca a lista; o clube selecionado **não muda automaticamente** (o rodapé continua mostrando o clube anterior até focar/clicar em outro).
+- **Troca de série**: troca a lista e limpa a escolha anterior; exige confirmar um clube da série visível.
 - Data no rodapé é fixa "01 JAN 2026" (não vem do mundo).
 
 ## Interações
@@ -203,13 +204,12 @@ Vibração: `confirm` quando o retrato fica pronto; `error` nos toasts de erro (
 3. Validação com mensagens do schema exibidas em toast que some sozinho.
 4. Pré-visualização ao vivo do manager (nome, nacionalidade, idade, roupa refletida na silhueta).
 5. Retrato por IA opcional: com foto da webcam (guia de rosto, tirar/tirar outra/gerar) ou só pela descrição; estado "Produzindo seu retrato…"; aviso de privacidade; exige nome e sobrenome.
-6. Escolha de clube por série (A/B) com L2/R2, botão Aleatório, cartões com escudo, nome, estrelas de reputação, orçamento, nº de atletas e estado; seleção ao focar.
+6. Escolha explícita de clube por série (A/B), botão Aleatório, cartões com escudo, nome, estrelas de reputação, orçamento, nº de atletas e estado. Foco e seleção são estados separados; não pré-selecionar um clube.
 7. Sete desafios e três dificuldades com descrições completas e padrões Realista/Amador.
 8. Resumo persistente do clube escolhido e botões Voltar / Continuar / Assumir o clube.
 9. Atalhos: ○/L1 voltar passo, R1 avançar (passos 0–1), △ câmera.
 
 ## Problemas atuais e oportunidades
-- **Trocar de série não troca o clube selecionado**: o rodapé pode mostrar um clube da Série A enquanto a grade mostra a B. Selecionar automaticamente o 1º clube da série (ou manter seleção por série).
 - **Validação só por toast**: o campo com erro não é destacado e o toast some; no passo 1/2 um erro do passo 0 aparece sem levar o jogador de volta.
 - O `step-track` não é clicável (nem por mouse) para voltar a um passo concluído.
 - No passo 2, R1 não confirma — inconsistente com os outros passos (intencional para evitar criar sem querer; o redesign pode exigir "segurar ✕" ou um popup de confirmação).

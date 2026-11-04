@@ -448,12 +448,17 @@ function Game() {
       <div className="bg-stage" aria-hidden="true" />
       <header className="app-header">
         <div className="brand" aria-label="Mando">
-          <img
-            className="brand-logo"
-            src={`${import.meta.env.BASE_URL}logo-mando-160.png`}
-            alt=""
-          />
-          <span className="brand-word">MANDO</span>
+          <picture>
+            <source
+              media="(max-width: 1000px)"
+              srcSet={`${import.meta.env.BASE_URL}logo-mando-160.png`}
+            />
+            <img
+              className="brand-logo"
+              src={`${import.meta.env.BASE_URL}logo-mando.png`}
+              alt=""
+            />
+          </picture>
         </div>
         {screen === 'career' && !inMatch && (
           <nav className="main-nav" aria-label="Áreas do clube">

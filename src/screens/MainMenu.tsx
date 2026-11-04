@@ -19,11 +19,13 @@ export function MainMenu({
     <div className="screen menu-screen">
       <div className="menu-heading">
         <img className="menu-logo" src={`${import.meta.env.BASE_URL}logo-mando.png`} alt="Mando" />
-        <p className="eyebrow">CARREIRA DE MANAGER · FUTEBOL BRASILEIRO 2026</p>
-        <h1>
-          O clube é seu.
-          <span>A história também.</span>
-        </h1>
+        <div className="menu-intro">
+          <p className="eyebrow">CARREIRA DE MANAGER · FUTEBOL BRASILEIRO 2026</p>
+          <h1>
+            O clube é seu.
+            <span>A história também.</span>
+          </h1>
+        </div>
       </div>
       <div className="menu-row carousel">
         {recent && (
