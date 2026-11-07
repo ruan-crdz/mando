@@ -35,6 +35,18 @@ async function openSeason(page: Page, view: 'table' | 'calendar' = 'table') {
     .click();
 }
 
+async function resolvePendingMessages(page: Page) {
+  const openOffice = page.getByRole('button', { name: /Abrir escritório/ });
+  while (await openOffice.isVisible()) {
+    await openOffice.click();
+    await page.getByRole('button', { name: 'Ciente. Continuar o trabalho.' }).click();
+    await page
+      .getByRole('navigation', { name: 'Áreas do clube' })
+      .getByRole('button', { name: /CENTRAL/ })
+      .click();
+  }
+}
+
 test('criação, todas as abas, negociação, avanço e save/load persistente', async ({ page }) => {
   const errors: string[] = [];
   page.on('pageerror', (e) => errors.push(e.message));
@@ -164,25 +176,15 @@ test('partida completa registra placar e volta à tabela sem duplicar resultado'
   page,
 }) => {
   await createCareer(page);
-  const resolvePending = async () => {
-    while (await page.getByRole('button', { name: /Abrir escritório/ }).isVisible()) {
-      await page.getByRole('button', { name: /Abrir escritório/ }).click();
-      await page.getByRole('button', { name: 'Ciente. Continuar o trabalho.' }).click();
-      await page
-        .getByRole('navigation', { name: 'Áreas do clube' })
-        .getByRole('button', { name: /CENTRAL/ })
-        .click();
-    }
-  };
   // O primeiro compromisso é o estadual (a partir de 11/01).
   for (let i = 0; i < 27; i++) {
-    await resolvePending();
+    await resolvePendingMessages(page);
     if (await page.getByRole('button', { name: /O ESTÁDIO ESTÁ PRONTO/ }).isVisible()) break;
     const before = await page.locator('.club-header strong').textContent();
     await page.getByRole('button', { name: /Avançar dia/ }).click();
     await expect(page.locator('.club-header strong')).not.toHaveText(before || '');
   }
-  await resolvePending();
+  await resolvePendingMessages(page);
   await page.getByRole('button', { name: /O ESTÁDIO ESTÁ PRONTO/ }).click();
   await page.getByRole('button', { name: /Começar partida/ }).click();
   await page.getByRole('button', { name: '4×', exact: true }).click();
@@ -257,6 +259,7 @@ test('PWA mantém o jogo e o save acessíveis após ficar offline', async ({ pag
   await expect(continueCareer).toBeVisible();
   await continueCareer.click();
   await expect(page.getByRole('heading', { name: /Bom trabalho, Alex/ })).toBeVisible();
+  await resolvePendingMessages(page);
   await page.getByRole('button', { name: /Avançar dia/ }).click();
   await expect(page.locator('.club-header')).toContainText('02');
   await context.setOffline(false);
