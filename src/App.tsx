@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import {
   ArrowLeft,
   ArrowRight,
@@ -29,7 +29,8 @@ import { CareerCentral } from './screens/CareerCentral';
 import { Squad } from './screens/Squad';
 import { Transfers } from './screens/Transfers';
 import { Office } from './screens/Office';
-import { Season } from './screens/Season';
+import { AudioDirector } from './components/AudioDirector';
+import { audioState, subscribeAudio, toggleMusic, toggleCrowd } from './audio/sound';
 import { PRIMARY_TABS, TAB } from './navigation';
 import { MatchScreen } from './screens/Match';
 import { loadWorld2026 } from './game/realWorld';
@@ -48,10 +49,10 @@ import {
   reassignScout,
   signProspect,
   reviewAcademyCandidate,
-  playerConversation,
-  setDevelopmentPlan,
+  ensureAcademy,
+  promoteAcademyPlayer,
+  updateManager,
   setReleaseClause,
-  setPlayerRole,
   blocks,
 } from './game/engine';
 import { available, bestLineup, beginMatch, substitute } from './game/matches';
@@ -79,8 +80,7 @@ import { registerSW } from 'virtual:pwa-register';
 import { AdvanceOverlay } from './components/CareerCalendar';
 
 type OfficeSeasonView = 'table' | 'calendar' | 'stats' | 'legacy';
-type Popup =
-  'world' | 'contract' | 'tutorial' | 'pause' | 'prematch' | 'prefs' | null;
+type Popup = 'world' | 'contract' | 'tutorial' | 'pause' | 'prematch' | 'prefs' | null;
 const onboardingTour = [
   {
     title: 'Central',
@@ -147,6 +147,7 @@ function Game() {
     [world, career],
   );
   const inMatch = Boolean(career?.activeMatch);
+  const audio = useSyncExternalStore(subscribeAudio, audioState);
   const matchdayFixture = career ? nextFixture(career) : null;
   const matchdayHome = matchdayFixture && live ? clubById(live, matchdayFixture.homeId) : null;
   const matchdayAway = matchdayFixture && live ? clubById(live, matchdayFixture.awayId) : null;
@@ -185,6 +186,7 @@ function Game() {
   const cloudQueue = useRef<Promise<unknown>>(Promise.resolve());
   const revisions = useRef(new Map<string, number>());
   const lastSaved = useRef<Career | null>(null);
+  const saveVersion = useRef(0);
   const lock = useRef(false);
   const { rumble } = controller;
   const fail = useCallback(
@@ -273,6 +275,7 @@ function Game() {
     };
   }, [fail]);
   useEffect(() => {
+    const version = ++saveVersion.current;
     if (!career || !world) return;
     setSaveState('saving');
     const current = career;
@@ -280,10 +283,10 @@ function Game() {
       .then(() => saveLocal(current, world, revisions.current.get(current.id) || 0))
       .then(() => {
         lastSaved.current = current;
-        setSaveState('saved');
+        if (version === saveVersion.current) setSaveState('saved');
       })
       .catch((e: unknown) => {
-        setSaveState('error');
+        if (version === saveVersion.current) setSaveState('error');
         fail(`Save local não gravado: ${e instanceof Error ? e.message : String(e)}.`);
       });
   }, [career, world, fail]);
@@ -297,8 +300,10 @@ function Game() {
 
   const continueCareer = useCallback((record: SavedCareer) => {
     validateCareerForWorld(record.career, record.world);
+    const restored = ensureAcademy(structuredClone(record.career), record.world);
+    validateCareerForWorld(restored, record.world);
     revisions.current.set(record.career.id, record.cloudRevision);
-    setCareer(record.career);
+    setCareer(restored);
     setWorld(record.world);
     setScreen('career');
     setPopup(
@@ -446,10 +451,24 @@ function Game() {
           nextTab: () => switchTab(1),
           secondary: () => {
             if (running) return setRunning(false);
-            if (career && screen === 'career' && !inMatch && !popup && !running) advance();
+            if (!career || screen !== 'career' || inMatch || popup || tab !== TAB.CENTRAL) return;
+            if (career.seasonEnded) {
+              act(() => setCareer(startNextSeason(career, live!)));
+            } else if (
+              career.prefs.advance !== 'auto' &&
+              career.messages.some((message) => blocks(career, message))
+            ) {
+              setTab(TAB.NOTIFICATIONS);
+            } else if (
+              career.prefs.advance !== 'auto' &&
+              nextFixture(career)?.date === career.date
+            ) {
+              setPopup('prematch');
+            } else advance();
           },
           info: () => {
-            if (screen === 'career' && !inMatch && !popup && !running) setTab(TAB.NOTIFICATIONS);
+            if (screen === 'career' && tab === TAB.CENTRAL && !inMatch && !popup && !running)
+              setTab(TAB.NOTIFICATIONS);
           },
           menu: () => {
             if (screen !== 'career') return;
@@ -482,6 +501,7 @@ function Game() {
         <span>O Mando foi pensado para jogar com a tela na horizontal.</span>
       </div>
       <div className="bg-stage" aria-hidden="true" />
+      <AudioDirector inMatch={inMatch} />
       <header className="app-header" inert={running ? true : undefined}>
         <div className="brand" aria-label="Mando">
           <picture>
@@ -645,14 +665,6 @@ function Game() {
                       setNotice('Contrato renovado. Luvas debitadas do caixa.');
                     })
                   }
-                  onConversation={(id, choice) =>
-                    act(() => {
-                      setCareer(playerConversation(career, id, choice));
-                      setNotice('Conversa registrada na memória do jogador.');
-                    })
-                  }
-                  onDevelopment={(id, plan) => setCareer(setDevelopmentPlan(career, id, plan))}
-                  onRole={(id, role) => setCareer(setPlayerRole(career, id, role))}
                   onSetClause={(id, amount) =>
                     act(() => {
                       setCareer(setReleaseClause(career, id, amount));
@@ -762,10 +774,9 @@ function Game() {
                   }
                 />
               )}
-              {(tab === TAB.NOTIFICATIONS ||
-                tab === TAB.ACADEMY ||
-                (tab === TAB.OFFICE && !officeSeasonView)) && (
+              {(tab === TAB.NOTIFICATIONS || tab === TAB.ACADEMY || tab === TAB.OFFICE) && (
                 <Office
+                  key={tab}
                   area={
                     tab === TAB.NOTIFICATIONS
                       ? 'notifications'
@@ -777,24 +788,35 @@ function Game() {
                   world={live!}
                   busy={busy}
                   aiAvailable={Boolean(supabase) && !offline}
-                  onOpenSeason={(view) => setOfficeSeasonView(view)}
-                  onConversation={(id, choice) =>
+                  initialSeasonView={officeSeasonView ?? undefined}
+                  onChange={setCareer}
+                  onError={fail}
+                  onManager={(manager) =>
                     act(() => {
-                      setCareer(playerConversation(career, id, choice));
-                      setNotice('Conversa registrada na memória do jogador.');
+                      setCareer(updateManager(career, manager));
+                      setNotice('Personalização do manager salva.');
+                    })
+                  }
+                  onPromote={(id) =>
+                    act(() => {
+                      setCareer(promoteAcademyPlayer(career, id));
+                      setNotice('Atleta promovido ao elenco profissional.');
                     })
                   }
                   onMessage={(id, choice) =>
                     act(() => setCareer(respondMessage(career, id, choice)))
                   }
                   onRead={(id) => {
-                    if (!career.messages.find((m) => m.id === id)?.read)
-                      setCareer({
-                        ...career,
-                        messages: career.messages.map((m) =>
-                          m.id === id ? { ...m, read: true } : m,
+                    setCareer((current) => {
+                      if (!current || current.messages.find((message) => message.id === id)?.read)
+                        return current;
+                      return {
+                        ...current,
+                        messages: current.messages.map((message) =>
+                          message.id === id ? { ...message, read: true } : message,
                         ),
-                      });
+                      };
+                    });
                   }}
                   onApplyPlan={(id) =>
                     act(() => {
@@ -858,16 +880,6 @@ function Game() {
                   }
                 />
               )}
-              {tab === TAB.OFFICE && officeSeasonView && (
-                <Season
-                  key={officeSeasonView}
-                  career={career}
-                  world={live!}
-                  initialView={officeSeasonView}
-                  officeMode
-                  onBack={() => setOfficeSeasonView(null)}
-                />
-              )}
             </>
           ))}
       </main>
@@ -877,7 +889,9 @@ function Game() {
           <ControllerButtonHint action="back" label="Voltar" />
           {screen === 'career' && !inMatch && (
             <>
-              <ControllerButtonHint action="secondary" label="Avançar dia" />
+              {tab === TAB.CENTRAL && (
+                <ControllerButtonHint action="secondary" label="Avançar dia" />
+              )}
               <ControllerButtonHint action="nextView" label="Sub-menu" />
               <ControllerButtonHint action="menu" label="Pausa" />
             </>
@@ -1079,6 +1093,12 @@ function Game() {
             <button onClick={controller.toggleVibration}>
               {controller.vibration ? <Vibrate size={18} /> : <VibrateOff size={18} />}
               Vibração: {controller.vibration ? 'Ligada' : 'Desligada'}
+            </button>
+            <button onClick={toggleMusic}>
+              Trilha original: {audio.music ? 'Ligada' : 'Desligada'} · 10 faixas
+            </button>
+            <button onClick={toggleCrowd}>
+              Som de torcida: {audio.crowd ? 'Ligado' : 'Desligado'}
             </button>
             <button
               onClick={() => {
@@ -1291,16 +1311,21 @@ function Game() {
           </div>
           <div className="button-row matchday-actions">
             <button
+              data-controller-info
               onClick={() => {
                 setPopup(null);
                 setTab(TAB.SQUAD);
               }}
             >
-              Revisar escalação
+              Revisar escalação{' '}
+              <span aria-hidden="true">
+                <ControllerButtonHint action="info" label="" />
+              </span>
             </button>
             <button
               className="primary"
               data-autofocus=""
+              data-controller-secondary
               onClick={() =>
                 act(() => {
                   const fixture = nextFixture(career);
@@ -1313,6 +1338,9 @@ function Game() {
               }
             >
               Começar partida <ArrowRight size={17} />
+              <span aria-hidden="true">
+                <ControllerButtonHint action="secondary" label="" />
+              </span>
             </button>
           </div>
         </Modal>

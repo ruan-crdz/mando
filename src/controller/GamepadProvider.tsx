@@ -261,6 +261,7 @@ export function GamepadProvider({ children }: { children: ReactNode }) {
       return true;
     };
     const activate = (action: Action) => {
+      window.dispatchEvent(new Event('mando:audio-unlock'));
       if (keyboardAction(action)) return;
       // Simulação em andamento: □, X, ○ ou START param o avanço, em qualquer tela.
       const stopRun = document.querySelector<HTMLButtonElement>('[data-stop-run]');
@@ -304,6 +305,22 @@ export function GamepadProvider({ children }: { children: ReactNode }) {
           return;
         }
       }
+      if (action === 'secondary' || action === 'info') {
+        const scope = topModal() || document.querySelector('main');
+        const shortcut = [
+          ...(scope?.querySelectorAll<HTMLButtonElement>(`[data-controller-${action}]`) ?? []),
+        ].find(
+          (button) =>
+            !button.disabled && !button.closest('[inert]') && button.getClientRects().length > 0,
+        );
+        if (shortcut) {
+          shortcut.click();
+          rumble('confirm');
+          return;
+        }
+      }
+      if (topModal() && ['previousTab', 'nextTab', 'secondary', 'info', 'menu'].includes(action))
+        return;
       if (action === 'previousView' || action === 'nextView') {
         if (actions.current[action]) actions.current[action]!();
         else cycleView(action === 'nextView' ? 1 : -1);
@@ -348,6 +365,7 @@ export function GamepadProvider({ children }: { children: ReactNode }) {
       const sx = pad.axes[2] || 0;
       const sy = pad.axes[3] || 0;
       if (Math.abs(sy) > 0.3 && Math.abs(sy) >= Math.abs(sx)) {
+        if (scrollEl && !scrollEl.isConnected) scrollEl = null;
         scrollEl ??= scrollTarget('y');
         scrollEl?.scrollBy({ top: Math.sign(sy) * (sy * sy) * 26 });
       } else scrollEl = null;
@@ -402,7 +420,8 @@ export function GamepadProvider({ children }: { children: ReactNode }) {
             : Math.abs(pad.axes[1] || 0) > 0.55
               ? Math.sign(pad.axes[1])
               : 0;
-        if (buttons.size || x || y) setInput(isPlayStation(pad.id) ? 'playstation' : 'xbox');
+        if (buttons.size || x || y || pad.axes.some((axis) => Math.abs(axis) > 0.3))
+          setInput(isPlayStation(pad.id) ? 'playstation' : 'xbox');
         if ((x || y) && now - lastMove > 180) {
           move(Math.abs(x) >= Math.abs(y) ? x : 0, Math.abs(y) > Math.abs(x) ? y : 0);
           lastMove = now;

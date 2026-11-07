@@ -1,12 +1,13 @@
 import { z } from 'zod';
 import { available } from './matches';
-import { ageAt } from './random';
+import { ageAt, hash } from './random';
 import { familiarity, LEARNED, trainingGain } from './positions';
 import {
   assistantAreas,
   formations,
   positionSchema,
   type AssistantArea,
+  type AssistantCoach,
   type Career,
   type Formation,
   type Player,
@@ -41,11 +42,30 @@ export function removeBenchPlayer(career: Career, playerId: string): Career {
   };
 }
 
+export function replaceBenchPlayer(career: Career, incoming: string, outgoing: string): Career {
+  if (!career.bench.includes(outgoing))
+    throw new Error('Escolha um atleta do banco para substituir.');
+  if (career.lineup.includes(incoming) || career.bench.includes(incoming))
+    throw new Error('O atleta deve estar fora da relação.');
+  if (career.players[incoming]?.clubId !== career.clubId || !available(career, incoming))
+    throw new Error('O atleta não está disponível para o banco.');
+  return {
+    ...career,
+    bench: career.bench.map((id) => (id === outgoing ? incoming : id)),
+    benchConfigured: true,
+  };
+}
+
 export function syncBenchWithLineup(career: Career, lineup: string[]): Career {
+  const outgoing = career.lineup.filter((id) => !lineup.includes(id) && available(career, id));
+  let next = 0;
+  const bench = career.bench.flatMap((id) =>
+    lineup.includes(id) ? (outgoing[next] ? [outgoing[next++]] : []) : [id],
+  );
   return {
     ...career,
     lineup: [...lineup],
-    bench: career.bench.filter((id) => !lineup.includes(id)),
+    bench: [...new Set(bench)].slice(0, 9),
   };
 }
 
@@ -136,35 +156,61 @@ const assistantTemplates: Record<
   goleiro: { name: 'Diego Martins', vision: 'Pressão', skill: 3 },
 };
 
-export function hireAssistant(career: Career, area: AssistantArea): Career {
-  if (!assistantAreas.includes(area)) throw new Error('Área de comissão inválida.');
-  if (career.assistantCoaches[area]) throw new Error('Esta vaga já está ocupada.');
-  if (Object.keys(career.assistantCoaches).length >= ASSISTANT_STAFF_LIMIT)
-    throw new Error('O limite de auxiliares da comissão foi atingido.');
-  const template = assistantTemplates[area];
+export function assistantCandidates(career: Career, area: AssistantArea): AssistantCoach[] {
   const positionsForArea: Record<AssistantArea, Position[]> = {
     ataque: ['LW', 'RW', 'ST', 'AM'],
     meio: ['DM', 'CM', 'AM'],
     defesa: ['CB', 'LB', 'RB', 'DM'],
     goleiro: ['GK'],
   };
-  const stars = Object.fromEntries(
-    positionSchema.options.map((position) => [
-      position,
-      positionsForArea[area].includes(position) ? 3 : 1,
-    ]),
-  ) as Record<Position, number>;
+  const names = ['Lucas Ferreira', 'Ana Ribeiro', 'Caio Mendes', 'Elisa Rocha', 'Pedro Santos'];
+  return names.map((name, index) => {
+    const skill = index + 1;
+    const id = `assistant-${career.season}-${area}-${index}`;
+    const specialty =
+      positionsForArea[area][hash(`${career.seed}:${id}`) % positionsForArea[area].length];
+    const stars = Object.fromEntries(
+      positionSchema.options.map((position) => [
+        position,
+        position === specialty
+          ? Math.min(5, skill + 1)
+          : positionsForArea[area].includes(position)
+            ? Math.max(1, skill - 1)
+            : 1,
+      ]),
+    ) as Record<Position, number>;
+    return {
+      id,
+      name,
+      skill,
+      stars,
+      tacticalVision: assistantTemplates[area].vision,
+      wageWeekly: [600, 1100, 2100, 3400, 5000][index],
+    };
+  });
+}
+
+export function assistantTrainingBonus(career: Career, position: Position): number {
+  return Math.max(
+    0,
+    ...Object.values(career.assistantCoaches).map(
+      (coach) => (coach.skill + coach.stars[position] - 1) * 0.04,
+    ),
+  );
+}
+
+export function hireAssistant(career: Career, area: AssistantArea, candidateId: string): Career {
+  if (!assistantAreas.includes(area)) throw new Error('Área de comissão inválida.');
+  if (career.assistantCoaches[area]) throw new Error('Esta vaga já está ocupada.');
+  if (Object.keys(career.assistantCoaches).length >= ASSISTANT_STAFF_LIMIT)
+    throw new Error('O limite de auxiliares da comissão foi atingido.');
+  const candidate = assistantCandidates(career, area).find((coach) => coach.id === candidateId);
+  if (!candidate) throw new Error('Auxiliar não encontrado na lista de candidatos.');
   return {
     ...career,
     assistantCoaches: {
       ...career.assistantCoaches,
-      [area]: {
-        name: template.name,
-        tacticalVision: template.vision,
-        skill: template.skill,
-        stars,
-        wageWeekly: 1200 + template.skill * 300,
-      },
+      [area]: candidate,
     },
   };
 }
@@ -184,7 +230,9 @@ export function positionTrainingEta(player: Player, career: Career, target: Posi
   const remaining = LEARNED - current;
   const injuredDays = career.players[player.id]?.injuryDays ?? 0;
   const injuryProgress = injuredDays * 0.2;
-  const gain = trainingGain(ageAt(player.birthDate, career.date));
+  const gain =
+    trainingGain(ageAt(player.birthDate, career.date)) *
+    (1 + assistantTrainingBonus(career, target));
   const days =
     remaining <= injuryProgress
       ? Math.ceil(remaining / 0.2)

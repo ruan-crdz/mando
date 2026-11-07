@@ -36,10 +36,10 @@ async function openSeason(page: Page, view: 'table' | 'calendar' = 'table') {
 }
 
 async function resolvePendingMessages(page: Page) {
-  const openOffice = page.getByRole('button', { name: /Abrir escritório/ });
+  const openOffice = page.getByRole('button', { name: /Abrir escritório|Abrir notificações/ });
   while (await openOffice.isVisible()) {
     await openOffice.click();
-    await page.getByRole('button', { name: 'Ciente. Continuar o trabalho.' }).click();
+    await page.locator('.response-area button').first().click();
     await page
       .getByRole('navigation', { name: 'Áreas do clube' })
       .getByRole('button', { name: /CENTRAL/ })
@@ -56,12 +56,30 @@ test('criação, todas as abas, negociação, avanço e save/load persistente', 
     .getByRole('button', { name: /TIME/ })
     .click();
   await page.getByRole('button', { name: 'Tática', exact: true }).click();
-  await page.getByRole('radiogroup', { name: 'Formação' }).getByRole('radio', { name: '4-3-3' }).click();
+  await page
+    .getByRole('radiogroup', { name: 'Formação' })
+    .getByRole('radio', { name: '4-3-3' })
+    .click();
+  await expect(page.locator('.football-pitch .pitch-player-face')).toHaveCount(11);
+  const pitchRows = await page.locator('.football-pitch .pitch-player').evaluateAll((buttons) => {
+    const rows = new Map<string, number>();
+    for (const button of buttons) {
+      const top = (button as HTMLElement).style.top;
+      rows.set(top, (rows.get(top) ?? 0) + 1);
+    }
+    return [...rows.values()];
+  });
+  expect(pitchRows).toEqual([1, 4, 3, 3]);
   await page.getByRole('button', { name: 'Responsabilidades' }).click();
   await page.locator('.role-card[data-role="Capitão"]').click();
   await expect(page.locator('.player-card').first()).toBeVisible();
   await page.getByRole('button', { name: 'Comissão', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Auxiliares por setor' })).toBeVisible();
+  await page.getByRole('button', { name: 'Contratar auxiliar', exact: true }).first().click();
+  const assistantDialog = page.getByRole('dialog', { name: 'Escolher auxiliar' });
+  await expect(assistantDialog.locator('.assistant-card')).toHaveCount(5);
+  await assistantDialog.getByRole('button', { name: 'Contratar Ana Ribeiro' }).click();
+  await expect(page.locator('.assistant-grid')).toContainText('Ana Ribeiro');
   await page
     .getByRole('navigation', { name: 'Áreas do clube' })
     .getByRole('button', { name: /TRANSFERÊNCIAS/ })
@@ -74,6 +92,12 @@ test('criação, todas as abas, negociação, avanço e save/load persistente', 
     .click();
   await page.getByRole('button', { name: 'Conversas com atletas', exact: true }).click();
   await expect(
+    page.getByRole('region', { name: 'Conversas com atletas' }).getByRole('button'),
+  ).toHaveCount(1);
+  await expect(page.getByRole('button', { name: 'Elogiar esforço', exact: true })).toHaveCount(0);
+  await page.getByRole('button', { name: /Responder com apoio/ }).click();
+  await expect(page.getByRole('button', { name: /Responder com apoio/ })).toHaveCount(0);
+  await expect(
     page.getByRole('heading', { name: 'Recados e conversas com o elenco.' }),
   ).toBeVisible();
   await page
@@ -81,17 +105,23 @@ test('criação, todas as abas, negociação, avanço e save/load persistente', 
     .getByRole('button', { name: 'ACADEMIA', exact: true })
     .click();
   await page.getByRole('button', { name: 'Torneio de base', exact: true }).click();
-  await expect(page.getByText('FUNCIONALIDADE FUTURA')).toBeVisible();
+  await expect(page.getByRole('heading', { name: /Liga de base Sub-20/ })).toBeVisible();
+  await expect(page.locator('.academy-fixture-list article')).toHaveCount(14);
+  await page.getByRole('button', { name: 'Elenco jovem', exact: true }).click();
+  await expect(page.locator('.academy-player-grid > article')).toHaveCount(18);
+  await expect(page.getByRole('button', { name: 'Promover ao profissional' })).toHaveCount(8);
   await page
     .getByRole('navigation', { name: 'Áreas do clube' })
     .getByRole('button', { name: /ESCRITÓRIO/ })
     .click();
   await page
-    .getByRole('group', { name: 'Áreas do Escritório' })
+    .getByRole('navigation', { name: 'Atalhos do Escritório' })
     .getByRole('button', { name: 'Orçamento', exact: true })
     .click();
   await expect(page.getByRole('heading', { name: 'Para onde vai o dinheiro' })).toBeVisible();
   await openSeason(page);
+  await expect(page.getByRole('group', { name: 'Áreas da Temporada' })).toHaveCount(0);
+  await expect(page.getByRole('navigation', { name: 'Atalhos do Escritório' })).toBeVisible();
   await expect(page.getByRole('table').getByRole('row')).toHaveCount(21);
   await page
     .getByRole('navigation', { name: 'Áreas do clube' })
@@ -202,7 +232,9 @@ test('partida completa registra placar e volta à tabela sem duplicar resultado'
   await expect(row.locator('td').nth(3)).toHaveText('1');
 });
 
-test('layout móvel deitado não cria rolagem horizontal e retrato pede rotação', async ({ page }) => {
+test('layout móvel deitado não cria rolagem horizontal e retrato pede rotação', async ({
+  page,
+}) => {
   await page.setViewportSize({ width: 844, height: 390 });
   await createCareer(page);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
@@ -234,14 +266,9 @@ test('PWA mantém o jogo e o save acessíveis após ficar offline', async ({ pag
         request.onerror = () => resolve(false);
         request.onsuccess = () => {
           const db = request.result;
-          const read = db
-            .transaction('careers', 'readonly')
-            .objectStore('careers')
-            .getAll();
+          const read = db.transaction('careers', 'readonly').objectStore('careers').getAll();
           read.onsuccess = () => {
-            const record = read.result.find(
-              (item) => item.career.manager.firstName === 'Alex',
-            );
+            const record = read.result.find((item) => item.career.manager.firstName === 'Alex');
             db.close();
             resolve(
               record?.career.onboarding?.contractSigned === true &&
@@ -262,9 +289,9 @@ test('PWA mantém o jogo e o save acessíveis após ficar offline', async ({ pag
   await page.reload();
   const continueCareer = page.getByRole('button', { name: /CONTINUAR CARREIRA/ });
   await expect(continueCareer).toBeVisible();
-  await expect.poll(() => page.evaluate(() => Boolean(navigator.serviceWorker.controller))).toBe(
-    true,
-  );
+  await expect
+    .poll(() => page.evaluate(() => Boolean(navigator.serviceWorker.controller)))
+    .toBe(true);
   await context.setOffline(true);
   await page.reload();
   await expect(continueCareer).toBeVisible();

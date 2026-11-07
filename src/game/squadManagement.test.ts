@@ -1,10 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { careerSchema, type Manager } from './types';
+import { careerSchema, type Career, type Manager } from './types';
 import { createCareer } from './engine';
 import { createDemoWorld } from './world';
 import { familiarity, LEARNED, trainingGain } from './positions';
 import {
   hireAssistant,
+  assistantCandidates,
   lineupExport,
   lineupImportError,
   positionTrainingEta,
@@ -41,7 +42,7 @@ describe('gestão do elenco', () => {
   });
 
   it('limita o banco a nove atletas e rejeita titulares e atletas de outros clubes', () => {
-    const career = start();
+    const career: Career = { ...start(), bench: [] };
     const candidates = world.players.filter(
       (player) => career.players[player.id]?.clubId === career.clubId,
     );
@@ -127,10 +128,12 @@ describe('gestão do elenco', () => {
   });
 
   it('contrata apenas um auxiliar por área com salário limitado e dados completos', () => {
-    const hired = hireAssistant(start(), 'ataque');
-    expect(hired.assistantCoaches.ataque?.stars.ST).toBe(3);
+    const career = start();
+    const candidate = assistantCandidates(career, 'ataque')[2];
+    const hired = hireAssistant(career, 'ataque', candidate.id!);
+    expect(hired.assistantCoaches.ataque?.stars.ST).toBe(candidate.stars.ST);
     expect(hired.assistantCoaches.ataque?.wageWeekly).toBeLessThanOrEqual(5000);
     expect(staffPayroll(hired)).toBeGreaterThan(staffPayroll(start()));
-    expect(() => hireAssistant(hired, 'ataque')).toThrow(/ocupada/);
+    expect(() => hireAssistant(hired, 'ataque', candidate.id!)).toThrow(/ocupada/);
   });
 });

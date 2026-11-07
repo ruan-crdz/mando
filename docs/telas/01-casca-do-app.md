@@ -64,5 +64,6 @@ Os modais compartilham foco preso, ação Voltar, restauração de foco e navega
 1. Manter as seis áreas e sua ordem.
 2. Preservar o estado visível de salvamento e reportar falhas.
 3. Todo modal precisa funcionar com controle, mouse e teclado.
-4. Não adicionar conquistas, coletivas, narração/áudio, Seleção ou páginas que não pertençam ao escopo.
+4. Não adicionar conquistas, coletivas, Seleção ou páginas fora do escopo.
+   Áudio autorizado: música original, torcida e leitura da caixa postal.
 5. Em mobile, manter a orientação e a legibilidade sem esconder ações essenciais.

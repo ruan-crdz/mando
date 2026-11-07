@@ -96,7 +96,10 @@ describe('virada de temporada', () => {
     for (const id of ended.promoted) expect(live.clubs.find((c) => c.id === id)!.league).toBe('A');
     for (const id of ended.relegated) expect(live.clubs.find((c) => c.id === id)!.league).toBe('B');
     expect(live.clubs.filter((c) => c.league === 'A')).toHaveLength(20);
-    expect(next.youth).toHaveLength(120);
+    expect(next.youth).toHaveLength(117);
+    expect(
+      next.living.academyRoster.filter((player) => player.clubId === next.clubId),
+    ).toHaveLength(21);
     expect(next.fixtures.every((f) => f.date.startsWith('2027') && !f.result)).toBe(true);
     expect(next.fixtures.filter((f) => f.league === 'A')).toHaveLength(380);
     expect(next.history).toHaveLength(1);

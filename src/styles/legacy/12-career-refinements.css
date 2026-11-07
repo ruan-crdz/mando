@@ -1,0 +1,280 @@
+.central-grid {
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr) minmax(0, 0.8fr);
+  grid-template-rows: minmax(0, 1.1fr) minmax(0, 0.9fr);
+  grid-template-areas: 'fix fix adv' 'manager inbox squad';
+}
+.central-grid .manager-tile {
+  background: linear-gradient(125deg, #253348, #12485a);
+}
+.central-grid .inbox-preview {
+  background: #151d2b;
+}
+.central-grid .squad-tile {
+  background: linear-gradient(150deg, #253348, #263748);
+}
+.squad-screen .pitch-player > .pitch-player-face {
+  width: 60px;
+  height: 60px;
+  margin: 0 auto;
+  border-radius: 4px;
+}
+.squad-screen .pitch-player > .pitch-player-face img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.bench-player-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 7px;
+}
+.bench-player-square {
+  min-width: 0;
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  padding: 9px 4px;
+  border: 1px solid var(--mando-border);
+  background: var(--mando-nav);
+}
+.bench-player-square .player-face {
+  width: 52px;
+  height: 52px;
+}
+.bench-player-square b {
+  color: var(--mando-cyan);
+  font-size: 11px;
+}
+.bench-player-square strong {
+  font-size: 12px;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.bench-player-square small {
+  font-size: 10px;
+  color: var(--mando-text-secondary);
+}
+.bench-player-square.selected,
+.choosing-target .bench-player-square {
+  border-color: var(--mando-cyan);
+  background: var(--mando-petrol);
+}
+.bench-divider {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 14px 0 8px;
+  padding-top: 14px;
+  border-top: 2px solid var(--mando-border);
+}
+.bench-divider > span {
+  font-size: 11px;
+  letter-spacing: 0.08em;
+}
+.bench-divider button {
+  padding: 6px 10px;
+}
+.assistant-candidates {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  max-height: 60vh;
+  overflow-y: auto;
+}
+.assistant-card.bronze {
+  border-top: 4px solid #b67b51;
+  background: linear-gradient(140deg, #543725, #151d2b);
+}
+.assistant-card.silver {
+  border-top: 4px solid #c4d5dc;
+  background: linear-gradient(140deg, #4b5b65, #151d2b);
+}
+.assistant-card.gold {
+  border-top: 4px solid #d4b451;
+  background: linear-gradient(140deg, #63532a, #151d2b);
+}
+.assistant-candidates .assistant-card {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  padding: 14px;
+}
+.assistant-candidates p {
+  font-size: 12px;
+  margin: 0;
+}
+.assistant-candidates .assistant-stars {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  font-size: 11px;
+  gap: 3px;
+}
+.office-screen > .season-screen {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+}
+.office-screen .office-route-links {
+  display: flex;
+  padding: 0;
+}
+.office-screen .board-layout {
+  grid-template-columns: minmax(0, 1fr);
+}
+.office-screen .message-list > .mailbox-play {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  color: var(--mando-cyan);
+  border: 1px solid var(--mando-cyan);
+}
+.office-screen .message-list > .mailbox-play .control-hint {
+  margin-left: auto;
+}
+.academy-youth-roster,
+.academy-tournament {
+  min-height: 0;
+  overflow-y: auto;
+  flex: 1;
+}
+.academy-player-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+.academy-player-grid > article {
+  min-width: 0;
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--mando-border);
+  background: #253348;
+}
+.academy-player-grid > article > strong {
+  font-size: 17px;
+}
+.academy-player-grid > article p {
+  font-size: 12px;
+  margin: 0;
+}
+.academy-fixture-list {
+  display: grid;
+  gap: 7px;
+}
+.academy-fixture-list article {
+  display: flex;
+  gap: 14px;
+  padding: 10px;
+  border-bottom: 1px solid var(--mando-border);
+}
+.manager-edit-form {
+  display: grid;
+  gap: 12px;
+  margin: 16px 0;
+}
+.manager-edit-form .form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.manager-edit-form .manager-birth-date {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.office-screen .profile-panel {
+  max-height: 100%;
+  overflow-y: auto;
+}
+.now-playing {
+  position: fixed;
+  right: 28px;
+  bottom: 64px;
+  z-index: 120;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 280px;
+  padding: 15px 22px;
+  color: #fff;
+  background: rgba(21, 29, 43, 0.96);
+  border-left: 4px solid var(--mando-cyan);
+  box-shadow: 0 8px 32px #0006;
+  pointer-events: none;
+  animation: track-popup 3s both;
+}
+.now-playing > div {
+  display: grid;
+  gap: 4px;
+}
+.now-playing small {
+  color: var(--mando-cyan);
+  font-size: 10px;
+  letter-spacing: 0.15em;
+}
+.now-playing strong {
+  font-size: 18px;
+}
+.now-playing span {
+  font-size: 12px;
+  opacity: 0.7;
+}
+.audio-error {
+  position: fixed;
+  bottom: 60px;
+  left: 20px;
+  z-index: 121;
+  max-width: 450px;
+  display: flex;
+  gap: 8px;
+  padding: 10px;
+  color: var(--mando-coral);
+  background: #151d2b;
+  font-size: 12px;
+}
+@keyframes track-popup {
+  0% {
+    opacity: 0;
+    transform: translateX(40px);
+  }
+  10%,
+  90% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(40px);
+    visibility: hidden;
+  }
+}
+@media (max-height: 650px) {
+  .central-grid {
+    grid-template-areas: 'fix fix adv' 'manager inbox squad';
+    grid-template-rows: minmax(0, 1fr) minmax(0, 0.8fr);
+  }
+  .central .career-calendar > li {
+    min-height: 44px;
+  }
+  .central .inbox-preview button {
+    padding: 3px 0;
+  }
+  .central .inbox-preview button small {
+    display: none;
+  }
+  .squad-screen .pitch-player > .pitch-player-face {
+    width: 42px;
+    height: 42px;
+  }
+}
+@media (max-width: 900px) {
+  .assistant-candidates,
+  .academy-player-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .central .manager-title strong {
+    font-size: 22px;
+  }
+}

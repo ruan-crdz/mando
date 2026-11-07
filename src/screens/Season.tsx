@@ -1,14 +1,7 @@
 import { useMemo, useState } from 'react';
 import { PlayerFace } from '../components/PlayerFace';
 import { LegacyPanel } from '../components/LivingPanels';
-import {
-  ArrowLeft,
-  CalendarDays,
-  ChevronLeft,
-  ChevronRight,
-  Medal,
-  Trophy,
-} from 'lucide-react';
+import { ArrowLeft, CalendarDays, ChevronLeft, ChevronRight, Medal, Trophy } from 'lucide-react';
 import { Badge, dateLabel, SectionTitle } from '../components/ui';
 import { standings } from '../game/engine';
 import { competitionName, fixtureCompetition, fixtureLabel, milestones } from '../game/calendar';
@@ -112,12 +105,14 @@ export function Season({
   world,
   initialView,
   officeMode = false,
+  embedded = false,
   onBack,
 }: {
   career: Career;
   world: World;
   initialView?: SeasonView;
   officeMode?: boolean;
+  embedded?: boolean;
   onBack?: () => void;
 }) {
   const club = world.clubs.find((club) => club.id === c.clubId)!;
@@ -160,9 +155,7 @@ export function Season({
         ? viewTarget
         : document.querySelector<HTMLElement>('main.stage');
     if (!target) return;
-    const vertical =
-      view === 'legacy' ||
-      (view === 'stats' && window.innerWidth <= 700);
+    const vertical = view === 'legacy' || (view === 'stats' && window.innerWidth <= 700);
     target.scrollBy(
       vertical
         ? { top: dir * target.clientHeight * 0.6, behavior: 'smooth' }
@@ -230,36 +223,40 @@ export function Season({
 
   return (
     <div className="screen-enter season-screen">
-      <SectionTitle
-        kicker={`${officeMode ? 'ESCRITÓRIO / DADOS DA TEMPORADA' : 'TEMPORADA'} / ${c.season}`}
-        title={officeMode ? 'Competições e histórico.' : 'Cada rodada conta.'}
-      >
-        {officeMode && onBack && (
-          <button onClick={onBack}>
-            <ArrowLeft size={16} /> Voltar ao Escritório
-          </button>
-        )}
-      </SectionTitle>
-      <div className="segmented" role="group" aria-label="Áreas da Temporada">
-        {(
-          [
-            ['table', isLeague ? 'Classificação' : 'Chaves e grupos', Trophy],
-            ['calendar', 'Calendário', CalendarDays],
-            ['stats', 'Estatísticas', Medal],
-            ['legacy', 'Carreira', Medal],
-          ] as const
-        ).map(([id, name, Icon]) => (
-          <button
-            className={view === id ? 'active' : ''}
-            key={id}
-            onClick={() => setView(id)}
-            aria-pressed={view === id}
-          >
-            <Icon size={16} />
-            {name}
-          </button>
-        ))}
-      </div>
+      {!embedded && (
+        <SectionTitle
+          kicker={`${officeMode ? 'ESCRITÓRIO / DADOS DA TEMPORADA' : 'TEMPORADA'} / ${c.season}`}
+          title={officeMode ? 'Competições e histórico.' : 'Cada rodada conta.'}
+        >
+          {officeMode && onBack && (
+            <button onClick={onBack}>
+              <ArrowLeft size={16} /> Voltar ao Escritório
+            </button>
+          )}
+        </SectionTitle>
+      )}
+      {!embedded && (
+        <div className="segmented" role="group" aria-label="Áreas da Temporada">
+          {(
+            [
+              ['table', isLeague ? 'Classificação' : 'Chaves e grupos', Trophy],
+              ['calendar', 'Calendário', CalendarDays],
+              ['stats', 'Estatísticas', Medal],
+              ['legacy', 'Carreira', Medal],
+            ] as const
+          ).map(([id, name, Icon]) => (
+            <button
+              className={view === id ? 'active' : ''}
+              key={id}
+              onClick={() => setView(id)}
+              aria-pressed={view === id}
+            >
+              <Icon size={16} />
+              {name}
+            </button>
+          ))}
+        </div>
+      )}
       {view === 'table' && (
         <div className="season-layout">
           <section className="panel standings-panel">

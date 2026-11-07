@@ -2,23 +2,32 @@
 
 ## Resumo
 
-Academia é a quinta área principal. Reutiliza a tela `Office` em modo `academy` e os dados existentes de observação de jovens, prospectos, peneira e atletas da base. Nenhuma regra de partida, economia ou esquema de save é alterada.
+Academia é a quinta área principal. Ao começar a carreira, o clube já possui
+18 jovens fictícios de 14 a 17 anos. A base fica separada do elenco profissional
+e é persistida no save. Saves anteriores recebem uma base sem perder seus atletas.
 
 ## Subáreas implementadas
 
-- **Captação e peneira** (`scouts`): rede de olheiros, relatórios de prospectos, contratação/realocação/dispensa de olheiros, promoção de prospectos e avaliação de candidatos da peneira anual. Usa os mesmos callbacks e custos atuais.
-- **Elenco jovem** (`roster`): lista `career.youth` com posição, idade, overall, potencial e nacionalidade; estado vazio quando não há atletas.
-- **Desenvolvimento** (`development`): informa quantos jovens há na base e explica os recursos reais disponíveis. Planos de desenvolvimento individuais só existem hoje para o elenco profissional, pela área Time; a tela não aplica efeito de treino juvenil.
-- **Torneio de base** (`tournament`): seção claramente marcada **FUNCIONALIDADE FUTURA**. O motor não simula nem agenda torneios juvenis; não há calendário, tabela ou resultado fictício.
+- **Olheiros:** rede de captação, relatórios, contratação/realocação/dispensa e
+  avaliação da peneira. Prospectos contratados entram na base.
+- **Elenco jovem:** posição, idade, OVR atual, potencial, evolução, minutos, gols e
+  ritmo. Promover só aparece a partir dos 16 anos; o motor também impõe esse limite.
+- **Desenvolvimento:** planos individuais e treino de posições, com o mesmo
+  cálculo diário usado nos profissionais e influência real dos auxiliares.
+- **Torneio de base:** liga sub-20 com oito clubes e 14 rodadas, tabela,
+  calendário e resultados. Os jogos são simulados ao avançar a data.
 
 ## Controles e estados
 
 - Clique e L2/R2 (LT/RT) percorrem as quatro subáreas; botões de ação existentes aceitam controle e teclado.
 - Mensagens de erro e estados de caixa insuficiente continuam ligados aos callbacks atuais. A peneira, jovens e olheiros permanecem no save, sem migração destrutiva.
-- A partir de Clube vivo no Escritório, o atalho para olheiros leva à área Academia.
+- Promover preserva crescimento, familiaridade e plano de treino do jogador.
 
-## Lacunas honestas
+## Regras e limites
 
-- Não há competição sub-20 simulada.
-- Não há painel de desenvolvimento individual para jovens; a tela explica que a ferramenta atual atende o elenco profissional.
-- Prospectos e candidatos da peneira continuam com as regras atuais de promoção; nenhuma nova regra econômica foi criada.
+- Torneio juvenil usa uma simulação simplificada de OVR/condição contra a força
+  das bases NPC; não é a mesma simulação lance a lance da equipe profissional.
+- Atletas participantes ganham minutos e ritmo e gastam condição.
+- Sem onze saudáveis, há W.O. explícito e aviso na caixa postal.
+- A cada temporada surgem talentos; atletas acima de 20 deixam a base.
+- Menores de 16 não podem ser promovidos, inclusive por APIs alternativas.

@@ -1,11 +1,17 @@
 import { formations, type Formation } from './types';
 
-const line = (role: string, formation: Formation) => {
-  if (formation === '3-5-2' && (role === 'LB' || role === 'RB')) return 1;
-  if (['LB', 'CB', 'RB'].includes(role)) return 0;
-  if (['DM', 'CM', 'LM', 'RM'].includes(role)) return 1;
-  if (['AM', 'LW', 'RW'].includes(role)) return 2;
-  return 3;
+export const formationRows: Record<Formation, readonly number[]> = {
+  '4-2-3-1': [4, 2, 3, 1],
+  '4-3-3': [4, 3, 3],
+  '4-4-2': [4, 4, 2],
+  '3-5-2': [3, 5, 2],
+  '4-1-4-1': [4, 1, 4, 1],
+  '4-3-2-1': [4, 3, 2, 1],
+  '4-4-2 losango': [4, 1, 2, 1, 2],
+  '3-4-3': [3, 4, 3],
+  '3-4-2-1': [3, 4, 2, 1],
+  '5-3-2': [5, 3, 2],
+  '5-4-1': [5, 4, 1],
 };
 
 /**
@@ -14,16 +20,32 @@ const line = (role: string, formation: Formation) => {
  */
 export function pitchCoordinates(formation: Formation) {
   const roles = formations[formation];
-  return roles.map((role, i) => {
+  const rows = formationRows[formation];
+  return roles.map((_, i) => {
     if (i === 0) return { x: 50, y: 87 };
-    const category = line(role, formation);
-    const group = roles
-      .map((r, j) => ({ r, j }))
-      .filter(({ r, j }) => j > 0 && line(r, formation) === category);
-    return {
-      x: ((group.findIndex(({ j }) => j === i) + 1) * 100) / (group.length + 1),
-      y: [68, 49, 30, 12][category],
-    };
+    let first = 1;
+    for (let row = 0; row < rows.length; row++) {
+      const count = rows[row];
+      if (i < first + count)
+        return {
+          x:
+            (((row === rows.length - 1 &&
+            count === 3 &&
+            roles.slice(first, first + count).some((role) => role === 'LW')
+              ? roles[i] === 'LW'
+                ? 0
+                : roles[i] === 'RW'
+                  ? 2
+                  : 1
+              : i - first) +
+              1) *
+              100) /
+            (count + 1),
+          y: 69 - (row * 57) / (rows.length - 1),
+        };
+      first += count;
+    }
+    throw new Error(`Formação ${formation} não tem coordenadas para o atleta ${i}.`);
   });
 }
 

@@ -1,5 +1,16 @@
-import { ArrowRight, CalendarClock, CircleArrowRight, Radio, Trophy } from 'lucide-react';
-import { Badge, dateLabel } from '../components/ui';
+import {
+  ArrowRight,
+  CalendarClock,
+  CircleArrowRight,
+  MessageSquare,
+  Radio,
+  Trophy,
+  Users,
+} from 'lucide-react';
+import { Badge, dateLabel, ManagerPortrait } from '../components/ui';
+import { CareerCalendar } from '../components/CareerCalendar';
+import { squad } from '../game/matches';
+import { overall } from '../game/ratings';
 import { ControllerButtonHint } from '../controller/ControllerButtonHint';
 import { fixtureLabel, nextFixture } from '../game/calendar';
 import { clubById } from '../game/npc';
@@ -34,10 +45,15 @@ export function CareerCentral({
   const home = fixture && clubById(world, fixture.homeId);
   const away = fixture && clubById(world, fixture.awayId);
   const label = fixture && fixtureLabel(fixture);
-  const position =
-    standings(c, world, club.league).findIndex((row) => row.clubId === c.clubId) + 1;
-  const targetPosition = 6;
-  const target = club.league === 'A' ? 'Classificar para a Libertadores (G6)' : 'Disputar o acesso';
+  const position = standings(c, world, club.league).findIndex((row) => row.clubId === c.clubId) + 1;
+  const players = squad(c, world);
+  const average = Math.round(
+    players.reduce(
+      (total, player) => total + overall(player, player.position, c.players[player.id]),
+      0,
+    ) / Math.max(1, players.length),
+  );
+  const unread = c.messages.filter((message) => !message.read);
   const pending = c.messages.filter((message) => message.important && !message.resolved);
   const isMatchDay = Boolean(fixture && fixture.date <= c.date);
   const mode = c.prefs?.advance || 'day';
@@ -79,6 +95,7 @@ export function CareerCentral({
           </button>
         </div>
       </div>
+      <CareerCalendar career={c} world={world} />
       <div className="central-grid">
         <button
           className="tile tile-primary fixture-tile"
@@ -170,37 +187,53 @@ export function CareerCentral({
                   ? 'Nova temporada'
                   : 'Continuar'}
           </span>
-          <ControllerButtonHint action="menu" label="Mudar modo de avanço" />
+          <ControllerButtonHint action="secondary" label="Avançar / iniciar jogo" />
         </button>
-        <section className="tile tile-raised central-missions">
-          <span className="tile-label">MISSÕES DA TEMPORADA</span>
-          <article className="central-mission">
-            <span className="eyebrow">OBJETIVO DO CLUBE</span>
-            <strong>{target}</strong>
-            <p>
-              {position > 0
-                ? `Posição atual: ${position}º${position <= targetPosition ? ' · objetivo em alcance' : ' · aproxime-se da zona de classificação'}`
-                : 'A temporada ainda não começou.'}
-            </p>
-            <button onClick={() => onTab(TAB.OFFICE)}>
-              Acompanhar objetivo <ArrowRight size={15} />
-            </button>
-          </article>
-          <article className="central-mission">
-            <span className="eyebrow">DECISÕES IMPORTANTES</span>
+        <button className="tile tile-raised manager-tile" onClick={() => onTab(TAB.OFFICE)}>
+          <span className="tile-label">MANAGER · {club.short}</span>
+          <ManagerPortrait manager={c.manager} />
+          <span className="manager-title">
             <strong>
-              {pending.length
-                ? `${pending.length} decisão${pending.length === 1 ? '' : 'ões'} pendente${pending.length === 1 ? '' : 's'}`
-                : 'Nenhuma decisão pendente'}
+              {c.manager.firstName}
+              <br />
+              {c.manager.lastName}
             </strong>
-            <p>
-              {pending[0]?.title || 'Novas mensagens e conversas com atletas aparecem em Notificações.'}
-            </p>
-            <button onClick={() => onTab(TAB.NOTIFICATIONS)}>
-              Abrir notificações <ArrowRight size={15} />
+            <em>
+              {position}º NA SÉRIE {club.league} · TEMPORADA {c.season}
+            </em>
+          </span>
+        </button>
+        <section className="tile tile-glass inbox-preview">
+          <span className="tile-label">
+            <MessageSquare size={15} /> CAIXA POSTAL · {unread.length} NÃO LIDAS
+          </span>
+          {c.messages.slice(0, 3).map((message) => (
+            <button
+              key={message.id}
+              className={!message.read ? 'unread' : ''}
+              onClick={() => onTab(TAB.NOTIFICATIONS)}
+            >
+              <small>{message.from}</small>
+              <strong>{message.title}</strong>
+              <ArrowRight size={14} />
             </button>
-          </article>
+          ))}
         </section>
+        <button className="tile tile-raised squad-tile" onClick={() => onTab(TAB.SQUAD)}>
+          <span className="tile-label">
+            <Users size={16} /> SEU ELENCO
+          </span>
+          <strong className="squad-tile-overall">
+            {average}
+            <small>OVR MÉDIO</small>
+          </strong>
+          <span>
+            {players.length} atletas · {c.tactic.formation}
+          </span>
+          <span className="tile-cta">
+            GERENCIAR TIME <ArrowRight size={15} />
+          </span>
+        </button>
       </div>
     </div>
   );

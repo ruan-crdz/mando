@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState, useSyncExternalStore } from 'react';
 import {
   BriefcaseBusiness,
   CalendarDays,
@@ -8,6 +8,7 @@ import {
   Landmark,
   MapPinned,
   MessageSquare,
+  Volume2,
   Radar,
   Settings2,
   Target,
@@ -18,13 +19,14 @@ import {
   UserPlus,
   Users,
 } from 'lucide-react';
-import {
-  type Career,
-  type Message,
-  type World,
-} from '../game/types';
+import { type Career, type Message, type Manager, type World } from '../game/types';
 import { squad } from '../game/matches';
-import { blocks, standings } from '../game/engine';
+import { standings } from '../game/engine';
+import { Season, type SeasonView } from './Season';
+import { AcademyPanel } from '../components/AcademyPanel';
+import { ManagerEditor } from '../components/ManagerEditor';
+import { ControllerButtonHint } from '../controller/ControllerButtonHint';
+import { audioState, mailboxChime, readMailbox, stopReading, subscribeAudio } from '../audio/sound';
 import { competitionName } from '../game/calendar';
 import { ageAt } from '../game/random';
 import { overall } from '../game/ratings';
@@ -46,8 +48,11 @@ export function Office({
   area = 'office',
   career: c,
   world,
-  onConversation,
-  onOpenSeason,
+  initialSeasonView,
+  onChange,
+  onManager,
+  onError,
+  onPromote,
   onMessage,
   onRead,
   onAvatar,
@@ -65,8 +70,11 @@ export function Office({
   area?: 'office' | 'notifications' | 'academy';
   career: Career;
   world: World;
-  onConversation: (id: string, choice: 'praise' | 'challenge' | 'promise') => void;
-  onOpenSeason?: (view: 'table' | 'calendar' | 'stats' | 'legacy') => void;
+  initialSeasonView?: SeasonView;
+  onChange: (career: Career) => void;
+  onManager: (manager: Manager) => void;
+  onError: (message: string) => void;
+  onPromote: (id: string) => void;
   onMessage: (id: string, choice: 'support' | 'firm') => void;
   onRead: (id: string) => void;
   onAvatar: (photo?: string) => void;
@@ -91,10 +99,14 @@ export function Office({
     | 'scouts'
     | 'roster'
     | 'development'
-    | 'tournament';
+    | 'tournament'
+    | 'jobs'
+    | SeasonView;
   const [view, setView] = useState<View>(
-    area === 'academy' ? 'scouts' : area === 'office' ? 'board' : 'inbox',
+    area === 'academy' ? 'scouts' : area === 'office' ? (initialSeasonView ?? 'board') : 'inbox',
   );
+  const audio = useSyncExternalStore(subscribeAudio, audioState);
+  useEffect(() => () => stopReading(), []);
   const [conversationPlayerId, setConversationPlayerId] = useState<string | null>(null);
   const [selectedId, setSelected] = useState(
     c.messages.find((m) => m.important && !m.resolved)?.id || c.messages[0]?.id,
@@ -129,18 +141,19 @@ export function Office({
     );
   };
   const players = squad(c, world);
-  const conversationPlayers = players;
+  const conversationPlayers = players.filter((player) =>
+    c.messages.some((message) => message.kind === 'player' && message.playerId === player.id),
+  );
   const conversationPlayer =
     conversationPlayers.find((player) => player.id === conversationPlayerId) ||
     conversationPlayers[0];
   const conversationMessages = c.messages.filter(
-    (message) => message.playerId === conversationPlayer?.id,
+    (message) => message.kind === 'player' && message.playerId === conversationPlayer?.id,
   );
   const conversationMemories = c.memories.filter(
     (memory) => memory.playerId === conversationPlayer?.id,
   );
-  const blockedConversation = conversationMessages.some((message) => blocks(c, message));
-  const hasBlockingMessage = c.messages.some((message) => blocks(c, message));
+  const awaitingMessage = conversationMessages.find((message) => !message.resolved);
   const conversationEntries = [
     ...conversationMessages.map((message) => ({
       id: message.id,
@@ -377,10 +390,7 @@ export function Office({
               {candidate.uncertainty}
             </p>
             <div className="button-row">
-              <button
-                className="primary"
-                onClick={() => onReviewAcademy(candidate.id, 'promote')}
-              >
+              <button className="primary" onClick={() => onReviewAcademy(candidate.id, 'promote')}>
                 <UserPlus size={15} /> Integrar ao profissional
               </button>
               <button onClick={() => setReleasing(candidate.id)}>
@@ -504,79 +514,97 @@ export function Office({
           </span>
         )}
       </SectionTitle>
-      <div
-        className="segmented"
-        role="group"
-        aria-label={
-          area === 'notifications'
-            ? 'Subáreas de Notificações'
-            : area === 'academy'
-              ? 'Subáreas da Academia'
-              : 'Áreas do Escritório'
-        }
-      >
-        {(area === 'notifications'
-          ? ([
-              ['inbox', 'Caixa de entrada', MessageSquare],
-              ['conversations', 'Conversas com atletas', Users],
-            ] as const)
-          : area === 'academy'
+      {area !== 'office' && (
+        <div
+          className="segmented"
+          role="group"
+          aria-label={
+            area === 'notifications'
+              ? 'Subáreas de Notificações'
+              : area === 'academy'
+                ? 'Subáreas da Academia'
+                : 'Áreas do Escritório'
+          }
+        >
+          {(area === 'notifications'
             ? ([
-              ['scouts', 'Olheiros', MapPinned],
-              ['roster', 'Elenco jovem', Users],
-              ['development', 'Desenvolvimento', TrendingUp],
-              ['tournament', 'Torneio de base', Trophy],
-            ] as const)
-          : ([
-              ['finances', 'Orçamento', TrendingUp],
-              ['board', 'Objetivos e mercado', Landmark],
-              ['staff', 'Carreira e perfil', Users],
-            ] as const)
-        ).map(([id, label, Icon]) => (
-          <button
-            key={id}
-            className={view === id ? 'active' : ''}
-            onClick={() => {
-              setView(id);
-            }}
-            aria-pressed={view === id}
-          >
-            <Icon size={16} />
-            {label}
-          </button>
-        ))}
-      </div>
+                ['inbox', 'Caixa de entrada', MessageSquare],
+                ['conversations', 'Conversas com atletas', Users],
+              ] as const)
+            : area === 'academy'
+              ? ([
+                  ['scouts', 'Olheiros', MapPinned],
+                  ['roster', 'Elenco jovem', Users],
+                  ['development', 'Desenvolvimento', TrendingUp],
+                  ['tournament', 'Torneio de base', Trophy],
+                ] as const)
+              : ([
+                  ['finances', 'Orçamento', TrendingUp],
+                  ['board', 'Objetivos e mercado', Landmark],
+                  ['staff', 'Carreira e perfil', Users],
+                ] as const)
+          ).map(([id, label, Icon]) => (
+            <button
+              key={id}
+              className={view === id ? 'active' : ''}
+              onClick={() => {
+                setView(id);
+              }}
+              aria-pressed={view === id}
+            >
+              <Icon size={16} />
+              {label}
+            </button>
+          ))}
+        </div>
+      )}
       {area === 'office' && (
-        <nav className="office-route-links" aria-label="Atalhos do Escritório">
-          <button onClick={() => setView('board')}>
-            <Target size={15} /> Objetivos e mercado
-          </button>
-          <button onClick={() => onOpenSeason?.('table')}>
-            <Trophy size={15} /> Classificação
-          </button>
-          <button onClick={() => onOpenSeason?.('calendar')}>
-            <CalendarDays size={15} /> Calendário
-          </button>
-          <button onClick={() => setView('finances')}>
-            <TrendingUp size={15} /> Orçamento
-          </button>
-          <button onClick={() => setView('board')}>
-            <BriefcaseBusiness size={15} /> Mercado de trabalho
-          </button>
-          <button onClick={() => onOpenSeason?.('legacy')}>
-            <BriefcaseBusiness size={15} /> Histórico de carreira
-          </button>
-          <button onClick={() => onOpenSeason?.('stats')}>
-            <Users size={15} /> Estatísticas dos atletas
-          </button>
-          <button onClick={() => setView('staff')}>
-            <Camera size={15} /> Personalização
-          </button>
+        <nav className="segmented office-route-links" aria-label="Atalhos do Escritório">
+          {(
+            [
+              ['board', 'Objetivos e mercado', Target],
+              ['table', 'Classificação', Trophy],
+              ['calendar', 'Calendário', CalendarDays],
+              ['finances', 'Orçamento', TrendingUp],
+              ['jobs', 'Mercado de trabalho', BriefcaseBusiness],
+              ['legacy', 'Histórico de carreira', BriefcaseBusiness],
+              ['stats', 'Estatísticas dos atletas', Users],
+              ['staff', 'Personalização', Camera],
+            ] as const
+          ).map(([id, label, Icon]) => (
+            <button
+              key={id}
+              className={view === id ? 'active' : ''}
+              aria-pressed={view === id}
+              onClick={() => setView(id)}
+            >
+              <Icon size={15} /> {label}
+            </button>
+          ))}
         </nav>
       )}
+      {area === 'office' &&
+        (view === 'table' || view === 'calendar' || view === 'stats' || view === 'legacy') && (
+          <Season key={view} career={c} world={world} initialView={view} embedded />
+        )}
       {area === 'notifications' && view === 'inbox' && (
         <div className="office-inbox">
           <section className="panel message-list">
+            <button
+              className="mailbox-play"
+              data-controller-info
+              onClick={() => {
+                if (audio.speaking) stopReading();
+                else
+                  readMailbox(c.messages, (id) => {
+                    setSelected(id);
+                    onRead(id);
+                  });
+              }}
+            >
+              <Volume2 size={18} /> {audio.speaking ? 'Parar leitura' : 'Ouvir caixa postal'}
+              <ControllerButtonHint action="info" label="Caixa postal" />
+            </button>
             {c.messages.map((msg) => (
               <button
                 key={msg.id}
@@ -584,6 +612,7 @@ export function Office({
                 onClick={() => {
                   setSelected(msg.id);
                   onRead(msg.id);
+                  mailboxChime();
                 }}
               >
                 <span
@@ -627,7 +656,7 @@ export function Office({
                     </button>
                   </div>
                 )}
-                {m.important && !m.resolved ? (
+                {(m.important || m.kind === 'player') && !m.resolved ? (
                   <div className="response-area">
                     <p className="eyebrow">SUA DECISÃO</p>
                     {m.kind === 'player' ? (
@@ -747,230 +776,225 @@ export function Office({
                     </p>
                   )}
                 </div>
-                <section className="player-chat-actions" aria-label="Registrar uma conversa">
-                  <p className="eyebrow">ESCOLHA COMO ABORDAR O ATLETA</p>
-                  <p className="muted small">
-                    As opções usam as mesmas respostas e efeitos já disponíveis em Time. Nenhuma
-                    fala nova é criada.
-                  </p>
-                  {hasBlockingMessage && (
-                    <p className="status-pill attention" role="status">
-                      Responda primeiro às decisões pendentes na Caixa de entrada.
-                    </p>
-                  )}
-                  {blockedConversation && (
+                {awaitingMessage ? (
+                  <section className="player-chat-actions" aria-label="Responder ao atleta">
+                    <p className="eyebrow">RESPOSTA A {awaitingMessage.title.toUpperCase()}</p>
                     <p className="muted small">
-                      Há uma decisão deste atleta aguardando resposta. Abra a mensagem na Caixa de
-                      entrada.
+                      O atleta iniciou esta conversa. Cada mensagem admite uma única resposta.
                     </p>
-                  )}
-                  <div className="button-row">
-                    <button
-                      className="primary"
-                      disabled={hasBlockingMessage || blockedConversation}
-                      onClick={() => onConversation(conversationPlayer.id, 'praise')}
-                    >
-                      Elogiar esforço
-                    </button>
-                    <button
-                      disabled={hasBlockingMessage || blockedConversation}
-                      onClick={() => onConversation(conversationPlayer.id, 'challenge')}
-                    >
-                      Cobrar dedicação
-                    </button>
-                    <button
-                      disabled={hasBlockingMessage || blockedConversation}
-                      onClick={() => onConversation(conversationPlayer.id, 'promise')}
-                    >
-                      Prometer mais minutos
-                    </button>
-                  </div>
-                </section>
+                    <div className="button-row">
+                      <button
+                        className="primary"
+                        data-controller-secondary
+                        onClick={() => onMessage(awaitingMessage.id, 'support')}
+                      >
+                        Responder com apoio{' '}
+                        <ControllerButtonHint action="secondary" label="Responder" />
+                      </button>
+                      <button onClick={() => onMessage(awaitingMessage.id, 'firm')}>
+                        Responder com firmeza
+                      </button>
+                    </div>
+                  </section>
+                ) : (
+                  <p className="muted small">
+                    Resposta registrada. Aguarde um novo contato do atleta.
+                  </p>
+                )}
               </>
             ) : (
-              <p className="empty-state">Nenhum atleta disponível para conversa.</p>
+              <p className="empty-state">
+                Nenhum atleta iniciou uma conversa. Os contatos surgem por situações reais da
+                carreira.
+              </p>
             )}
           </article>
         </div>
       )}
       {area === 'office' && view === 'finances' && (
         <div className="finance-layout">
-              <div className="metrics-strip">
-                <Metric label="CAIXA ATUAL" value={money(finance.cash)} />
-                <Metric label="TRANSFERÊNCIAS" value={money(finance.transferBudget)} />
-                <Metric label="FOLHA MENSAL" value={money(wages)} />
-                <Metric label="DÍVIDA" value={money(finance.debt)} />
+          <div className="metrics-strip">
+            <Metric label="CAIXA ATUAL" value={money(finance.cash)} />
+            <Metric label="TRANSFERÊNCIAS" value={money(finance.transferBudget)} />
+            <Metric label="FOLHA MENSAL" value={money(wages)} />
+            <Metric label="DÍVIDA" value={money(finance.debt)} />
+          </div>
+          <div className="finance-charts">
+            <section className="panel">
+              <p className="eyebrow">DISTRIBUIÇÃO MENSAL PREVISTA</p>
+              <h2>Para onde vai o dinheiro</h2>
+              <div className="donut-container">
+                <div
+                  role="img"
+                  aria-label={`Salários ${Math.round(wageShare)}%, operação ${Math.round(opShare)}%, juros ${Math.round(100 - wageShare - opShare)}%`}
+                  className="donut"
+                  style={{
+                    background: `conic-gradient(#36d6e7 0 ${wageShare}%, #8c6cff ${wageShare}% ${wageShare + opShare}%, #334258 ${wageShare + opShare}% 100%)`,
+                  }}
+                >
+                  <span>
+                    {money(expenses)}
+                    <small>POR MÊS</small>
+                  </span>
+                </div>
+                <ul className="chart-legend">
+                  <li>
+                    Salários <strong>{Math.round(wageShare)}%</strong>
+                  </li>
+                  <li>
+                    Operação <strong>{Math.round(opShare)}%</strong>
+                  </li>
+                  <li>
+                    Juros <strong>{Math.round(100 - wageShare - opShare)}%</strong>
+                  </li>
+                </ul>
               </div>
-              <div className="finance-charts">
-                <section className="panel">
-                  <p className="eyebrow">DISTRIBUIÇÃO MENSAL PREVISTA</p>
-                  <h2>Para onde vai o dinheiro</h2>
-                  <div className="donut-container">
-                    <div
-                      role="img"
-                      aria-label={`Salários ${Math.round(wageShare)}%, operação ${Math.round(opShare)}%, juros ${Math.round(100 - wageShare - opShare)}%`}
-                      className="donut"
-                      style={{
-                        background: `conic-gradient(#36d6e7 0 ${wageShare}%, #8c6cff ${wageShare}% ${wageShare + opShare}%, #334258 ${wageShare + opShare}% 100%)`,
-                      }}
-                    >
-                      <span>
-                        {money(expenses)}
-                        <small>POR MÊS</small>
-                      </span>
-                    </div>
-                    <ul className="chart-legend">
-                      <li>
-                        Salários <strong>{Math.round(wageShare)}%</strong>
-                      </li>
-                      <li>
-                        Operação <strong>{Math.round(opShare)}%</strong>
-                      </li>
-                      <li>
-                        Juros <strong>{Math.round(100 - wageShare - opShare)}%</strong>
-                      </li>
-                    </ul>
-                  </div>
-                </section>
-                <section className="panel">
-                  <p className="eyebrow">EVOLUÇÃO DO CAIXA</p>
-                  <h2>O equilíbrio do projeto</h2>
-                  {history.length > 1 ? (
-                    <svg
-                      className="line-chart"
-                      viewBox="0 0 560 170"
-                      role="img"
-                      aria-label={`Caixa de ${money(balances[0])} para ${money(balances.at(-1)!)}`}
-                    >
-                      <path
-                        d="M0 150H560M0 85H560M0 20H560"
-                        stroke="rgba(255,255,255,.18)"
-                        fill="none"
-                      />
-                      <polyline points={path} fill="none" stroke="#c6ff00" strokeWidth="3" />
-                    </svg>
-                  ) : (
-                    <p className="empty-state">
-                      O gráfico aparece após os primeiros lançamentos financeiros.
-                    </p>
-                  )}
-                  <div className="cash-flow">
-                    <span>
-                      Receitas <b>{money(income)}</b>
-                    </span>
-                    <div>
-                      <i style={{ width: `${(income / Math.max(1, income, outgo)) * 100}%` }} />
-                    </div>
-                    <span>
-                      Despesas <b>{money(outgo)}</b>
-                    </span>
-                    <div>
-                      <i
-                        className="expense"
-                        style={{ width: `${(outgo / Math.max(1, income, outgo)) * 100}%` }}
-                      />
-                    </div>
-                  </div>
-                </section>
+            </section>
+            <section className="panel">
+              <p className="eyebrow">EVOLUÇÃO DO CAIXA</p>
+              <h2>O equilíbrio do projeto</h2>
+              {history.length > 1 ? (
+                <svg
+                  className="line-chart"
+                  viewBox="0 0 560 170"
+                  role="img"
+                  aria-label={`Caixa de ${money(balances[0])} para ${money(balances.at(-1)!)}`}
+                >
+                  <path
+                    d="M0 150H560M0 85H560M0 20H560"
+                    stroke="rgba(255,255,255,.18)"
+                    fill="none"
+                  />
+                  <polyline points={path} fill="none" stroke="#c6ff00" strokeWidth="3" />
+                </svg>
+              ) : (
+                <p className="empty-state">
+                  O gráfico aparece após os primeiros lançamentos financeiros.
+                </p>
+              )}
+              <div className="cash-flow">
+                <span>
+                  Receitas <b>{money(income)}</b>
+                </span>
+                <div>
+                  <i style={{ width: `${(income / Math.max(1, income, outgo)) * 100}%` }} />
+                </div>
+                <span>
+                  Despesas <b>{money(outgo)}</b>
+                </span>
+                <div>
+                  <i
+                    className="expense"
+                    style={{ width: `${(outgo / Math.max(1, income, outgo)) * 100}%` }}
+                  />
+                </div>
               </div>
-              <section className="panel ledger">
-                <h2>Últimos lançamentos</h2>
-                {history
-                  .slice(-15)
-                  .reverse()
-                  .map((h, i) => (
-                    <div key={i}>
-                      <span>{dateLabel(h.date)}</span>
-                      <span>+ {money(h.income)}</span>
-                      <span>− {money(h.expenses)}</span>
-                      <strong>{money(h.balance)}</strong>
-                    </div>
-                  ))}
-                {!history.length && (
-                  <p className="muted">
-                    Nenhum lançamento. As finanças são processadas mensalmente e em partidas,
-                    contratos e transferências.
-                  </p>
-                )}
-              </section>
-        </div>
-      )}
-      {area === 'office' && view === 'board' && (
-        <div className="board-layout">
-          <section className="panel manager-market">
-            <p className="eyebrow">CARREIRA / MERCADO DE MANAGERS</p>
-            <h2>
-              <Landmark size={23} /> Propostas de trabalho
-            </h2>
-            {!c.jobOffers.length && (
+            </section>
+          </div>
+          <section className="panel ledger">
+            <h2>Últimos lançamentos</h2>
+            {history
+              .slice(-15)
+              .reverse()
+              .map((h, i) => (
+                <div key={i}>
+                  <span>{dateLabel(h.date)}</span>
+                  <span>+ {money(h.income)}</span>
+                  <span>− {money(h.expenses)}</span>
+                  <strong>{money(h.balance)}</strong>
+                </div>
+              ))}
+            {!history.length && (
               <p className="muted">
-                Não há propostas abertas no momento. O mercado é atualizado durante a temporada.
+                Nenhum lançamento. As finanças são processadas mensalmente e em partidas, contratos
+                e transferências.
               </p>
             )}
-            {c.jobOffers.map((offer) => {
-              const target = world.clubs.find((item) => item.id === offer.clubId);
-              return (
-                <article className="panel" key={offer.id}>
-                  <h3>{target?.name}</h3>
-                  <p>
-                    {target ? `Série ${target.league} · reputação ${target.reputation} · ` : ''}
-                    Proposta válida até {dateLabel(offer.expires)} · {money(offer.salary)}/mês
-                  </p>
-                  <div className="button-row">
-                    <button className="primary" onClick={() => onAcceptJob(offer.id)}>
-                      Aceitar desafio
-                    </button>
-                    <button onClick={() => onDeclineJob(offer.id)}>Recusar</button>
-                  </div>
-                </article>
-              );
-            })}
           </section>
-          <section className="panel objectives">
-            <p className="eyebrow">O QUE ESPERAM DE VOCÊ</p>
-            <h2>
-              <Target size={23} /> Objetivos de {c.season}
-            </h2>
-            <div>
-              <h3 className="objective-line">
-                <span>Brasileirão Série {club.league}</span>
-                <i> — </i>
-                <strong>{club.league === 'A' ? 'Terminar no G6' : 'Disputar o acesso (G6)'}</strong>
-              </h3>
-              <p>
-                Atual: {rank}º colocado · {points} pontos
-              </p>
-              <meter min={0} max={20} value={21 - rank} />
-            </div>
-            <div>
-              <h3 className="objective-line">
-                <span>Saúde financeira</span>
-                <i> — </i>
-                <strong>Manter o caixa positivo</strong>
-              </h3>
-              <p>{money(finance.cash)} em caixa</p>
-            </div>
-            <div>
-              <h3 className="objective-line">
-                <span>Desafio da carreira</span>
-                <i> — </i>
-                <strong>{c.challenge}</strong>
-              </h3>
-              {c.challenge === 'Venda necessária' && (
-                <p>{money(c.sales)} de R$ 10 milhões em vendas</p>
+        </div>
+      )}
+      {area === 'office' && (view === 'board' || view === 'jobs') && (
+        <div className="board-layout">
+          {view === 'jobs' && (
+            <section className="panel manager-market">
+              <p className="eyebrow">CARREIRA / MERCADO DE MANAGERS</p>
+              <h2>
+                <Landmark size={23} /> Propostas de trabalho
+              </h2>
+              {!c.jobOffers.length && (
+                <p className="muted">
+                  Não há propostas abertas no momento. O mercado é atualizado durante a temporada.
+                </p>
               )}
-            </div>
-            {cups.map(({ cup, status, stage }) => (
-              <div key={cup}>
+              {c.jobOffers.map((offer) => {
+                const target = world.clubs.find((item) => item.id === offer.clubId);
+                return (
+                  <article className="panel" key={offer.id}>
+                    <h3>{target?.name}</h3>
+                    <p>
+                      {target ? `Série ${target.league} · reputação ${target.reputation} · ` : ''}
+                      Proposta válida até {dateLabel(offer.expires)} · {money(offer.salary)}/mês
+                    </p>
+                    <div className="button-row">
+                      <button className="primary" onClick={() => onAcceptJob(offer.id)}>
+                        Aceitar desafio
+                      </button>
+                      <button onClick={() => onDeclineJob(offer.id)}>Recusar</button>
+                    </div>
+                  </article>
+                );
+              })}
+            </section>
+          )}
+          {view === 'board' && (
+            <section className="panel objectives">
+              <p className="eyebrow">O QUE ESPERAM DE VOCÊ</p>
+              <h2>
+                <Target size={23} /> Objetivos de {c.season}
+              </h2>
+              <div>
                 <h3 className="objective-line">
-                  <span>{competitionName(cup)}</span>
+                  <span>Brasileirão Série {club.league}</span>
                   <i> — </i>
-                  <strong>{status}</strong>
+                  <strong>
+                    {club.league === 'A' ? 'Terminar no G6' : 'Disputar o acesso (G6)'}
+                  </strong>
                 </h3>
-                <p>Última fase disputada: {stage}</p>
+                <p>
+                  Atual: {rank}º colocado · {points} pontos
+                </p>
+                <meter min={0} max={20} value={21 - rank} />
               </div>
-            ))}
-          </section>
+              <div>
+                <h3 className="objective-line">
+                  <span>Saúde financeira</span>
+                  <i> — </i>
+                  <strong>Manter o caixa positivo</strong>
+                </h3>
+                <p>{money(finance.cash)} em caixa</p>
+              </div>
+              <div>
+                <h3 className="objective-line">
+                  <span>Desafio da carreira</span>
+                  <i> — </i>
+                  <strong>{c.challenge}</strong>
+                </h3>
+                {c.challenge === 'Venda necessária' && (
+                  <p>{money(c.sales)} de R$ 10 milhões em vendas</p>
+                )}
+              </div>
+              {cups.map(({ cup, status, stage }) => (
+                <div key={cup}>
+                  <h3 className="objective-line">
+                    <span>{competitionName(cup)}</span>
+                    <i> — </i>
+                    <strong>{status}</strong>
+                  </h3>
+                  <p>Última fase disputada: {stage}</p>
+                </div>
+              ))}
+            </section>
+          )}
         </div>
       )}
       {area === 'office' && view === 'staff' && (
@@ -986,6 +1010,7 @@ export function Office({
                 {c.manager.nationality} · {c.manager.age} anos · {c.difficulty}
               </p>
               <p>{c.manager.appearance}</p>
+              <ManagerEditor manager={c.manager} referenceDate={c.date} onSave={onManager} />
               <button
                 className="primary"
                 disabled={!aiAvailable || busy}
@@ -1009,60 +1034,17 @@ export function Office({
         </div>
       )}
       {area === 'academy' && view === 'scouts' && scoutingPanel}
-      {area === 'academy' && view === 'roster' && (
-        <section className="panel academy-youth-roster">
-          <h2>
-            <Users size={20} /> Elenco jovem
-          </h2>
-          {c.youth.length ? (
-            <div className="academy-player-grid">
-              {c.youth.map((player) => (
-                <article key={player.id}>
-                  <span>
-                    {player.position} · {ageAt(player.birthDate, c.date)} anos
-                  </span>
-                  <strong>{player.name}</strong>
-                  <p>
-                    OVR {overall(player)} · potencial {player.potential} · {player.nationality}
-                  </p>
-                </article>
-              ))}
-            </div>
-          ) : (
-            <p className="empty-state">
-              A base ainda não tem atletas. Jovens promovidos por olheiros aparecem aqui.
-            </p>
-          )}
-        </section>
-      )}
-      {area === 'academy' && view === 'development' && (
-        <section className="panel academy-development">
-          <h2>
-            <TrendingUp size={20} /> Desenvolvimento da base
-          </h2>
-          <p>
-            {c.youth.length} atletas registrados na base. O desenvolvimento específico de jogadores
-            da base ainda não tem planos individuais ou torneios no motor atual.
-          </p>
-          <p className="muted">
-            Planos de desenvolvimento disponíveis hoje aplicam-se ao elenco profissional em Time.
-            Nenhum efeito de treino de base é aplicado por esta tela.
-          </p>
-          <button onClick={() => setView('roster')}>Ver elenco jovem</button>
-        </section>
-      )}
-      {area === 'academy' && view === 'tournament' && (
-        <section className="panel academy-tournament">
-          <span className="status-pill">FUNCIONALIDADE FUTURA</span>
-          <h2>
-            <Trophy size={20} /> Torneio de base
-          </h2>
-          <p>
-            O motor atual não agenda nem simula torneios de base. Não há calendário, tabela ou
-            resultados para exibir; esta área não altera a carreira.
-          </p>
-        </section>
-      )}
+      {area === 'academy' &&
+        (view === 'roster' || view === 'development' || view === 'tournament') && (
+          <AcademyPanel
+            career={c}
+            world={world}
+            view={view}
+            onChange={onChange}
+            onPromote={onPromote}
+            onError={onError}
+          />
+        )}
     </div>
   );
 }

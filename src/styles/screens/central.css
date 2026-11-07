@@ -20,11 +20,11 @@
   flex: 1;
   min-height: 0;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, 0.75fr);
   grid-template-rows: minmax(0, 1.15fr) minmax(0, 0.85fr);
   grid-template-areas:
-    'fix adv'
-    'missions missions';
+    'fix fix adv'
+    'manager inbox squad';
   gap: 14px;
   padding: 6px;
 }
@@ -33,6 +33,69 @@
 }
 .advance-tile {
   grid-area: adv;
+}
+.manager-tile {
+  grid-area: manager;
+  position: relative;
+  overflow: hidden;
+}
+.manager-tile .manager-portrait {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  height: 95%;
+  width: 45%;
+  object-fit: contain;
+}
+.manager-title {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  gap: 12px;
+  margin: auto 0;
+  max-width: 65%;
+}
+.manager-title strong {
+  font: italic 800 clamp(24px, 3vw, 42px)/0.95 var(--display);
+  text-transform: uppercase;
+}
+.manager-title em {
+  font-size: 11px;
+}
+.inbox-preview {
+  grid-area: inbox;
+  gap: 7px;
+}
+.inbox-preview button {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 3px;
+  text-align: left;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--mando-border);
+}
+.inbox-preview button small {
+  grid-column: 1/-1;
+  font-size: 10px;
+  opacity: 0.65;
+}
+.inbox-preview button strong {
+  font-size: 12px;
+}
+.inbox-preview button.unread strong {
+  color: var(--mando-cyan);
+}
+.squad-tile {
+  grid-area: squad;
+}
+.squad-tile-overall {
+  font: 800 56px/1 var(--display);
+  display: grid;
+  margin: auto 0;
+}
+.squad-tile-overall small {
+  font-size: 12px;
+  letter-spacing: 2px;
 }
 .central-missions {
   grid-area: missions;

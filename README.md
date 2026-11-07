@@ -10,16 +10,21 @@ partir de 01/01/2026. A interface cobre menu e criação do manager, Central,
 Escritório, notificações, Time, Transferências, Academia, Temporada e partidas.
 Não exige conta para experimentar.
 
-| Área | Conteúdo |
-|---|---|
-| Carreira | Manager, escolha de clube e dificuldade, calendário e save local |
-| Mundo 2026 | 40 clubes das Séries A/B, **1.758 atletas** (data/) e escudos locais |
-| Competições | Brasileirões A/B, estaduais, Supercopa, Copa do Brasil, Libertadores e Sul-Americana |
-| Time | Escalação, tática, responsabilidades, jogadores, comissão e academia |
-| Transferências | Mercado de atletas, observados e negociações |
-| Escritório e temporada | Mensagens, calendário, classificação, estatísticas e histórico |
-| Partidas | Simulação determinística, controles de ritmo, substituições e ajustes táticos |
-| Plataforma e saves | Controle, teclado/mouse, PWA, save local, exportação/importação e sincronização opcional |
+O fluxo principal é pensado para controle Xbox/DualSense. Veja o
+[recap completo, controles e provas da engine](docs/recap-carreira.md) e as
+[documentações por tela](docs/telas/README.md).
+
+| Área                   | Conteúdo                                                                                 |
+| ---------------------- | ---------------------------------------------------------------------------------------- |
+| Carreira               | Manager, escolha de clube e dificuldade, calendário e save local                         |
+| Mundo 2026             | 40 clubes das Séries A/B, **1.758 atletas** (data/) e escudos locais                     |
+| Competições            | Brasileirões A/B, estaduais, Supercopa, Copa do Brasil, Libertadores e Sul-Americana     |
+| Time                   | Escalação, tática, responsabilidades, jogadores, comissão e academia                     |
+| Transferências         | Mercado de atletas, observados e negociações                                             |
+| Escritório e temporada | Mensagens, calendário, classificação, estatísticas e histórico                           |
+| Partidas               | Simulação determinística, controles de ritmo, substituições e ajustes táticos            |
+| Áudio                  | Caixa postal falada, torcida sintetizada e dez instrumentais originais em fila           |
+| Plataforma e saves     | Controle, teclado/mouse, PWA, save local, exportação/importação e sincronização opcional |
 
 O foco desta versão é o fluxo de carreira de clube descrito acima. Recursos e
 telas fora desse fluxo não fazem parte do jogo.

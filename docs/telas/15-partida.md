@@ -60,4 +60,6 @@ O objeto da partida guarda seed, minuto, placar, estatísticas, eventos, escala�
 - `src/game/matches.ts` — partida, substituições e comandos à beira do campo.
 - `src/game/matchRatings.ts` — notas e Craque do jogo.
 - Preservar avanço reproduzível, regras de substituição, pausa nos controles e registro correto do resultado antes de voltar à Central.
-- Não reintroduzir telas ou mecânicas não previstas no escopo: áudio/voz, coletivas, VAR, clima/gramado ou diálogos aleatórios durante a partida.
+- X/□ inicia/pausa/retoma o jogo e confirma o resultado; Y/△ abre substituições.
+- Torcida sintetizada acompanha a partida e reage aos gols; música de menu é silenciada.
+- Não reintroduzir coletivas, VAR, clima/gramado ou diálogos aleatórios na partida.

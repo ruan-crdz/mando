@@ -23,19 +23,15 @@ import { manOfTheMatch, matchRatings, ratingTone } from '../game/matchRatings';
 import { fixtureLabel } from '../game/calendar';
 import { clubById, findPlayer } from '../game/npc';
 import { shirtNumbers } from '../game/numbers';
-import {
-  formations,
-  type Career,
-  type Formation,
-  type Player,
-  type World,
-} from '../game/types';
+import { formations, type Career, type Formation, type Player, type World } from '../game/types';
 import { Badge, Modal } from '../components/ui';
 import { ChipGroup, TacticSlider } from '../components/controls';
 import { LivePitch, type PitchTeam } from '../components/LivePitch';
 import { byPosition, PlayerCard, PlayerPicker, roleFits } from '../components/PlayerCard';
 import { PlayerFace } from '../components/PlayerFace';
 import { useGamepad } from '../controller/GamepadProvider';
+import { ControllerButtonHint } from '../controller/ControllerButtonHint';
+import { crowdGoal, setCrowdPlaying } from '../audio/sound';
 
 const fits = (p: Player, role: string) => (roleFits[role] || [role]).includes(p.position);
 const matchNumber = new Intl.NumberFormat('pt-BR', {
@@ -130,6 +126,10 @@ export function MatchScreen({
           ? 'AO VIVO'
           : 'PAUSADO';
   const isLive = playing && !sub && !tactic && !shout && !paused && match.minute < 90;
+  useEffect(() => {
+    setCrowdPlaying(isLive);
+    return () => setCrowdPlaying(false);
+  }, [isLive]);
   const timelineEvents = match.events.filter((event) =>
     ['goal', 'yellow', 'red', 'injury', 'sub', 'tactic'].includes(event.type),
   );
@@ -145,6 +145,7 @@ export function MatchScreen({
     const awayScored = match.awayGoals > before.away;
     if (homeScored) rumble(ownHome ? 'goal' : 'concede');
     if (awayScored) rumble(ownHome ? 'concede' : 'goal');
+    if (homeScored || awayScored) crowdGoal();
     if (match.minute !== before.minute && (match.minute === 45 || match.minute === 90)) {
       rumble('whistle');
     }
@@ -183,9 +184,7 @@ export function MatchScreen({
         <span>
           {label.name.toUpperCase()} · {label.stage.toUpperCase()}
         </span>
-        <span>
-          {home.stadium}
-        </span>
+        <span>{home.stadium}</span>
       </div>
       <section
         className="scoreboard"
@@ -239,10 +238,10 @@ export function MatchScreen({
                     : e.type === 'yellow' || e.type === 'red'
                       ? '▰'
                       : e.type === 'injury'
-                          ? '+'
-                          : e.type === 'sub'
-                            ? '↔'
-                            : '•'}
+                        ? '+'
+                        : e.type === 'sub'
+                          ? '↔'
+                          : '•'}
                 </span>
               ))}
             </div>
@@ -253,11 +252,15 @@ export function MatchScreen({
           <div className="match-controls">
             <button
               className="primary"
+              data-controller-secondary
               disabled={match.minute === 90}
               onClick={() => setPlaying(!playing)}
             >
               {playing ? <Pause size={17} /> : <Play size={17} />}
               {playing ? 'Pausar' : match.minute === 45 ? 'Segundo tempo' : 'Jogar'}
+              <span aria-hidden="true">
+                <ControllerButtonHint action="secondary" label="" />
+              </span>
             </button>
             {[1, 2, 4].map((s) => (
               <button
@@ -271,12 +274,16 @@ export function MatchScreen({
             ))}
             <button
               disabled={match.minute === 90}
+              data-controller-info
               onClick={() => {
                 setPlaying(false);
                 setSub(true);
               }}
             >
               <ArrowLeftRight size={16} /> Substituir
+              <span aria-hidden="true">
+                <ControllerButtonHint action="info" label="" />
+              </span>
             </button>
             <button
               disabled={match.minute === 90}
@@ -302,6 +309,7 @@ export function MatchScreen({
               ref={finishButton}
               className="primary finish-match"
               data-autofocus=""
+              data-controller-secondary
               onClick={onFinish}
             >
               <Check size={18} /> Confirmar resultado e voltar à central
@@ -409,10 +417,7 @@ export function MatchScreen({
                 .reverse()
                 .slice(0, 30)
                 .map((e, i) => (
-                  <div
-                    key={`${e.minute}-${i}`}
-                    className={e.type === 'goal' ? 'goal' : ''}
-                  >
+                  <div key={`${e.minute}-${i}`} className={e.type === 'goal' ? 'goal' : ''}>
                     <time>{e.minute}'</time>
                     <span>
                       {e.type === 'goal'

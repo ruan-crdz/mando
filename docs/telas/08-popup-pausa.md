@@ -22,13 +22,15 @@ O resumo apresenta escudo e nome do clube, data da carreira e manager. A lista d
 5. **Avanço do calendário** — disponível fora de partida; abre o modal de Preferências de avanço e mostra o modo selecionado.
 6. **Instalar Mando** — aparece somente quando o navegador oferece instalação PWA.
 7. **Salvar e sair para o menu** — salva e retorna ao menu.
+8. **Música: Ligada/Desligada** — preferência persistente das dez faixas originais.
+9. **Torcida: Ligada/Desligada** — preferência persistente da ambiência da partida.
 
 ## Apresentação e acessibilidade
 
 - Modal compartilhado com foco preso, retorno de foco e navegação por mouse, teclado e controle.
 - O botão Continuar recebe foco inicial. As demais ações aparecem em uma coluna rolável.
 - Mensagens de diagnóstico de vibração ficam junto ao controle testado; não são confundidas com o toast geral.
-- Não exibir opções de música, sons, voz, conquistas ou caixa postal.
+- Não introduzir conquistas. A leitura da caixa postal fica em Notificações.
 
 ## Arquivos-fonte
 

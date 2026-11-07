@@ -1,5 +1,12 @@
 import { addDays, ageAt, clamp, hash, random } from './random';
-import { bestLineup, reconcileSquad, simulateMatch, squad, validateLineup } from './matches';
+import {
+  available,
+  bestLineup,
+  reconcileSquad,
+  simulateMatch,
+  squad,
+  validateLineup,
+} from './matches';
 import { competitionName, createSchedule, fixtureLabel, nextFixture } from './calendar';
 import { endLoan, expireThread, processOffers } from './transfers';
 import { payroll, settleFee } from './market';
@@ -11,6 +18,7 @@ import { scoutReport } from './scouting';
 import { livingAfterMatch, livingDay, livingSeasonEnd } from './living';
 import { regionOf } from './context';
 import { remember } from './chronicle';
+import { assistantTrainingBonus } from './squadManagement';
 import {
   fitnessEffect,
   goalkeepingEffect,
@@ -19,16 +27,13 @@ import {
   staffPayroll,
   youthCoachEffect,
 } from './staff';
-import {
-  economyMonth,
-  trainingEffect,
-  youthBonus,
-} from './economy';
+import { economyMonth, trainingEffect, youthBonus } from './economy';
 import {
   createCups,
   cupsFinished,
   initialQualification,
   progressCups,
+  roundRobin,
   table,
   type Qualification,
 } from './competitions';
@@ -36,6 +41,7 @@ import {
   attributeKeys,
   careerSchema,
   livingSchema,
+  managerSchema,
   roleNames,
   type Attributes,
   type Career,
@@ -193,6 +199,18 @@ export function createCareer(
   c.lineup = bestLineup(c, world);
   if (c.lineup.length < 11) throw new Error('O elenco não tem onze atletas disponíveis.');
   for (const role of roleNames) c.roles[role] = c.lineup[role === 'Capitão' ? 2 : 10];
+  const captain = squad(c, world).sort(
+    (a, b) => ageAt(b.birthDate, c.date) - ageAt(a.birthDate, c.date) || overall(b) - overall(a),
+  )[0];
+  c.roles['Capitão'] = captain.id;
+  c.bench = squad(c, world)
+    .filter((player) => !c.lineup.includes(player.id))
+    .sort((a, b) => overall(b) - overall(a))
+    .slice(0, 9)
+    .map((player) => player.id);
+  c.benchConfigured = true;
+  ensureAcademy(c, world);
+  captainWelcome(c, world);
   message(c, {
     from: 'Imprensa esportiva',
     kind: 'news',
@@ -494,7 +512,10 @@ function trainPosition(c: Career, player: Player, s: PlayerState) {
   const before = familiarity(player, role, s);
   const after = Math.min(
     TRAIN_CAP,
-    before + (s.injuryDays ? 0.2 : trainingGain(ageAt(player.birthDate, c.date))),
+    before +
+      (s.injuryDays
+        ? 0.2
+        : trainingGain(ageAt(player.birthDate, c.date)) * (1 + assistantTrainingBonus(c, role))),
   );
   s.trained = { ...s.trained, [role]: Math.round(after * 10) / 10 };
   if (before < LEARNED && after >= LEARNED)
@@ -552,11 +573,15 @@ export function signProspect(career: Career, prospectId: string): Career {
   const index = c.prospects.findIndex((player) => player.id === prospectId);
   if (index < 0) throw new Error('Relatório de jovem talento não encontrado.');
   const [player] = c.prospects.splice(index, 1);
-  promoteYoungster(c, player);
+  player.clubId = c.clubId;
+  c.living.academyRoster.push(player);
+  c.players[player.id] = freshState(player);
   return careerSchema.parse(c);
 }
 
 function promoteYoungster(career: Career, player: Player) {
+  if (ageAt(player.birthDate, career.date) < 16)
+    throw new Error('Só é possível promover atletas a partir de 16 anos.');
   player.clubId = career.clubId;
   player.contractEnd = `${career.season + 3}-12-31`;
   player.wage = 5000;
@@ -587,34 +612,54 @@ export function playerConversation(
   playerId: string,
   choice: 'praise' | 'challenge' | 'promise',
 ): Career {
-  const c = structuredClone(career);
-  const player = c.players[playerId];
-  if (!player || player.clubId !== c.clubId)
+  const player = career.players[playerId];
+  if (!player || player.clubId !== career.clubId)
     throw new Error('O jogador não pertence ao seu elenco.');
-  const effect =
-    choice === 'praise'
-      ? player.personality === 'Temperamental'
-        ? 2
-        : 5
-      : choice === 'challenge'
-        ? player.personality === 'Ambicioso' || player.personality === 'Disciplinado'
-          ? 3
-          : -3
-        : 2;
-  player.morale = clamp(player.morale + effect);
-  player.relationship = clamp(player.relationship + (choice === 'challenge' ? 1 : 4));
-  if (choice === 'promise') player.promiseUntil = addDays(c.date, 30);
-  c.memories.push({
-    playerId,
-    date: c.date,
-    text:
-      choice === 'praise'
-        ? 'O manager reconheceu meu esforço e me deu confiança.'
-        : choice === 'challenge'
-          ? 'O manager cobrou mais de mim. Vou responder em campo.'
-          : 'O manager prometeu me dar mais minutos nos próximos 30 dias.',
-  });
+  const incoming = career.messages.find(
+    (item) => item.kind === 'player' && item.playerId === playerId && !item.resolved,
+  );
+  if (!incoming)
+    throw new Error('O atleta precisa iniciar a conversa. Não há mensagem aguardando resposta.');
+  const c = respondMessage(career, incoming.id, choice === 'challenge' ? 'firm' : 'support');
+  if (choice === 'promise') c.players[playerId].promiseUntil = addDays(c.date, 30);
   return c;
+}
+
+export function updateManager(career: Career, manager: Manager): Career {
+  const parsed = managerSchema.parse({
+    ...manager,
+    age: manager.birthDate ? ageAt(manager.birthDate, career.date) : manager.age,
+  });
+  return { ...career, manager: parsed };
+}
+
+export function promoteAcademyPlayer(career: Career, playerId: string): Career {
+  const c = structuredClone(career);
+  const player = c.living.academyRoster.find((item) => item.id === playerId);
+  if (!player || player.clubId !== c.clubId)
+    throw new Error('Atleta não encontrado na base deste clube.');
+  if (ageAt(player.birthDate, c.date) < 16)
+    throw new Error('Só é possível promover atletas a partir de 16 anos.');
+  c.living.academyRoster = c.living.academyRoster.filter((item) => item.id !== playerId);
+  player.contractEnd = `${c.season + 3}-12-31`;
+  player.wage = 5000;
+  c.youth.push(player);
+  c.players[player.id].wage = player.wage;
+  c.players[player.id].contractEnd = player.contractEnd;
+  remember(c, 'base', `${player.name} foi promovido da base ao profissional`);
+  return careerSchema.parse(c);
+}
+
+function captainWelcome(c: Career, world: World) {
+  const captain = findPlayer(world, c.roles['Capitão']);
+  if (!captain) throw new Error('Não foi possível identificar o capitão do clube.');
+  message(c, {
+    kind: 'player',
+    from: captain.name,
+    playerId: captain.id,
+    title: 'Bem-vindo, professor!',
+    body: `Olá, ${c.manager.firstName}! Sou ${captain.name}, capitão do time. Prazer em trabalhar com você. Pode contar comigo para ajudar na adaptação e representar o elenco. Vamos construir uma boa temporada juntos.`,
+  });
 }
 
 export function setDevelopmentPlan(
@@ -660,7 +705,16 @@ export function acceptJobOffer(career: Career, world: World, offerId: string): C
     if (m.kind === 'board' && m.important && !m.resolved) m.resolved = m.read = true;
   remember(c, 'cargo', `Deixou o ${from} e assumiu o ${clubById(world, c.clubId).name}`);
   c.lineup = bestLineup(c, careerWorld(world, c));
+  c.bench = squad(c, careerWorld(world, c))
+    .filter((player) => !c.lineup.includes(player.id))
+    .sort((a, b) => overall(b) - overall(a))
+    .slice(0, 9)
+    .map((player) => player.id);
+  c.benchConfigured = true;
+  c.assistantCoaches = {};
   for (const role of roleNames) c.roles[role] = c.lineup[role === 'Capitão' ? 2 : 10];
+  ensureAcademy(c, world);
+  captainWelcome(c, careerWorld(world, c));
   message(c, {
     kind: 'board',
     from: 'Presidência',
@@ -671,11 +725,11 @@ export function acceptJobOffer(career: Career, world: World, offerId: string): C
 }
 
 /** Decisão que trava o calendário até o jogador responder. */
-export const blocks = (c: Career, m: Career['messages'][number]) =>
-  m.important && !m.resolved;
+export const blocks = (c: Career, m: Career['messages'][number]) => m.important && !m.resolved;
 
 export function advanceDay(career: Career, world: World): Career {
   const c = structuredClone(career);
+  ensureAcademy(c, world);
   const live = careerWorld(world, c);
   if (c.seasonEnded)
     throw new Error(
@@ -694,13 +748,15 @@ export function advanceDay(career: Career, world: World): Career {
   const physio = fitnessEffect(staffLevel(c, 'fitness'));
   const medical = medicalEffect(staffLevel(c, 'medical'));
   const keeperCoach = goalkeepingEffect(staffLevel(c, 'goalkeeping'));
-  for (const player of live.players) {
+  const academyIds = new Set(c.living.academyRoster.map((player) => player.id));
+  for (const player of [...live.players, ...c.living.academyRoster]) {
     const s = c.players[player.id];
     if (!s || s.retired) continue;
     const rng = random(hash(`${c.seed}:${c.date}:${player.id}`));
     if (s.loanFrom && ((s.loanUntil && s.loanUntil <= c.date) || s.contractEnd < c.date))
       endLoan(c, live, player.id);
     const own = s.clubId === c.clubId;
+    const academyPlayer = academyIds.has(player.id);
     const returning = s.injuryDays === 1;
     s.injuryDays = Math.max(0, s.injuryDays - 1);
     // Recaída ao voltar de lesão: o departamento médico reduz o risco.
@@ -751,9 +807,11 @@ export function advanceDay(career: Career, world: World): Career {
               personalityBoost *
               planBoost *
               (s.clubId === c.clubId ? 1 + ct.growth : 1) *
-              (own && player.position === 'GK' ? 1 + keeperCoach.growth : 1),
+              (own && player.position === 'GK' ? 1 + keeperCoach.growth : 1) *
+              (own ? 1 + assistantTrainingBonus(c, s.position ?? player.position) : 1),
         );
     }
+    if (academyPlayer) continue;
     if (s.promiseUntil && s.promiseUntil < c.date) {
       if (s.benchGames >= 3) {
         s.morale = clamp(s.morale - 8);
@@ -805,8 +863,13 @@ export function advanceDay(career: Career, world: World): Career {
     if (
       s.clubId === c.clubId &&
       s.benchGames >= 5 &&
-      rng() < 0.06 &&
-      !c.messages.some((m) => m.playerId === player.id && !m.resolved)
+      rng() < 0.006 &&
+      !c.messages.some(
+        (m) =>
+          m.kind === 'player' &&
+          (m.date > addDays(c.date, -7) ||
+            (m.playerId === player.id && (!m.resolved || m.date > addDays(c.date, -28)))),
+      )
     ) {
       s.morale = clamp(s.morale - 5);
       message(c, {
@@ -817,6 +880,35 @@ export function advanceDay(career: Career, world: World): Career {
         playerId: player.id,
         important: true,
       });
+    }
+    playAcademyFixtures(c, live);
+    if (!c.messages.some((m) => m.kind === 'player' && m.date > addDays(c.date, -7))) {
+      const rng = random(hash(`${c.seed}:${c.date}:player-contact`));
+      const roster = squad(c, live);
+      if (rng() < 0.045 && roster.length) {
+        const player = roster[Math.floor(rng() * roster.length)];
+        const state = c.players[player.id];
+        const last = c.fixtures
+          .filter((f) => f.result && (f.homeId === c.clubId || f.awayId === c.clubId))
+          .at(-1);
+        const won =
+          last?.result &&
+          (last.homeId === c.clubId
+            ? last.result.homeGoals > last.result.awayGoals
+            : last.result.awayGoals > last.result.homeGoals);
+        if (!c.messages.some((m) => m.kind === 'player' && m.playerId === player.id && !m.resolved))
+          message(c, {
+            kind: 'player',
+            playerId: player.id,
+            from: player.name,
+            title: won ? 'Boa vitória, professor!' : 'Posso pedir um conselho?',
+            body: won
+              ? 'Gostei de como a equipe se comportou. Parabéns pelo trabalho, professor. Vamos manter essa união.'
+              : state.morale < 60
+                ? 'Não estou vivendo meu melhor momento. O que você espera de mim para eu recuperar a confiança?'
+                : 'Quero evoluir e ajudar mais o time. Gostaria de ouvir seu conselho para os próximos treinos.',
+          });
+      }
     }
     if (s.clubId === c.clubId && rng() < 0.00045) {
       const event = hash(`${c.seed}:${c.date}:${player.id}:event`) % 3;
@@ -869,7 +961,9 @@ export function advanceDay(career: Career, world: World): Career {
       const factor = original === club.league ? 1 : club.league === 'A' ? 1.4 : 0.6;
       const wage = payroll(c, live, club.id);
       const own = club.id === c.clubId ? economyMonth(c, live) : null;
-      const income = own ? Math.round(own.tv * factor) : Math.round(club.reputation * 140000 * factor);
+      const income = own
+        ? Math.round(own.tv * factor)
+        : Math.round(club.reputation * 140000 * factor);
       const expense = wage + club.reputation * 30000 + f.debt * 0.002 + (own ? staffPayroll(c) : 0);
       f.cash += income - expense;
       f.history.push({ date: c.date, income, expenses: expense, balance: f.cash });
@@ -1084,6 +1178,184 @@ function youthPlayer(
   };
 }
 
+export function ensureAcademy(c: Career, world: World) {
+  const club = clubById(world, c.clubId);
+  if (!c.benchConfigured) {
+    c.bench = squad(c, careerWorld(world, c))
+      .filter((player) => !c.lineup.includes(player.id) && available(c, player.id))
+      .sort(
+        (a, b) => overall(b, b.position, c.players[b.id]) - overall(a, a.position, c.players[a.id]),
+      )
+      .slice(0, 9)
+      .map((player) => player.id);
+    c.benchConfigured = true;
+  }
+  const initialized = c.living.academyInitializedClubs.includes(club.id);
+  const currentCalendar = c.living.academyFixtures.some(
+    (fixture) =>
+      fixture.date.startsWith(String(c.season)) &&
+      (fixture.homeId === club.id || fixture.awayId === club.id),
+  );
+  if (initialized && currentCalendar) return c;
+  const departing = c.living.academyRoster.filter(
+    (player) => player.clubId === club.id && ageAt(player.birthDate, c.date) > 20,
+  );
+  c.living.academyRoster = c.living.academyRoster.filter((player) => !departing.includes(player));
+  for (const player of departing) delete c.players[player.id];
+  const roster = c.living.academyRoster.filter((player) => player.clubId === club.id);
+  const positions: Position[] = [
+    'GK',
+    'GK',
+    'CB',
+    'CB',
+    'CB',
+    'LB',
+    'RB',
+    'DM',
+    'DM',
+    'CM',
+    'CM',
+    'AM',
+    'LW',
+    'RW',
+    'ST',
+    'ST',
+    'CM',
+    'AM',
+  ];
+  for (let index = roster.length; index < 18; index++) {
+    const player = youthPlayer(
+      c,
+      club.id,
+      club.reputation,
+      200 + index,
+      positions[index],
+      club.state,
+    );
+    player.id = `academy-roster-${club.id}-${c.season}-${index}`;
+    player.birthDate = `${c.season - 14 - (index % 4)}-01-01`;
+    player.wage = 1500;
+    player.contractEnd = `${c.season + 5}-12-31`;
+    c.living.academyRoster.push(player);
+    c.players[player.id] = freshState(player);
+  }
+  if (!initialized) c.living.academyInitializedClubs.push(club.id);
+  const members = [
+    club.id,
+    ...world.clubs
+      .filter((item) => item.id !== club.id)
+      .sort(
+        (a, b) =>
+          Math.abs(a.reputation - club.reputation) - Math.abs(b.reputation - club.reputation),
+      )
+      .slice(0, 7)
+      .map((item) => item.id),
+  ];
+  const rounds = roundRobin(members);
+  const start = `${c.season}-03-01`;
+  const saturday = addDays(start, (6 - new Date(`${start}T12:00:00Z`).getUTCDay() + 7) % 7);
+  c.living.academyFixtures = [
+    ...rounds,
+    ...rounds.map((pairs) => pairs.map(([home, away]): [string, string] => [away, home])),
+  ].flatMap((pairs, round) =>
+    pairs.map(([homeId, awayId]) => ({
+      id: `academy-cup-${c.season}-${homeId}-${awayId}`,
+      date: addDays(saturday, round * 7),
+      homeId,
+      awayId,
+    })),
+  );
+  return c;
+}
+
+function playAcademyFixtures(c: Career, world: World) {
+  for (const fixture of c.living.academyFixtures) {
+    if (fixture.date > c.date || fixture.homeGoals !== undefined) continue;
+    const rng = random(hash(`${c.seed}:${fixture.id}`));
+    const roster = c.living.academyRoster
+      .filter(
+        (player) =>
+          player.clubId === c.clubId &&
+          c.players[player.id].injuryDays === 0 &&
+          ageAt(player.birthDate, c.date) <= 20,
+      )
+      .sort(
+        (a, b) => overall(b, b.position, c.players[b.id]) - overall(a, a.position, c.players[a.id]),
+      );
+    const keeper = roster.find((player) => player.position === 'GK');
+    const lineup = [
+      ...(keeper ? [keeper] : []),
+      ...roster.filter((player) => player.position !== 'GK').slice(0, 10),
+    ];
+    const own = fixture.homeId === c.clubId || fixture.awayId === c.clubId;
+    const strength = (clubId: string) =>
+      clubId === c.clubId && lineup.length
+        ? lineup.reduce(
+            (total, player) =>
+              total +
+              overall(player, player.position, c.players[player.id]) *
+                (0.8 + c.players[player.id].fitness / 500),
+            0,
+          ) / lineup.length
+        : clubById(world, clubId).reputation * 0.62 + 4;
+    const poisson = (lambda: number) => {
+      let goals = -1,
+        product = 1;
+      do {
+        goals++;
+        product *= rng();
+      } while (product > Math.exp(-lambda));
+      return goals;
+    };
+    fixture.homeGoals = poisson(
+      clamp(1.4 + (strength(fixture.homeId) - strength(fixture.awayId)) * 0.045, 0.25, 3.5),
+    );
+    fixture.awayGoals = poisson(
+      clamp(1.2 + (strength(fixture.awayId) - strength(fixture.homeId)) * 0.045, 0.25, 3.5),
+    );
+    if (!own) continue;
+    if (lineup.length < 11) {
+      fixture.homeGoals = fixture.homeId === c.clubId ? 0 : 3;
+      fixture.awayGoals = fixture.homeId === c.clubId ? 3 : 0;
+      message(c, {
+        kind: 'staff',
+        from: 'Categorias de base',
+        title: 'W.O. no torneio de base',
+        body: 'A base não tinha onze atletas saudáveis. Reforce a captação antes de promover mais jogadores.',
+      });
+      continue;
+    }
+    const goals = fixture.homeId === c.clubId ? fixture.homeGoals : fixture.awayGoals;
+    const conceded = fixture.homeId === c.clubId ? fixture.awayGoals : fixture.homeGoals;
+    const attackers = lineup.filter((player) => ['ST', 'LW', 'RW', 'AM'].includes(player.position));
+    for (const player of lineup) {
+      const state = c.players[player.id];
+      state.minutes += 90;
+      state.rated = (state.rated ?? 0) + 1;
+      const rating = clamp(
+        6 +
+          (goals - conceded) * 0.2 +
+          (player.position === 'GK' ? (conceded === 0 ? 0.8 : -conceded * 0.15) : 0),
+        3,
+        9,
+      );
+      state.ratingTotal = (state.ratingTotal ?? 0) + rating;
+      state.monthlyRated = (state.monthlyRated ?? 0) + 1;
+      state.monthlyRatingTotal = (state.monthlyRatingTotal ?? 0) + rating;
+      state.fitness = clamp(state.fitness - 12);
+      state.sharpness = clamp(state.sharpness + 10);
+    }
+    for (let goal = 0; goal < goals && attackers.length; goal++)
+      c.players[attackers[Math.floor(rng() * attackers.length)].id].goals++;
+    message(c, {
+      kind: 'staff',
+      from: 'Categorias de base',
+      title: 'Resultado do torneio de base',
+      body: `${clubById(world, fixture.homeId).name} ${fixture.homeGoals} × ${fixture.awayGoals} ${clubById(world, fixture.awayId).name}. Os participantes ganharam 90 minutos de experiência e ritmo. Confira tabela e calendário na Academia.`,
+    });
+  }
+}
+
 function runAcademyTrial(career: Career, world: World) {
   if (career.living.academy?.season === career.season) return;
   const club = world.clubs.find((item) => item.id === career.clubId);
@@ -1161,7 +1433,8 @@ export function startNextSeason(career: Career, world: World): Career {
   c.date = next;
   // Atletas: zera estatísticas, envelhece e renova/aposenta pelos clubes da engine.
   const freeAgents: Player[] = [];
-  for (const p of live.players) {
+  const academyIds = new Set(c.living.academyRoster.map((player) => player.id));
+  for (const p of [...live.players, ...c.living.academyRoster]) {
     const s = c.players[p.id];
     if (!s || s.retired) continue;
     Object.assign(s, {
@@ -1180,6 +1453,7 @@ export function startNextSeason(career: Career, world: World): Career {
       injuryDays: Math.max(0, s.injuryDays - 20),
       morale: clamp(Math.round(s.morale + (70 - s.morale) * 0.5)),
     });
+    if (academyIds.has(p.id)) continue;
     const age = ageAt(p.birthDate, next);
     if (s.loanFrom && ((s.loanUntil && s.loanUntil <= next) || s.contractEnd < next))
       endLoan(c, live, p.id);
@@ -1254,7 +1528,8 @@ export function startNextSeason(career: Career, world: World): Career {
       const p = youthPlayer(c, club.id, club.reputation, i, undefined, club.state);
       if (club.id === c.clubId)
         p.potential = Math.min(94, p.potential + baseBonus + coordinator.potential);
-      c.youth.push(p);
+      if (club.id === c.clubId) c.living.academyRoster.push(p);
+      else c.youth.push(p);
       c.players[p.id] = freshState(p);
       if (club.id === c.clubId) revealed.push(p);
     }
@@ -1307,6 +1582,7 @@ export function startNextSeason(career: Career, world: World): Career {
   }
   c.season = y + 1;
   c.date = next;
+  ensureAcademy(c, live);
   c.seasonEnded = false;
   c.promoted = [];
   c.relegated = [];
@@ -1340,7 +1616,7 @@ export function startNextSeason(career: Career, world: World): Career {
     kind: 'board',
     from: 'Presidência',
     title: `Temporada ${y + 1}: novos objetivos`,
-    body: `${goal} ${promoted.has(c.clubId) ? 'Parabéns pelo acesso: a receita de TV aumentou.' : relegated.has(c.clubId) ? 'O rebaixamento reduziu nossas receitas; precisamos voltar imediatamente.' : ''} Revise o elenco: atletas da base foram integrados e contratos vencidos já saíram.`.trim(),
+    body: `${goal} ${promoted.has(c.clubId) ? 'Parabéns pelo acesso: a receita de TV aumentou.' : relegated.has(c.clubId) ? 'O rebaixamento reduziu nossas receitas; precisamos voltar imediatamente.' : ''} Revise o elenco e os contratos vencidos. Novos talentos aguardam sua avaliação na Academia.`.trim(),
   });
   return careerSchema.parse(c);
 }
@@ -1409,18 +1685,23 @@ export function validateCareerForWorld(career: Career, world: World) {
   if (c.worldId !== base.id || c.mode !== base.mode)
     throw new Error('O save pertence a outro snapshot.');
   const live = careerWorld(base, c);
-  const playerIds = new Set(live.players.map((p) => p.id));
+  const allPlayers = [...live.players, ...c.living.academyRoster];
+  const playerIds = new Set(allPlayers.map((p) => p.id));
+  const professionalIds = new Set(live.players.map((player) => player.id));
   const clubIds = new Set(base.clubs.map((club) => club.id));
   const academy = c.living.academy;
   if (
     !clubIds.has(c.clubId) ||
-    live.players.length !== playerIds.size ||
+    allPlayers.length !== playerIds.size ||
     Object.keys(c.players).length !== playerIds.size ||
     Object.entries(c.players).some(
       ([id, s]) =>
         !playerIds.has(id) || (s.clubId !== null && !clubIds.has(s.clubId) && !isForeign(s.clubId)),
     ) ||
-    c.lineup.some((id) => !playerIds.has(id)) ||
+    c.lineup.some((id) => !professionalIds.has(id)) ||
+    c.living.academyRoster.some(
+      (player) => !clubIds.has(player.clubId) || player.birthDate >= c.date,
+    ) ||
     Object.keys(c.finances).length !== 40 ||
     Object.keys(c.finances).some((id) => !clubIds.has(id)) ||
     Object.keys(c.leagues).some((id) => !clubIds.has(id)) ||
@@ -1430,17 +1711,16 @@ export function validateCareerForWorld(career: Career, world: World) {
     ) ||
     Boolean(
       academy &&
-        (academy.clubId !== c.clubId ||
-          academy.season > c.season ||
-          new Set(academy.candidates.map((player) => player.id)).size !==
-            academy.candidates.length ||
-          academy.candidates.some(
-            (player) =>
-              player.clubId !== academy.clubId ||
-              playerIds.has(player.id) ||
-              c.prospects.some((prospect) => prospect.id === player.id) ||
-              player.birthDate >= c.date,
-          )),
+      (academy.clubId !== c.clubId ||
+        academy.season > c.season ||
+        new Set(academy.candidates.map((player) => player.id)).size !== academy.candidates.length ||
+        academy.candidates.some(
+          (player) =>
+            player.clubId !== academy.clubId ||
+            playerIds.has(player.id) ||
+            c.prospects.some((prospect) => prospect.id === player.id) ||
+            player.birthDate >= c.date,
+        )),
     ) ||
     c.date < base.date ||
     c.date > `${c.season}-12-31`

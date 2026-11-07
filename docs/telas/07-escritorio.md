@@ -2,24 +2,24 @@
 
 ## Objetivo
 
-Área de gestão da carreira. Reúne orçamento, objetivos esportivos e financeiros, propostas de trabalho, informações do clube e personalização do manager. Classificação, calendário, histórico da carreira e estatísticas dos atletas abrem suas respectivas vistas de Temporada por atalhos.
+Área de gestão da carreira, com um único submenu persistente. Classificação,
+calendário, histórico e estatísticas reutilizam os painéis de Temporada dentro
+do Escritório, sem trocar de área ou abrir outro submenu.
 
 ## Navegação
 
-Subáreas principais:
+Oito opções no mesmo nível, nesta ordem:
 
-- **Orçamento**
-- **Objetivos e mercado**
-- **Carreira e perfil**
+1. Objetivos e mercado
+2. Classificação
+3. Calendário
+4. Orçamento
+5. Mercado de trabalho
+6. Histórico de carreira
+7. Estatísticas dos atletas
+8. Personalização
 
-Atalhos adicionais:
-
-- Classificação
-- Calendário
-- Mercado de trabalho
-- Histórico de carreira
-- Estatísticas dos atletas
-- Personalização
+LT/RT ou L2/R2 percorrem estas oito opções. Não há as três abas antigas.
 
 ## Orçamento
 
@@ -30,18 +30,21 @@ Apresenta o caixa do clube e os dados financeiros registrados na carreira, inclu
 - Mostra os objetivos da Série A ou Série B e a posição/pontuação atual.
 - Lista competições da temporada, situação e última fase disputada.
 - Exibe o desafio da carreira e seu progresso quando aplicável.
-- Lista propostas de trabalho disponíveis, prazo e salário; permite aceitar ou recusar.
+- Propostas com prazo, salário e aceitar/recusar ficam em Mercado de trabalho.
 - Mantém as decisões importantes acessíveis na caixa de entrada de Notificações.
 
-## Carreira e perfil
+## Personalização
 
-Exibe retrato, nome, nacionalidade, idade, dificuldade e aparência do manager. Quando a geração por IA está disponível, permite criar/trocar o retrato usando uma foto.
+Permite editar nome, sobrenome, nacionalidade, país/região, região de nascimento,
+data de nascimento, gênero, tratamento, vestuário e aparência. A idade é
+recalculada na data da carreira. X/□ salva o formulário validado. Retrato por
+câmera/IA continua disponível quando o serviço está configurado.
 
 ## Acessos da tela
 
 - **Central:** abre Escritório pelo destino de objetivo ou decisão.
 - **Notificações:** mensagens recebidas e conversas com atletas são uma área separada.
-- **Temporada:** classificação, calendário, histórico e estatísticas são vistas próprias abertas pelos atalhos.
+- **Temporada:** seus painéis são incorporados ao Escritório; a navegação permanece a mesma.
 - **Academia:** olheiros, elenco jovem e desenvolvimento são uma área separada.
 
 ## Interações e estado

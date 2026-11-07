@@ -157,6 +157,13 @@ export const formations = {
   '4-3-3': ['GK', 'LB', 'CB', 'CB', 'RB', 'DM', 'CM', 'CM', 'LW', 'RW', 'ST'],
   '4-4-2': ['GK', 'LB', 'CB', 'CB', 'RB', 'LM', 'CM', 'CM', 'RM', 'ST', 'ST'],
   '3-5-2': ['GK', 'CB', 'CB', 'CB', 'LB', 'DM', 'CM', 'AM', 'RB', 'ST', 'ST'],
+  '4-1-4-1': ['GK', 'LB', 'CB', 'CB', 'RB', 'DM', 'LM', 'CM', 'CM', 'RM', 'ST'],
+  '4-3-2-1': ['GK', 'LB', 'CB', 'CB', 'RB', 'DM', 'CM', 'CM', 'AM', 'AM', 'ST'],
+  '4-4-2 losango': ['GK', 'LB', 'CB', 'CB', 'RB', 'DM', 'CM', 'CM', 'AM', 'ST', 'ST'],
+  '3-4-3': ['GK', 'CB', 'CB', 'CB', 'LM', 'CM', 'CM', 'RM', 'LW', 'ST', 'RW'],
+  '3-4-2-1': ['GK', 'CB', 'CB', 'CB', 'LM', 'CM', 'CM', 'RM', 'AM', 'AM', 'ST'],
+  '5-3-2': ['GK', 'LB', 'CB', 'CB', 'CB', 'RB', 'DM', 'CM', 'CM', 'ST', 'ST'],
+  '5-4-1': ['GK', 'LB', 'CB', 'CB', 'CB', 'RB', 'LM', 'CM', 'CM', 'RM', 'ST'],
 } as const;
 export type Formation = keyof typeof formations;
 export const roleNames = [
@@ -173,12 +180,14 @@ export const roleNames = [
 export const assistantAreas = ['ataque', 'meio', 'defesa', 'goleiro'] as const;
 export type AssistantArea = (typeof assistantAreas)[number];
 const assistantCoachSchema = z.object({
+  id: z.string().optional(),
   name: z.string().min(2),
   tacticalVision: z.enum(['Ofensivo', 'Retranqueiro', 'Pressão', 'Posse', 'Contra-ataque']),
   skill: z.number().int().min(1).max(5),
   stars: z.record(positionSchema, z.number().int().min(1).max(5)),
   wageWeekly: z.number().nonnegative().max(5000),
 });
+export type AssistantCoach = z.infer<typeof assistantCoachSchema>;
 const savedLineupSchema = z.object({
   name: z.string().min(1).max(32),
   formation: z.enum(Object.keys(formations) as [Formation, ...Formation[]]),
@@ -258,7 +267,7 @@ export const playerStateSchema = z.object({
 });
 export type PlayerState = z.infer<typeof playerStateSchema>;
 export const tacticSchema = z.object({
-  formation: z.enum(['4-2-3-1', '4-3-3', '4-4-2', '3-5-2']),
+  formation: z.enum(Object.keys(formations) as [Formation, ...Formation[]]),
   mentality: z.enum(['Defensiva', 'Equilibrada', 'Ofensiva']),
   pressure: z.number().int().min(1).max(5),
   width: z.number().int().min(1).max(5),
@@ -529,6 +538,20 @@ export const livingSchema = z.object({
       candidates: z.array(playerSchema),
     })
     .optional(),
+  academyRoster: z.array(playerSchema).default([]),
+  academyInitializedClubs: z.array(z.string()).default([]),
+  academyFixtures: z
+    .array(
+      z.object({
+        id: z.string(),
+        date: isoDate,
+        homeId: z.string(),
+        awayId: z.string(),
+        homeGoals: z.number().int().nonnegative().optional(),
+        awayGoals: z.number().int().nonnegative().optional(),
+      }),
+    )
+    .default([]),
   managerRecord: z
     .object({
       since: isoDate,

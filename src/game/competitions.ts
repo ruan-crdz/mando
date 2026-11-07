@@ -124,7 +124,7 @@ function shuffle<T>(items: T[], seed: number) {
   return out;
 }
 
-function roundRobin(ids: string[]) {
+export function roundRobin(ids: string[]) {
   const order = ids.length % 2 ? [...ids, ''] : [...ids];
   const n = order.length;
   const rounds: [string, string][][] = [];
