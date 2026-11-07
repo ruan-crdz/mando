@@ -27,6 +27,8 @@ e é persistida no save. Saves anteriores recebem uma base sem perder seus atlet
 - Promover preserva crescimento, familiaridade e plano de treino do jogador.
 - X/□ promove o atleta cuja linha está aberta e é elegível. Após promoção,
   o foco volta à lista. RS rola a ficha, enquanto D-pad/LS percorre os atletas.
+- B/○ fecha a linha e devolve o foco ao atleta; o cursor não troca ou fecha uma
+  linha aberta apenas por passar sobre outros jogadores.
 
 ## Regras e limites
 

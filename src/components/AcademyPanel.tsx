@@ -55,9 +55,9 @@ export function AcademyPanel({
         a.name.localeCompare(b.name),
     );
     const focused = players.find((player) => player.id === focusedId) ?? players[0];
+    const hasExpandedPlayer = players.some((player) => player.id === expandedId);
     const select = (id: string) => {
       setFocusedId(id);
-      setExpandedId((previous) => (previous === id ? previous : null));
     };
     return (
       <div className="squad-screen academy-roster-screen">
@@ -92,7 +92,9 @@ export function AcademyPanel({
                         data-age={age}
                         aria-expanded={open}
                         onFocus={() => select(player.id)}
-                        onMouseEnter={() => select(player.id)}
+                        onMouseEnter={() => {
+                          if (!hasExpandedPlayer) select(player.id);
+                        }}
                         onClick={() => {
                           setFocusedId(player.id);
                           setExpandedId((previous) => (previous === player.id ? null : player.id));
@@ -118,6 +120,22 @@ export function AcademyPanel({
                       </button>
                       {open && (
                         <div className="roster-expand">
+                          <button
+                            className="text-button"
+                            data-back-action
+                            onClick={() => {
+                              setExpandedId(null);
+                              requestAnimationFrame(() =>
+                                list.current
+                                  ?.querySelector<HTMLButtonElement>(
+                                    `[data-academy-player="${CSS.escape(player.id)}"]`,
+                                  )
+                                  ?.focus(),
+                              );
+                            }}
+                          >
+                            Fechar linha
+                          </button>
                           <p>
                             {state.minutes} minutos · {state.goals} gols · evolução{' '}
                             {state.growth >= 0 ? '+' : ''}
@@ -126,11 +144,14 @@ export function AcademyPanel({
                           {age >= 16 ? (
                             <button
                               className="primary"
-                              data-controller-secondary
+                              data-controller-secondary={focused?.id === player.id ? '' : undefined}
+                              onFocus={() => select(player.id)}
                               onClick={() => onPromote(player.id)}
                             >
                               Promover ao profissional{' '}
-                              <ControllerButtonHint action="secondary" label="Promover" />
+                              {focused?.id === player.id && (
+                                <ControllerButtonHint action="secondary" label="Promover" />
+                              )}
                             </button>
                           ) : (
                             <p className="muted small">Promoção disponível aos 16 anos.</p>

@@ -119,6 +119,9 @@ test('criação, todas as abas, negociação, avanço e save/load persistente', 
   await eligibleYouth.click();
   await expect(youthStats.getByRole('heading', { name: youthName, exact: true })).toBeVisible();
   await expect(youthStats.locator('.attribute-grid > div')).toHaveCount(19);
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('button', { name: /Promover ao profissional/ })).toHaveCount(0);
+  await eligibleYouth.click();
   await page.getByRole('button', { name: /Promover ao profissional/ }).click();
   await expect(youthRows).toHaveCount(17);
   await expect(page.locator('.academy-roster-list .roster-row:focus')).toHaveCount(1);
