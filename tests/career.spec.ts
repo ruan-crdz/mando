@@ -227,6 +227,35 @@ test('layout móvel deitado não cria rolagem horizontal e retrato pede rotaçã
 test('PWA mantém o jogo e o save acessíveis após ficar offline', async ({ page, context }) => {
   await createCareer(page);
   await expect(page.locator('.save-status')).toHaveText(/SALVO/);
+  await page.waitForFunction(
+    () =>
+      new Promise<boolean>((resolve) => {
+        const request = indexedDB.open('mando-careers', 1);
+        request.onerror = () => resolve(false);
+        request.onsuccess = () => {
+          const db = request.result;
+          const read = db
+            .transaction('careers', 'readonly')
+            .objectStore('careers')
+            .getAll();
+          read.onsuccess = () => {
+            const record = read.result.find(
+              (item) => item.career.manager.firstName === 'Alex',
+            );
+            db.close();
+            resolve(
+              record?.career.onboarding?.contractSigned === true &&
+                record?.career.onboarding?.tutorialComplete === true,
+            );
+          };
+          read.onerror = () => {
+            db.close();
+            resolve(false);
+          };
+        };
+      }),
+    { timeout: 10000 },
+  );
   await page.evaluate(async () => {
     await navigator.serviceWorker.ready;
   });
