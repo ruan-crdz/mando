@@ -54,6 +54,34 @@ describe('snapshot e carreira', () => {
     expect(careerSchema.parse(career).date).toBe('2026-01-01');
     expect(new Set(career.lineup).size).toBe(11);
   });
+  it('prepara onboarding assinável e mensagens iniciais sem bloquear o avanço', () => {
+    expect(career.onboarding).toEqual({ contractSigned: false, tutorialComplete: false });
+    expect(career.messages.map((message) => message.from)).toEqual(
+      expect.arrayContaining([
+        'Assistente técnico',
+        'Presidência',
+        'Imprensa esportiva',
+        'Comissão técnica',
+      ]),
+    );
+    expect(career.messages.every((message) => !message.important && !message.resolved)).toBe(true);
+
+    const legacyCareer = { ...career };
+    delete legacyCareer.onboarding;
+    const legacy = careerSchema.parse({
+      ...legacyCareer,
+      manager: {
+        firstName: 'Alex',
+        lastName: 'Silva',
+        age: 30,
+        nationality: 'Brasil',
+        style: 'Terno azul',
+        appearance: 'Cabelo curto',
+      },
+    });
+    expect(legacy.onboarding).toBeUndefined();
+    expect(legacy.manager.birthDate).toBeUndefined();
+  });
   it('não compartilha mutações entre saves nem altera o snapshot base', () => {
     const other = createCareer(world, manager, 'sao-paulo', 'Amador', 'Realista', 42);
     const id = career.lineup[0];
@@ -526,6 +554,7 @@ describe('playoffs da Série B', () => {
         injured: [],
         moments: [],
         usedSubs: 0,
+        dismissed: [],
         replaced: [],
       };
     }

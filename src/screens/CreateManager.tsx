@@ -11,7 +11,7 @@ import {
   type World,
 } from '../game/types';
 import { useControllerActions, useGamepad } from '../controller/GamepadProvider';
-import { ChipGroup, NumberStepper, OptionCycler } from '../components/controls';
+import { ChipGroup, OptionCycler } from '../components/controls';
 
 const challengeDescriptions: Record<Career['challenge'], string> = {
   Realista: 'As condições iniciais do snapshot, sem modificadores.',
@@ -44,6 +44,17 @@ const nationalities = [
   'Japão',
   'Angola',
 ];
+const managerAge = (birthDate: string, referenceDate: string) => {
+  const birth = new Date(`${birthDate}T00:00:00Z`);
+  const reference = new Date(`${referenceDate}T00:00:00Z`);
+  let age = reference.getUTCFullYear() - birth.getUTCFullYear();
+  if (
+    reference.getUTCMonth() < birth.getUTCMonth() ||
+    (reference.getUTCMonth() === birth.getUTCMonth() && reference.getUTCDate() < birth.getUTCDate())
+  )
+    age--;
+  return age;
+};
 const tileColors = [
   'tile-blue',
   'tile-green',
@@ -77,6 +88,11 @@ export function CreateManager({
     firstName: '',
     lastName: '',
     nationality: 'Brasil',
+    gender: 'Homem',
+    formOfAddress: 'Sr.',
+    countryRegion: 'Brasil',
+    birthRegion: 'Sudeste',
+    birthDate: `${Number(world.date.slice(0, 4)) - 38}-01-01`,
     age: 38,
     style: 'Terno azul',
     appearance: 'Cabelo curto escuro, barba curta, olhos castanhos',
@@ -90,6 +106,7 @@ export function CreateManager({
   const carousel = useRef<HTMLDivElement>(null);
   const club = world.clubs.find((c) => c.id === clubId);
   const clubs = world.clubs.filter((c) => c.league === league);
+  const referenceYear = Number(world.date.slice(0, 4));
   useEffect(() => {
     if (step !== 1) return;
     carousel.current
@@ -186,19 +203,77 @@ export function CreateManager({
                 />
               </label>
               <OptionCycler
-                label="Nacionalidade"
-                value={manager.nationality}
+                label="País / nacionalidade"
+                value={manager.countryRegion || manager.nationality}
                 options={nationalities.map((s) => ({ value: s, label: s }))}
-                onChange={(nationality) => setManager({ ...manager, nationality })}
+                onChange={(countryRegion) =>
+                  setManager({
+                    ...manager,
+                    countryRegion,
+                    nationality: countryRegion,
+                    birthRegion:
+                      countryRegion === 'Brasil' ? manager.birthRegion || 'Sudeste' : undefined,
+                  })
+                }
               />
-              <NumberStepper
-                label="Idade"
-                min={18}
-                max={85}
-                step={1}
-                value={manager.age}
-                onChange={(age) => setManager({ ...manager, age: age ?? 18 })}
+              <label>
+                Região de origem
+                <input
+                  value={manager.birthRegion || ''}
+                  maxLength={80}
+                  placeholder="Ex.: São Paulo, Sudeste"
+                  onChange={(e) => setManager({ ...manager, birthRegion: e.target.value })}
+                />
+              </label>
+              <OptionCycler
+                label="Gênero"
+                value={manager.gender || 'Não informar'}
+                options={(['Homem', 'Mulher', 'Não informar'] as const).map((value) => ({
+                  value,
+                  label: value,
+                }))}
+                onChange={(gender: NonNullable<Manager['gender']>) =>
+                  setManager({
+                    ...manager,
+                    gender,
+                    formOfAddress:
+                      gender === 'Mulher'
+                        ? 'Sra.'
+                        : gender === 'Homem'
+                          ? 'Sr.'
+                          : manager.formOfAddress,
+                  })
+                }
               />
+              <OptionCycler
+                label="Forma de tratamento"
+                value={manager.formOfAddress || 'Mx.'}
+                options={(['Sr.', 'Sra.', 'Mx.'] as const).map((value) => ({
+                  value,
+                  label: value,
+                }))}
+                onChange={(formOfAddress: NonNullable<Manager['formOfAddress']>) =>
+                  setManager({ ...manager, formOfAddress })
+                }
+              />
+              <label>
+                Data de nascimento
+                <input
+                  type="date"
+                  value={manager.birthDate || ''}
+                  min={`${referenceYear - 85}${world.date.slice(4)}`}
+                  max={`${referenceYear - 18}${world.date.slice(4)}`}
+                  onChange={(e) => {
+                    const birthDate = e.target.value;
+                    if (birthDate)
+                      setManager({
+                        ...manager,
+                        birthDate,
+                        age: managerAge(birthDate, world.date),
+                      });
+                  }}
+                />
+              </label>
               <div className="full">
                 <ChipGroup
                   label="Roupa"
@@ -237,7 +312,7 @@ export function CreateManager({
                 {manager.firstName || 'Seu nome'} {manager.lastName}
               </h2>
               <p>
-                {manager.nationality} · {manager.age} anos
+                {manager.countryRegion || manager.nationality} · {manager.age} anos
               </p>
             </div>
             <button className="ai-portrait-button" disabled={generating} onClick={openCamera}>
@@ -309,6 +384,9 @@ export function CreateManager({
                 <p>
                   {money(c.budget)} <span>orçamento</span>
                 </p>
+                <small className="club-finance">
+                  Caixa inicial {money(c.budget * 2)} · Dívida {money(c.debt)}
+                </small>
                 <small>
                   {world.players.filter((p) => p.clubId === c.id).length} atletas · {c.state}
                 </small>

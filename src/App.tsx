@@ -110,7 +110,39 @@ import { playVoice, skipVoice, stopVoice, useVoice } from './components/voice';
 import { achievements, unlockAchievements, type Achievement } from './game/achievements';
 
 const tabs = ['CENTRAL', 'TIME', 'TRANSFERÊNCIAS', 'ESCRITÓRIO', 'TEMPORADA'];
-type Popup = 'world' | 'pause' | 'prematch' | 'achievements' | 'prefs' | null;
+type Popup =
+  'world' | 'contract' | 'tutorial' | 'pause' | 'prematch' | 'achievements' | 'prefs' | null;
+const onboardingTour = [
+  {
+    title: 'Central',
+    body: 'Aqui você acompanha o elenco, a escalação e o próximo compromisso do clube.',
+  },
+  {
+    title: 'Mensagens e notificações',
+    body: 'Por enquanto, sua caixa de entrada fica no Escritório. Leia as mensagens da diretoria, da comissão e da imprensa por lá.',
+  },
+  {
+    title: 'Time',
+    body: 'Use a área Time para acompanhar a equipe e ajustar a formação e as funções dos atletas.',
+  },
+  {
+    title: 'Transferências',
+    body: 'Consulte o mercado e conduza negociações dentro dos recursos disponíveis para o clube.',
+  },
+  {
+    title: 'Escritório',
+    body: 'Este é o ponto de encontro para mensagens, decisões da diretoria, finanças e atividades de gestão.',
+  },
+];
+const contractChallengeObjectives: Record<Career['challenge'], string> = {
+  Realista: 'Cumprir o plano dentro das condições iniciais do clube.',
+  'Do zero': 'Reconstruir o elenco sem orçamento inicial de transferências.',
+  'Crise financeira': 'Conduzir o clube com atenção redobrada às contas.',
+  'Só a base': 'Dar protagonismo aos atletas de até 23 anos.',
+  'Venda necessária': 'Concluir R$ 10 milhões em vendas antes de contratar.',
+  'Pressão máxima': 'Manter o desempenho sob uma cobrança mais intensa.',
+  Reconstrução: 'Renovar o elenco e controlar o orçamento disponível.',
+};
 type AdvanceMode = Career['prefs']['advance'];
 const advanceModes: { id: AdvanceMode; title: string; text: string }[] = [
   {
@@ -182,6 +214,8 @@ function Game() {
   const [user, setUser] = useState<User | null>(null);
   const [tab, setTab] = useState(0);
   const [popup, setPopup] = useState<Popup>(null);
+  const [tutorialStep, setTutorialStep] = useState(0);
+  const [contractSigning, setContractSigning] = useState(false);
   const [running, setRunning] = useState(false);
   const [played, setPlayed] = useState(0);
   const [advanceStartedAt, setAdvanceStartedAt] = useState<string | null>(null);
@@ -360,9 +394,50 @@ function Game() {
     setCareer(record.career);
     setWorld(record.world);
     setScreen('career');
-    setPopup(null);
+    setPopup(
+      record.career.onboarding?.contractSigned === false
+        ? 'contract'
+        : record.career.onboarding?.tutorialComplete === false
+          ? 'tutorial'
+          : null,
+    );
+    setTutorialStep(0);
     setTab(0);
   }, []);
+  const signContract = () => {
+    if (contractSigning) return;
+    setContractSigning(true);
+    window.setTimeout(() => {
+      setCareer((current) =>
+        current
+          ? {
+              ...current,
+              onboarding: {
+                contractSigned: true,
+                tutorialComplete: false,
+              },
+            }
+          : current,
+      );
+      setContractSigning(false);
+      setTutorialStep(0);
+      setPopup('tutorial');
+    }, 850);
+  };
+  const finishTutorial = () => {
+    setCareer((current) =>
+      current
+        ? {
+            ...current,
+            onboarding: {
+              contractSigned: true,
+              tutorialComplete: true,
+            },
+          }
+        : current,
+    );
+    setPopup(null);
+  };
   const menu = useCallback(
     () =>
       run(async () => {
@@ -467,6 +542,8 @@ function Game() {
             if (running) setRunning(false);
             else if (detail) setDetail(null);
             else if (deleting) setDeleting(null);
+            else if (popup === 'contract') return;
+            else if (popup === 'tutorial') finishTutorial();
             else if (popup) setPopup(null);
             else if (screen === 'career') setPopup('pause');
           },
@@ -483,6 +560,7 @@ function Game() {
           menu: () => {
             if (screen !== 'career') return;
             if (running) return setRunning(false);
+            if (popup === 'contract' || popup === 'tutorial') return;
             // Na Central, START abre as preferências de avanço; nas demais telas, a pausa.
             if (tab === 0 && !inMatch && !popup) {
               prefsFromPause.current = false;
@@ -498,18 +576,7 @@ function Game() {
           },
         },
   );
-  const portrait = (manager: Career['manager'], photo?: string) =>
-    requestPortrait(
-      {
-        firstName: manager.firstName,
-        lastName: manager.lastName,
-        age: manager.age,
-        nationality: manager.nationality,
-        style: manager.style,
-        appearance: manager.appearance,
-      },
-      photo,
-    );
+  const portrait = (manager: Career['manager'], photo?: string) => requestPortrait(manager, photo);
   const club = career && world?.clubs.find((club) => club.id === career.clubId);
   return (
     <div
@@ -600,6 +667,8 @@ function Game() {
               act(() => {
                 setCareer(createCareer(world, manager, clubId, difficulty, challenge));
                 setScreen('career');
+                setPopup('contract');
+                setTutorialStep(0);
                 setTab(0);
               })
             }
@@ -1080,6 +1149,118 @@ function Game() {
                 JOGAR <ArrowRight size={18} />
               </span>
             </button>
+          </div>
+        </Modal>
+      )}
+      {popup === 'contract' && career && world && club && (
+        <Modal
+          title="Proposta da presidência"
+          onClose={() => undefined}
+          wide
+          className="onboarding-modal contract-modal"
+        >
+          <div className={`contract-document ${contractSigning ? 'signing' : ''}`}>
+            <div className="contract-heading">
+              <Badge club={club} size="large" />
+              <div>
+                <span className="eyebrow">TERMO DE CONTRATAÇÃO · TEMPORADA {career.season}</span>
+                <h2>{club.name}</h2>
+                <p>
+                  A presidência oferece a {career.manager.formOfAddress || 'Sr.'}{' '}
+                  {career.manager.firstName} {career.manager.lastName} o cargo de treinador
+                  principal.
+                </p>
+              </div>
+            </div>
+            <div className="contract-finances">
+              <div>
+                <span>Orçamento de transferências</span>
+                <strong>{money(career.finances[club.id]?.transferBudget ?? club.budget)}</strong>
+              </div>
+              <div>
+                <span>Caixa do clube</span>
+                <strong>{money(career.finances[club.id]?.cash ?? club.budget * 2)}</strong>
+              </div>
+              <div>
+                <span>Dívida registrada</span>
+                <strong>{money(career.finances[club.id]?.debt ?? club.debt)}</strong>
+              </div>
+              <div className="salary">
+                <span>Salário semanal</span>
+                <strong>{money(Math.round((club.reputation * 10000) / 4))}</strong>
+              </div>
+            </div>
+            <section className="contract-objectives">
+              <h3>Objetivos da temporada</h3>
+              <ul>
+                <li>
+                  {club.league === 'A'
+                    ? 'Buscar uma colocação entre os seis primeiros.'
+                    : 'Disputar o acesso e manter o clube competitivo.'}
+                </li>
+                <li>
+                  Desafio {career.challenge}: {contractChallengeObjectives[career.challenge]}
+                </li>
+              </ul>
+            </section>
+            <div className="contract-signature">
+              <div className="signature-line">
+                {contractSigning && (
+                  <span className="signature-mark" aria-label="Assinando">
+                    {career.manager.firstName} {career.manager.lastName}
+                  </span>
+                )}
+              </div>
+              <span>
+                {career.manager.firstName} {career.manager.lastName} · treinador
+              </span>
+            </div>
+            <button
+              className="primary big contract-sign-button"
+              data-autofocus
+              disabled={contractSigning}
+              onClick={signContract}
+            >
+              {contractSigning ? 'Assinando contrato…' : 'Assinar contrato'}
+              <CheckCircle2 size={19} />
+            </button>
+          </div>
+        </Modal>
+      )}
+      {popup === 'tutorial' && career && (
+        <Modal
+          title="Primeiros passos"
+          onClose={finishTutorial}
+          className="onboarding-modal tutorial-modal"
+        >
+          <div className="tutorial-content">
+            <span className="eyebrow">
+              ORIENTAÇÃO {tutorialStep + 1} DE {onboardingTour.length}
+            </span>
+            <h2>{onboardingTour[tutorialStep].title}</h2>
+            <p>{onboardingTour[tutorialStep].body}</p>
+            <div className="tutorial-progress" aria-hidden="true">
+              {onboardingTour.map((step, index) => (
+                <span
+                  key={step.title}
+                  className={index === tutorialStep ? 'active' : index < tutorialStep ? 'done' : ''}
+                />
+              ))}
+            </div>
+            <div className="button-row tutorial-actions">
+              <button onClick={finishTutorial}>Pular tutorial</button>
+              <button
+                className="primary"
+                data-autofocus
+                onClick={() => {
+                  if (tutorialStep === onboardingTour.length - 1) finishTutorial();
+                  else setTutorialStep((step) => step + 1);
+                }}
+              >
+                {tutorialStep === onboardingTour.length - 1 ? 'Concluir' : 'Próximo'}
+                <ArrowRight size={17} />
+              </button>
+            </div>
           </div>
         </Modal>
       )}

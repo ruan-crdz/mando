@@ -128,6 +128,11 @@ export const managerSchema = z.object({
   firstName: z.string().trim().min(2, 'Informe um nome com pelo menos duas letras.').max(35),
   lastName: z.string().trim().min(2, 'Informe um sobrenome com pelo menos duas letras.').max(45),
   nationality: z.string().min(2).max(40),
+  gender: z.enum(['Homem', 'Mulher', 'Não informar']).optional(),
+  formOfAddress: z.enum(['Sr.', 'Sra.', 'Mx.']).optional(),
+  countryRegion: z.string().min(2).max(60).optional(),
+  birthRegion: z.string().trim().min(2).max(80).optional(),
+  birthDate: isoDate.optional(),
   age: z
     .number()
     .int()
@@ -760,6 +765,13 @@ export const careerSchema = z.object({
   worldId: z.string(),
   mode: z.enum(['demo', 'official']),
   manager: managerSchema,
+  /** Optional for existing saves; absent legacy data is treated as already onboarded. */
+  onboarding: z
+    .object({
+      contractSigned: z.boolean(),
+      tutorialComplete: z.boolean(),
+    })
+    .optional(),
   clubId: z.string(),
   date: isoDate,
   seed: z.number().int(),

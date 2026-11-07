@@ -104,7 +104,7 @@ export function recommendCallups(career: Career, world: World): string[] {
         eligibleForBrazil(career, p) &&
         career.players[p.id].injuryDays === 0 &&
         career.players[p.id].fitness >= 30 &&
-        !(career.national?.suspensions[p.id] > 0),
+        (career.national?.suspensions[p.id] ?? 0) <= 0,
     )
     .sort(
       (a, b) =>

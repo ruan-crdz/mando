@@ -187,6 +187,7 @@ export function createCareer(
     worldId: world.id,
     mode: world.mode,
     manager,
+    onboarding: { contractSigned: false, tutorialComplete: false },
     clubId,
     difficulty,
     challenge,
@@ -293,16 +294,28 @@ export function createCareer(
   if (c.lineup.length < 11) throw new Error('O elenco não tem onze atletas disponíveis.');
   for (const role of roleNames) c.roles[role] = c.lineup[role === 'Capitão' ? 2 : 10];
   message(c, {
+    from: 'Imprensa esportiva',
+    kind: 'news',
+    title: `Novo comando no ${club.name}`,
+    body: `A chegada de ${manager.firstName} ${manager.lastName} abre um novo capítulo no clube. A torcida espera ver as primeiras escolhas dentro e fora de campo.`,
+  });
+  message(c, {
     from: 'Presidência',
     kind: 'board',
-    title: `Bem-vindo ao ${club.name}`,
-    body: `A temporada começa agora. ${club.league === 'A' ? 'Nossa meta é terminar entre os seis primeiros.' : 'Queremos disputar o acesso.'} Além do Brasileirão, teremos estadual, Copa do Brasil e, se classificados, torneios continentais. Construa uma equipe equilibrada e mantenha as finanças saudáveis.`,
+    title: 'Boas-vindas ao clube',
+    body: `Conte com a diretoria durante esta temporada. ${club.league === 'A' ? 'Queremos terminar entre os seis primeiros.' : 'O objetivo esportivo é disputar o acesso.'} O escritório reúne mensagens, decisões e informações do clube.`,
+  });
+  message(c, {
+    from: 'Assistente técnico',
+    kind: 'staff',
+    title: 'Vamos começar pelo elenco',
+    body: 'A escalação e as funções da equipe estão no Central. Consulte o calendário antes de avançar o tempo; a simulação para em partidas e decisões importantes.',
   });
   message(c, {
     from: 'Comissão técnica',
     kind: 'staff',
-    title: 'Seu primeiro dia de trabalho',
-    body: 'Revise a escalação, defina as responsabilidades e acompanhe o calendário. A simulação para em partidas e decisões importantes.',
+    title: 'Rotina de trabalho',
+    body: 'A equipe está pronta para iniciar os trabalhos. Acompanhe o Escritório para ler as mensagens da comissão e da diretoria.',
   });
   scoutNext(c, careerWorld(world, c));
   return careerSchema.parse(c);
