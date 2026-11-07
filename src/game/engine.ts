@@ -1496,6 +1496,16 @@ export function startNextSeason(career: Career, world: World): Career {
       continue;
     }
     if (isForeign(s.clubId) && s.contractEnd < next) s.clubId = null;
+    if (s.clubId === c.clubId && s.contractEnd < next) {
+      s.clubId = null;
+      message(c, {
+        kind: 'market',
+        from: 'Diretor de futebol',
+        title: `Contrato encerrado: ${p.name}`,
+        body: 'O atleta deixou o clube como agente livre. Renove contratos antes do vencimento.',
+        playerId: p.id,
+      });
+    }
     if (s.clubId && s.clubId !== c.clubId && s.contractEnd < next) {
       if (age < 34) s.contractEnd = `${y + 2}-12-31`;
       else s.clubId = null;
@@ -1613,8 +1623,17 @@ export function startNextSeason(career: Career, world: World): Career {
     f.history = f.history.slice(-24);
   }
   if (c.challenge === 'Do zero') c.finances[c.clubId].transferBudget = 0;
-  reconcileSquad(c, nextWorld);
-  if (c.lineup.length !== 11) Object.assign(c, syncBenchWithLineup(c, bestLineup(c, nextWorld)));
+  const preparedWorld = careerWorld(base, c);
+  reconcileSquad(c, preparedWorld);
+  if (c.lineup.length !== 11)
+    Object.assign(c, syncBenchWithLineup(c, bestLineup(c, preparedWorld)));
+  const reserves = squad(c, preparedWorld)
+    .filter((player) => !c.lineup.includes(player.id) && available(c, player.id))
+    .sort(
+      (a, b) => overall(b, b.position, c.players[b.id]) - overall(a, a.position, c.players[a.id]),
+    );
+  c.bench = [...new Set([...c.bench, ...reserves.map((player) => player.id)])].slice(0, 9);
+  c.benchConfigured = true;
   const goal =
     ourLeague === 'A'
       ? lib.includes(c.clubId)

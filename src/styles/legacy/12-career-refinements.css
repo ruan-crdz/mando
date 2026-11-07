@@ -141,6 +141,29 @@
   overflow-y: auto;
   flex: 1;
 }
+.academy-roster-screen {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+.academy-roster-screen > .squad-layout {
+  flex: 1;
+  min-height: 0;
+}
+.academy-roster-screen .academy-roster-list {
+  min-height: 0;
+}
+.academy-roster-screen .academy-roster-row,
+.academy-roster-screen .academy-roster-columns {
+  grid-template-columns: minmax(0, 1.7fr) minmax(160px, 1fr);
+}
+.academy-roster-screen .academy-roster-values {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.academy-roster-screen .roster-expand > .primary {
+  align-self: flex-start;
+}
 .academy-player-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));

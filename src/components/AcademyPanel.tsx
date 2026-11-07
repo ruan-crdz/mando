@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from 'react';
 import { type Career, type World, positions } from '../game/types';
 import { ageAt } from '../game/random';
 import { overall } from '../game/ratings';
@@ -5,6 +6,8 @@ import { setDevelopmentPlan } from '../game/engine';
 import { setTraining, familiarity, LEARNED } from '../game/positions';
 import { positionTrainingEta } from '../game/squadManagement';
 import { PlayerFace } from './PlayerFace';
+import { PlayerStatsPanel } from './PlayerStatsPanel';
+import { ControllerButtonHint } from '../controller/ControllerButtonHint';
 import { ChipGroup, OptionCycler } from './controls';
 import { dateLabel } from './ui';
 
@@ -24,6 +27,20 @@ export function AcademyPanel({
   onError: (message: string) => void;
 }) {
   const roster = c.living.academyRoster.filter((player) => player.clubId === c.clubId);
+  const [focusedId, setFocusedId] = useState<string | null>(null);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const list = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (
+      !focusedId ||
+      c.living.academyRoster.some((player) => player.clubId === c.clubId && player.id === focusedId)
+    )
+      return;
+    const frame = requestAnimationFrame(() =>
+      list.current?.querySelector<HTMLButtonElement>('[data-academy-player]')?.focus(),
+    );
+    return () => cancelAnimationFrame(frame);
+  }, [focusedId, c.living.academyRoster, c.clubId]);
   const apply = (operation: () => Career) => {
     try {
       onChange(operation());
@@ -31,13 +48,114 @@ export function AcademyPanel({
       onError(error instanceof Error ? error.message : String(error));
     }
   };
-  if (view !== 'tournament')
+  if (view === 'roster') {
+    const players = [...roster].sort(
+      (a, b) =>
+        overall(b, b.position, c.players[b.id]) - overall(a, a.position, c.players[a.id]) ||
+        a.name.localeCompare(b.name),
+    );
+    const focused = players.find((player) => player.id === focusedId) ?? players[0];
+    const select = (id: string) => {
+      setFocusedId(id);
+      setExpandedId((previous) => (previous === id ? previous : null));
+    };
+    return (
+      <div className="squad-screen academy-roster-screen">
+        <div className="squad-layout">
+          {focused && <PlayerStatsPanel player={focused} career={c} />}
+          <section
+            className="panel squad-controls academy-roster-list"
+            aria-label="Lista do elenco jovem"
+          >
+            <div className="panel-heading">
+              <h2>Elenco jovem · {players.length} atletas</h2>
+            </div>
+            <p className="muted small">
+              Selecione um atleta para ver a ficha à esquerda. Abra a linha para promover a partir
+              dos 16 anos.
+            </p>
+            <div className="roster-columns academy-roster-columns" aria-hidden="true">
+              <span>JOGADOR</span>
+              <span>OVR · POTENCIAL · CONDIÇÃO</span>
+            </div>
+            <div className="card-scroll">
+              <div className="roster-list" ref={list}>
+                {players.map((player) => {
+                  const state = c.players[player.id];
+                  const age = ageAt(player.birthDate, c.date);
+                  const open = expandedId === player.id;
+                  return (
+                    <div className={`roster-item ${open ? 'open' : ''}`} key={player.id}>
+                      <button
+                        className={`market-row roster-row academy-roster-row ${focused?.id === player.id ? 'focused' : ''}`}
+                        data-academy-player={player.id}
+                        data-age={age}
+                        aria-expanded={open}
+                        onFocus={() => select(player.id)}
+                        onMouseEnter={() => select(player.id)}
+                        onClick={() => {
+                          setFocusedId(player.id);
+                          setExpandedId((previous) => (previous === player.id ? null : player.id));
+                        }}
+                      >
+                        <span>
+                          <span className="position-tag">{state.position ?? player.position}</span>
+                          <PlayerFace player={player} size="md" />
+                          <span>
+                            <strong>{player.name}</strong>
+                            <small>
+                              {age} anos · {player.nationality}
+                            </small>
+                          </span>
+                        </span>
+                        <span className="roster-category-values academy-roster-values">
+                          <b className="roster-ovr">
+                            {overall(player, state.position ?? player.position, state)}
+                          </b>
+                          <b>{player.potential + state.potentialDelta}</b>
+                          <b>{Math.round(state.fitness)}%</b>
+                        </span>
+                      </button>
+                      {open && (
+                        <div className="roster-expand">
+                          <p>
+                            {state.minutes} minutos · {state.goals} gols · evolução{' '}
+                            {state.growth >= 0 ? '+' : ''}
+                            {state.growth.toFixed(2)}
+                          </p>
+                          {age >= 16 ? (
+                            <button
+                              className="primary"
+                              data-controller-secondary
+                              onClick={() => onPromote(player.id)}
+                            >
+                              Promover ao profissional{' '}
+                              <ControllerButtonHint action="secondary" label="Promover" />
+                            </button>
+                          ) : (
+                            <p className="muted small">Promoção disponível aos 16 anos.</p>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+            {!players.length && (
+              <p className="empty-state">
+                Sem atletas na base. Use a captação de olheiros ou aguarde a próxima temporada.
+              </p>
+            )}
+          </section>
+        </div>
+      </div>
+    );
+  }
+  if (view === 'development')
     return (
       <section className="panel academy-youth-roster" data-stick-scroll>
-        <h2>
-          {view === 'development' ? 'Desenvolvimento da base' : 'Elenco jovem'} · {roster.length}{' '}
-          atletas
-        </h2>
+        <h2>Desenvolvimento da base · {roster.length} atletas</h2>
         <p>
           Atletas fictícios do clube. Mesmos planos, treino de posição, potencial, moral e minutos
           usados no profissional. Promoção a partir dos 16 anos.
@@ -45,13 +163,12 @@ export function AcademyPanel({
         <div className="academy-player-grid">
           {roster.map((player) => {
             const state = c.players[player.id];
-            const age = ageAt(player.birthDate, c.date);
             const eta = state.training ? positionTrainingEta(player, c, state.training) : null;
             return (
               <article key={player.id}>
                 <PlayerFace player={player} size="md" />
                 <span>
-                  {state.position ?? player.position} · {age} anos
+                  {state.position ?? player.position} · {ageAt(player.birthDate, c.date)} anos
                 </span>
                 <strong>{player.name}</strong>
                 <p>
@@ -61,55 +178,43 @@ export function AcademyPanel({
                 <small>
                   {state.minutes} min · {state.goals} gols · ritmo {Math.round(state.sharpness)}%
                 </small>
-                {view === 'roster' ? (
-                  age >= 16 ? (
-                    <button className="primary" onClick={() => onPromote(player.id)}>
-                      Promover ao profissional
-                    </button>
-                  ) : (
-                    <p className="muted small">Promoção disponível aos 16 anos.</p>
-                  )
-                ) : (
-                  <>
-                    <ChipGroup
-                      label="Plano de desenvolvimento"
-                      value={state.development}
-                      options={(
-                        ['Equilibrado', 'Ataque', 'Criação', 'Defesa', 'Físico'] as const
-                      ).map((value) => ({ value, label: value }))}
-                      onChange={(plan) => apply(() => setDevelopmentPlan(c, player.id, plan))}
-                    />
-                    <OptionCycler
-                      label="Treinar posição"
-                      value={state.training ?? 'none'}
-                      options={[
-                        { value: 'none', label: 'Sem treino específico' },
-                        ...positions
-                          .filter(
-                            (position) =>
-                              (position === 'GK') === (player.position === 'GK') &&
-                              familiarity(player, position, state) < LEARNED,
-                          )
-                          .map((value) => ({ value, label: value })),
-                      ]}
-                      onChange={(target) =>
-                        apply(() =>
-                          setTraining(
-                            c,
-                            player,
-                            target === 'none'
-                              ? null
-                              : (positions.find((position) => position === target) ?? null),
-                          ),
-                        )
-                      }
-                    />
-                    {eta && (
-                      <p>
-                        {eta.current.toFixed(0)}% de familiaridade · cerca de {eta.weeks} semanas.
-                      </p>
-                    )}
-                  </>
+                <ChipGroup
+                  label="Plano de desenvolvimento"
+                  value={state.development}
+                  options={(['Equilibrado', 'Ataque', 'Criação', 'Defesa', 'Físico'] as const).map(
+                    (value) => ({ value, label: value }),
+                  )}
+                  onChange={(plan) => apply(() => setDevelopmentPlan(c, player.id, plan))}
+                />
+                <OptionCycler
+                  label="Treinar posição"
+                  value={state.training ?? 'none'}
+                  options={[
+                    { value: 'none', label: 'Sem treino específico' },
+                    ...positions
+                      .filter(
+                        (position) =>
+                          (position === 'GK') === (player.position === 'GK') &&
+                          familiarity(player, position, state) < LEARNED,
+                      )
+                      .map((value) => ({ value, label: value })),
+                  ]}
+                  onChange={(target) =>
+                    apply(() =>
+                      setTraining(
+                        c,
+                        player,
+                        target === 'none'
+                          ? null
+                          : (positions.find((position) => position === target) ?? null),
+                      ),
+                    )
+                  }
+                />
+                {eta && (
+                  <p>
+                    {eta.current.toFixed(0)}% de familiaridade · cerca de {eta.weeks} semanas.
+                  </p>
                 )}
               </article>
             );

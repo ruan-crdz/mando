@@ -59,7 +59,7 @@ import {
 } from '../game/squadManagement';
 import { HeatMap } from '../components/HeatMap';
 import { PlayerFace } from '../components/PlayerFace';
-import { cardTier } from '../components/cardTier';
+import { PlayerStatsPanel } from '../components/PlayerStatsPanel';
 import {
   formations,
   positions,
@@ -82,28 +82,6 @@ import {
   roleFits,
   shortName,
 } from '../components/PlayerCard';
-
-const attributeLabels: Record<string, string> = {
-  pace: 'Velocidade',
-  acceleration: 'Aceleração',
-  finishing: 'Finalização',
-  shortPass: 'Passe curto',
-  longPass: 'Passe longo',
-  vision: 'Visão',
-  dribbling: 'Drible',
-  control: 'Controle',
-  strength: 'Força',
-  stamina: 'Resistência',
-  positioning: 'Posicionamento',
-  marking: 'Marcação',
-  tackling: 'Desarme',
-  interception: 'Interceptação',
-  heading: 'Cabeceio',
-  composure: 'Compostura',
-  reflexes: 'Reflexos',
-  handling: 'Segurança',
-  diving: 'Elasticidade',
-};
 
 const roleScore: Record<string, (p: Player, c: Career) => number> = {
   Capitão: (p, c) =>
@@ -916,7 +894,6 @@ export function Squad({
     (focusId && c.players[focusId]?.clubId === c.clubId ? byId(focusId) : null) ??
     d ??
     listRoster[0];
-  const fs = fp ? c.players[fp.id] : null;
   const starters = c.lineup.map((id, index) => {
     const player = byId(id);
     const state = c.players[id];
@@ -933,87 +910,9 @@ export function Squad({
     starters.reduce((total, starter) => total + starter.state.fitness, 0) / starters.length,
   );
   const unavailableStarters = starters.filter(({ player }) => !available(c, player.id)).length;
-  const statsPanel =
-    fp && fs ? (
-      <section className="panel player-stats" data-stick-scroll aria-label="Ficha do jogador">
-        {(input === 'xbox' || input === 'playstation') && (
-          <span className="stats-scroll-hint">
-            <ControllerButtonHint action="stick" label="Rolar ficha" />
-          </span>
-        )}
-        <div className="stats-head">
-          <div className={`hub-card ${cardTier(overall(fp, fp.position, fs))}`}>
-            <span className="hub-card-top">
-              <strong>{overall(fp, fp.position, fs)}</strong>
-              <span>{fs.position ?? fp.position}</span>
-            </span>
-            <PlayerFace key={fp.id} player={fp} className="hub-card-face" />
-            <strong className="hub-card-name">{shortName(fp.name)}</strong>
-          </div>
-          <div className="stats-info">
-            <h2>{fp.name}</h2>
-            <p className="eyebrow">
-              {positionsLine(fp) || fp.position} · {fs.role} · {fs.personality}
-            </p>
-            <div className="hub-facts">
-              <span>
-                Camisa <strong>{numbers[fp.id] ?? '—'}</strong>
-              </span>
-              <span>
-                Idade <strong>{ageAt(fp.birthDate, c.date)}</strong>
-              </span>
-              <span>
-                Overall <strong>{overall(fp, fp.position, fs)}</strong>
-              </span>
-              <span>
-                Potencial{' '}
-                <strong>
-                  {Math.max(1, Math.round(fp.potential + fs.potentialDelta - fp.uncertainty))}–
-                  {Math.min(99, Math.round(fp.potential + fs.potentialDelta + fp.uncertainty))}
-                </strong>
-              </span>
-              <span>
-                Moral <strong>{Math.round(fs.morale)}</strong>
-              </span>
-              <span>
-                Ritmo <strong>{Math.round(fs.sharpness)}%</strong>
-              </span>
-              <span>
-                Valor <strong>{money(marketValue(c, fp))}</strong>
-              </span>
-              <span>
-                Salário <strong>{money(fs.wage)}</strong>
-              </span>
-              <span>
-                Contrato <strong>{dateLabel(fs.contractEnd)}</strong>
-              </span>
-              <span>
-                Temporada{' '}
-                <strong>
-                  {fs.goals} gols · {fs.minutes} min
-                </strong>
-              </span>
-            </div>
-            {fs.listed ? <p className="pill hub-flag">À VENDA · {money(fs.listed)}</p> : null}
-          </div>
-        </div>
-        <div className="hub-summary">
-          <div className="attribute-grid">
-            {Object.entries(fp.attributes).map(([k, v]) => (
-              <div key={k} className={v >= 80 ? 'high' : v >= 65 ? 'mid' : 'low'}>
-                <span>
-                  {attributeLabels[k]}: <strong>{v}</strong>
-                </span>
-                <i className="attr-bar">
-                  <b style={{ width: `${v}%` }} />
-                </i>
-              </div>
-            ))}
-          </div>
-          <HeatMap player={fp} position={fs.position ?? fp.position} state={fs} compact />
-        </div>
-      </section>
-    ) : null;
+  const statsPanel = fp ? (
+    <PlayerStatsPanel player={fp} career={c} shirtNumber={numbers[fp.id] ?? null} />
+  ) : null;
   return (
     <div className="screen-enter squad-screen">
       <SectionTitle kicker="TIME / GESTÃO DO ELENCO" title="Onze nomes. Uma ideia.">

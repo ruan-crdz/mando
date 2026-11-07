@@ -15,7 +15,7 @@
 | Time: jogadores         | Ficha expandida, camisa, contratos, venda/empréstimo, dispensa e treino de posições                                               |
 | Time: comissão          | Cinco candidatos por setor; escolha explícita, bronze/prata/ouro, salário e estrelas                                              |
 | Transferências          | Mercado, atletas observados e negociações                                                                                         |
-| Academia                | Olheiros, 18 jovens iniciais, desenvolvimento e torneio sub-20                                                                    |
+| Academia                | Olheiros, elenco jovem em lista com ficha à esquerda, 18 jovens iniciais, desenvolvimento e torneio sub-20                        |
 | Escritório              | Oito opções no mesmo submenu: objetivos, classificação, calendário, orçamento, trabalho, histórico, estatísticas e personalização |
 | Pré-jogo                | Resumo do confronto, revisar escalação e começar                                                                                  |
 | Partida                 | Relógio, acontecimentos, placar, estatísticas, substituições e ajustes táticos                                                    |

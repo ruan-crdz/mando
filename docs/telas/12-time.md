@@ -63,6 +63,10 @@ O estado `view` é **local** do componente (volta a `'lineup'` sempre que a tela
 
 > `LivePitch.tsx` **não** é usado nesta tela.
 
+A ficha à esquerda usa `src/components/PlayerStatsPanel.tsx`, compartilhado com
+Elenco jovem na Academia. Ela mostra identidade, atributos, condição, evolução
+e mapa de calor com o mesmo comportamento de rolagem por RS.
+
 ---
 
 ## Elementos comuns a todas as abas

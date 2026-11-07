@@ -108,8 +108,20 @@ test('criação, todas as abas, negociação, avanço e save/load persistente', 
   await expect(page.getByRole('heading', { name: /Liga de base Sub-20/ })).toBeVisible();
   await expect(page.locator('.academy-fixture-list article')).toHaveCount(14);
   await page.getByRole('button', { name: 'Elenco jovem', exact: true }).click();
-  await expect(page.locator('.academy-player-grid > article')).toHaveCount(18);
-  await expect(page.getByRole('button', { name: 'Promover ao profissional' })).toHaveCount(8);
+  const youthRows = page.locator('.academy-roster-list .roster-row');
+  await expect(youthRows).toHaveCount(18);
+  const youthStats = page.getByRole('region', { name: 'Ficha do jogador' });
+  await expect(youthStats).toBeVisible();
+  await page.locator('.academy-roster-row[data-age="15"]').first().click();
+  await expect(page.getByRole('button', { name: /Promover ao profissional/ })).toHaveCount(0);
+  const eligibleYouth = page.locator('.academy-roster-row[data-age="16"]').first();
+  const youthName = await eligibleYouth.locator('strong').innerText();
+  await eligibleYouth.click();
+  await expect(youthStats.getByRole('heading', { name: youthName, exact: true })).toBeVisible();
+  await expect(youthStats.locator('.attribute-grid > div')).toHaveCount(19);
+  await page.getByRole('button', { name: /Promover ao profissional/ }).click();
+  await expect(youthRows).toHaveCount(17);
+  await expect(page.locator('.academy-roster-list .roster-row:focus')).toHaveCount(1);
   await page
     .getByRole('navigation', { name: 'Áreas do clube' })
     .getByRole('button', { name: /ESCRITÓRIO/ })

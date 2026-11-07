@@ -98,7 +98,7 @@ describe('virada de temporada', () => {
     for (const id of ended.promoted) expect(live.clubs.find((c) => c.id === id)!.league).toBe('A');
     for (const id of ended.relegated) expect(live.clubs.find((c) => c.id === id)!.league).toBe('B');
     expect(live.clubs.filter((c) => c.league === 'A')).toHaveLength(20);
-    expect(next.youth).toHaveLength(117);
+    expect(next.youth.filter((player) => player.clubId !== next.clubId)).toHaveLength(117);
     expect(
       next.living.academyRoster.filter((player) => player.clubId === next.clubId),
     ).toHaveLength(21);
@@ -108,6 +108,29 @@ describe('virada de temporada', () => {
     expect(Object.values(next.players).every((s) => s.goals === 0)).toBe(true);
     expect(() => validateCareerForWorld(careerSchema.parse(next), world)).not.toThrow();
     expect(() => startNextSeason(next, world)).toThrow('não terminou');
+  });
+  it('retira contratos vencidos antes de recompor o elenco para a nova temporada', () => {
+    const expired = structuredClone(ended);
+    const previousRoster = careerWorld(world, expired).players.filter(
+      (player) => expired.players[player.id].clubId === expired.clubId,
+    );
+    for (const player of previousRoster) expired.players[player.id].contractEnd = '2026-12-31';
+    const renewed = startNextSeason(expired, world);
+    const roster = careerWorld(world, renewed).players.filter(
+      (player) => renewed.players[player.id].clubId === renewed.clubId,
+    );
+    expect(
+      previousRoster.every((player) => renewed.players[player.id].clubId !== renewed.clubId),
+    ).toBe(true);
+    expect(roster.length).toBeGreaterThanOrEqual(18);
+    expect(roster.filter((player) => player.position === 'GK').length).toBeGreaterThanOrEqual(2);
+    expect(renewed.lineup.every((id) => renewed.players[id].clubId === renewed.clubId)).toBe(true);
+    expect(roster.every((player) => renewed.players[player.id].contractEnd >= renewed.date)).toBe(
+      true,
+    );
+    expect(renewed.bench).toHaveLength(Math.min(9, roster.length - 11));
+    expect(renewed.bench.every((id) => !renewed.lineup.includes(id))).toBe(true);
+    expect(() => validateCareerForWorld(renewed, world)).not.toThrow();
   });
   it('joga uma segunda temporada inteira com reforços elegíveis da base', () => {
     let prepared = next;
