@@ -421,7 +421,9 @@ test('controle define data de nascimento na criação e no perfil do manager', a
   await expect(year.locator('strong')).toHaveText('1990');
   await press(1);
   await expect(year).toHaveAttribute('aria-pressed', 'false');
-  await expect(page.locator('.control-hint').first()).toContainText('✕');
+  await expect(
+    page.getByRole('group', { name: 'Data de nascimento' }).locator('.control-hint').first(),
+  ).toContainText('✕');
   await page.getByRole('button', { name: /Salvar personalização/ }).focus();
   await press(0);
   await expect(page.getByText('Personalização do manager salva.')).toBeVisible();
