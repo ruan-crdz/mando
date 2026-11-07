@@ -60,7 +60,8 @@ describe('ambiente e decisões durante a partida', () => {
   });
 
   it('carrega partidas antigas sem a lista de expulsos', () => {
-    const { dismissed: _dismissed, ...legacyMatch } = career.activeMatch!;
+    const { dismissed, ...legacyMatch } = career.activeMatch!;
+    expect(dismissed).toEqual([]);
     const loaded = careerSchema.parse({ ...career, activeMatch: legacyMatch });
     expect(loaded.activeMatch?.dismissed).toEqual([]);
   });
