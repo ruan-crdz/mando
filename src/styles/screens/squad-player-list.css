@@ -5,7 +5,7 @@
   gap: 2px;
 }
 .roster-row {
-  grid-template-columns: minmax(0, 2.6fr) 54px minmax(0, 1fr) minmax(0, 0.7fr);
+  grid-template-columns: minmax(0, 1.8fr) minmax(0, 2.2fr) minmax(0, 0.75fr);
 }
 .roster-row.starter {
   box-shadow: inset 3px 0 0 var(--lime);

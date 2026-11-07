@@ -11,6 +11,10 @@ import {
   Sparkles,
   TriangleAlert,
   UserX,
+  Download,
+  Upload,
+  UserPlus,
+  UserMinus,
 } from 'lucide-react';
 import { available, bestLineup, squad } from '../game/matches';
 import { internationalCountry } from '../game/international';
@@ -51,6 +55,19 @@ import {
   setMainPosition,
   setTraining,
 } from '../game/positions';
+import {
+  applySavedLineup,
+  ASSISTANT_STAFF_LIMIT,
+  fireAssistant,
+  hireAssistant,
+  lineupExport,
+  lineupImportError,
+  positionTrainingEta,
+  removeBenchPlayer,
+  saveLineup,
+  selectBenchPlayer,
+  syncBenchWithLineup,
+} from '../game/squadManagement';
 import { HeatMap } from '../components/HeatMap';
 import { PlayerFace } from '../components/PlayerFace';
 import { cardTier } from '../components/cardTier';
@@ -58,7 +75,9 @@ import {
   formations,
   positions,
   roleNames,
+  assistantAreas,
   type Career,
+  type AssistantArea,
   type Formation,
   type Player,
   type Position,
@@ -180,7 +199,10 @@ export function Squad({
   setDetail: (p: Player | null) => void;
 }) {
   const { input } = useGamepad();
-  const [view, setView] = useState<'lineup' | 'tactics' | 'roles' | 'kit'>('lineup');
+  const [view, setView] = useState<'lineup' | 'tactics' | 'roles' | 'kit' | 'staff'>('lineup');
+  const [rosterCategory, setRosterCategory] = useState<'stats' | 'qualities' | 'finances'>('stats');
+  const [lineupName, setLineupName] = useState('');
+  const [previewLineupIndex, setPreviewLineupIndex] = useState<number | null>(null);
   const [sortMode, setSortMode] = useState(0);
   const [salePrice, setSalePrice] = useState(0);
   const [confirmRelease, setConfirmRelease] = useState(false);
@@ -199,6 +221,7 @@ export function Squad({
   const [focusId, setFocusId] = useState<string | null>(null);
   const lastDetail = useRef<string | null>(null);
   const panel = useRef<HTMLElement>(null);
+  const lineupFile = useRef<HTMLInputElement>(null);
   const returnFocus = useRef<string | null>(null);
   const players = useMemo(() => squad(c, world), [c, world]);
   const club = clubById(world, c.clubId);
@@ -261,8 +284,10 @@ export function Squad({
 
   const updateTactic = (change: Partial<Tactic>) => {
     const next = { ...c, tactic: { ...c.tactic, ...change } };
-    if (change.formation && change.formation !== c.tactic.formation)
+    if (change.formation && change.formation !== c.tactic.formation) {
       next.lineup = bestLineup(next, world);
+      next.bench = c.bench.filter((id) => !next.lineup.includes(id));
+    }
     if (next.lineup.length !== 11) {
       onError('Não há atletas disponíveis para esta formação.');
       return;
@@ -290,7 +315,7 @@ export function Squad({
       onError('A posição exige um goleiro.');
       return;
     }
-    onChange({ ...c, lineup });
+    onChange(syncBenchWithLineup(c, lineup));
     returnFocus.current = `[data-slot="${index}"]`;
     setPicking(null);
   };
@@ -305,7 +330,7 @@ export function Squad({
       onError('A posição exige um goleiro.');
       return;
     }
-    onChange({ ...c, lineup });
+    onChange(syncBenchWithLineup(c, lineup));
     returnFocus.current = `[data-slot="${to}"]`;
     setPicking(null);
   };
@@ -330,7 +355,7 @@ export function Squad({
       onError('A posição exige um goleiro.');
       return;
     }
-    onChange({ ...c, lineup });
+    onChange(syncBenchWithLineup(c, lineup));
     returnFocus.current = `[data-player="${a}"]`;
     setAction('summary');
   };
@@ -375,6 +400,57 @@ export function Squad({
     knownPositions(p, c.players[p.id])
       .sort((a, b) => (a === p.position ? -1 : b === p.position ? 1 : 0))
       .join(' · ');
+  const cleanSheets = (playerId: string) =>
+    c.fixtures.reduce((total, fixture) => {
+      const result = fixture.result;
+      if (!result) return total;
+      const home = fixture.homeId === c.clubId;
+      const keeperId = home ? result.homeLineup[0] : result.awayLineup[0];
+      const conceded = home ? result.awayGoals : result.homeGoals;
+      return total + Number(keeperId === playerId && conceded === 0);
+    }, 0);
+  const contractMonths = (end: string) =>
+    Math.max(
+      0,
+      (Number(end.slice(0, 4)) - Number(c.date.slice(0, 4))) * 12 +
+        Number(end.slice(5, 7)) -
+        Number(c.date.slice(5, 7)),
+    );
+  const importLineupFile = async (file?: File) => {
+    if (!file) return;
+    try {
+      const imported = lineupImportError(await file.text(), c, world);
+      const savedLineups = [
+        ...c.savedLineups.filter(
+          (lineup) => lineup.name.toLowerCase() !== imported.name.toLowerCase(),
+        ),
+        { name: imported.name, formation: imported.formation, playerIds: imported.playerIds },
+      ];
+      onChange({
+        ...syncBenchWithLineup(c, imported.playerIds),
+        tactic: { ...c.tactic, formation: imported.formation },
+        savedLineups,
+      });
+      setLineupName(imported.name);
+    } catch (e) {
+      onError(e instanceof Error ? e.message : String(e));
+    }
+  };
+  const exportLineup = (name: string, formation: Formation, playerIds: string[]) => {
+    try {
+      const blob = new Blob([lineupExport(name, formation, playerIds)], {
+        type: 'application/json',
+      });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${name.trim().replace(/[^a-z0-9-_]+/gi, '-') || 'escalação'}.json`;
+      link.click();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      onError(e instanceof Error ? e.message : String(e));
+    }
+  };
 
   const sortModes = [
     {
@@ -559,6 +635,7 @@ export function Squad({
   const kit = kitId && c.players[kitId]?.clubId === c.clubId ? byId(kitId) : null;
   const ks = kit ? c.players[kit.id] : null;
   const kitRole = kitPos ?? kit?.position ?? 'ST';
+  const trainingEta = kit ? positionTrainingEta(kit, c, kitRole) : null;
   const closeKit = () => {
     if (kitId) returnFocus.current = `[data-player="${kitId}"]`;
     setKitId(null);
@@ -619,7 +696,17 @@ export function Squad({
               {ks.training && (
                 <small>
                   Treinando {positionNames[ks.training].toLowerCase()} ·{' '}
-                  {thresholdPercent(familiarity(kit, ks.training, ks))}% (apto a partir de {LEARNED}%)
+                  {thresholdPercent(familiarity(kit, ks.training, ks))}% (apto a partir de {LEARNED}
+                  %)
+                </small>
+              )}
+              {trainingEta && (
+                <small className="position-eta">
+                  {trainingEta.learned
+                    ? `${positionNames[kitRole]} já está apto.`
+                    : trainingEta.weeks === null
+                      ? 'Goleiros e jogadores de linha não podem trocar de grupo no treino.'
+                      : `Estimativa: ${trainingEta.weeks} sem. (${trainingEta.days} dias) para ficar apto · OVR atual ${overall(kit, kitRole, ks)} · potencial ${kit.potential}.`}
                 </small>
               )}
             </div>
@@ -974,10 +1061,10 @@ export function Squad({
                   <div className="mentor-box">
                     <p className="eyebrow">MENTORIA</p>
                     <p className="small">
-                      <strong>{name(pair.mentor)}</strong> orienta <strong>{name(pair.pupil)}</strong>{' '}
-                      desde {dateLabel(pair.since)}. Crescimento do jovem ×
-                      {mentorState ? mentorGrowth(mentorState).toFixed(1) : '1.2'}, +2 de moral
-                      mensal para ambos e chance de herdar a personalidade{' '}
+                      <strong>{name(pair.mentor)}</strong> orienta{' '}
+                      <strong>{name(pair.pupil)}</strong> desde {dateLabel(pair.since)}. Crescimento
+                      do jovem ×{mentorState ? mentorGrowth(mentorState).toFixed(1) : '1.2'}, +2 de
+                      moral mensal para ambos e chance de herdar a personalidade{' '}
                       {mentorState?.personality ?? ''}.
                     </p>
                     <button onClick={() => onEndMentor(pair.pupil)}>Encerrar mentoria</button>
@@ -1165,7 +1252,7 @@ export function Squad({
           onClick={() => {
             const lineup = bestLineup(c, world);
             if (lineup.length !== 11) onError('Não há onze atletas disponíveis.');
-            else onChange({ ...c, lineup });
+            else onChange(syncBenchWithLineup(c, lineup));
           }}
         >
           <Sparkles size={17} /> Autoescalar
@@ -1208,6 +1295,17 @@ export function Squad({
           }}
         >
           <Users size={16} /> Jogadores
+        </button>
+        <button
+          className={view === 'staff' ? 'active' : ''}
+          onClick={() => {
+            setView('staff');
+            setPicking(null);
+            setKitId(null);
+            setDetail(null);
+          }}
+        >
+          <Users size={16} /> Comissão
         </button>
       </div>
       <div className="squad-layout">
@@ -1298,109 +1396,165 @@ export function Squad({
         <section ref={panel} className="panel squad-controls" data-focus-region="panel">
           {pickerContent ||
             (view === 'kit' ? (
-                <>
-                  <div className="panel-heading">
-                    <h2>Jogadores</h2>
+              <>
+                <div className="panel-heading">
+                  <h2>Jogadores</h2>
+                  <button
+                    type="button"
+                    className="sort-pill"
+                    disabled={!!d || !!kitId}
+                    title={d || kitId ? 'Feche a linha aberta para mudar a ordenação' : undefined}
+                    onClick={() => cycleSort(1)}
+                    aria-label={`Ordenando por ${mode.label.toLowerCase()}. ${d || kitId ? 'Feche a linha aberta para mudar a ordenação' : 'Trocar ordenação'}`}
+                  >
+                    ◀ ▶ Ordenando por <strong>{mode.label}</strong>
+                  </button>
+                </div>
+                <div
+                  className="roster-category-tabs"
+                  role="group"
+                  aria-label="Categorias do elenco"
+                >
+                  {(
+                    [
+                      ['stats', 'PARTICIPAÇÃO'],
+                      ['qualities', 'QUALIDADES'],
+                      ['finances', 'FINANÇAS'],
+                    ] as const
+                  ).map(([category, label]) => (
                     <button
+                      key={category}
                       type="button"
-                      className="sort-pill"
-                      disabled={!!d || !!kitId}
-                      title={d || kitId ? 'Feche a linha aberta para mudar a ordenação' : undefined}
-                      onClick={() => cycleSort(1)}
-                      aria-label={`Ordenando por ${mode.label.toLowerCase()}. ${d || kitId ? 'Feche a linha aberta para mudar a ordenação' : 'Trocar ordenação'}`}
+                      className={rosterCategory === category ? 'active' : ''}
+                      aria-pressed={rosterCategory === category}
+                      onClick={() => setRosterCategory(category)}
                     >
-                      ◀ ▶ Ordenando por <strong>{mode.label}</strong>
+                      {label}
                     </button>
-                  </div>
-                  <div className="card-scroll">
-                    <div className="roster-list">
-                      {listRoster.map((p) => {
-                        const s = c.players[p.id];
-                        const open = d?.id === p.id;
-                        return (
-                          <div key={p.id} className={`roster-item ${open ? 'open' : ''}`}>
-                            <button
-                              type="button"
-                              data-player={p.id}
-                              aria-expanded={open}
-                              className={`market-row roster-row ${c.lineup.includes(p.id) ? 'starter' : ''} ${focusId === p.id ? 'focused' : ''}`}
-                              onFocus={() => setFocusId(p.id)}
-                              onMouseEnter={() => setFocusId(p.id)}
-                              onClick={() => {
-                                if (open) {
-                                  setKitId(null);
-                                  setKitPos(null);
-                                  setDetail(null);
-                                } else openDetail(p);
-                              }}
-                            >
+                  ))}
+                </div>
+                <div className="roster-columns" aria-hidden="true">
+                  <span>JOGADOR</span>
+                  {rosterCategory === 'stats' ? (
+                    <span>JOGOS · GOLS · ASSIST. · JG. SEM SOFRER</span>
+                  ) : rosterCategory === 'qualities' ? (
+                    <span>IDADE · OVR · RITMO · FINAL. · PASSE · DEF. · FÍSICO</span>
+                  ) : (
+                    <span>VALOR · SALÁRIO/MÊS · CONTRATO RESTANTE</span>
+                  )}
+                </div>
+                <div className="card-scroll">
+                  <div className="roster-list">
+                    {listRoster.map((p) => {
+                      const s = c.players[p.id];
+                      const open = d?.id === p.id;
+                      return (
+                        <div key={p.id} className={`roster-item ${open ? 'open' : ''}`}>
+                          <button
+                            type="button"
+                            data-player={p.id}
+                            aria-expanded={open}
+                            className={`market-row roster-row ${c.lineup.includes(p.id) ? 'starter' : ''} ${focusId === p.id ? 'focused' : ''}`}
+                            onFocus={() => setFocusId(p.id)}
+                            onMouseEnter={() => setFocusId(p.id)}
+                            onClick={() => {
+                              if (open) {
+                                setKitId(null);
+                                setKitPos(null);
+                                setDetail(null);
+                              } else openDetail(p);
+                            }}
+                          >
+                            <span>
+                              <span className="position-tag">{s.position ?? p.position}</span>
+                              <PlayerFace player={p} size="md" />
                               <span>
-                                <span className="position-tag">{s.position ?? p.position}</span>
-                                <PlayerFace player={p} size="md" />
-                                <span>
-                                  <strong>{p.name}</strong>
-                                  <small>
-                                    {ageAt(p.birthDate, c.date)} anos · {money(s.wage)}/mês · até{' '}
-                                    {s.contractEnd.slice(0, 4)}
-                                    {s.listed ? ' · À VENDA' : ''}
-                                  </small>
-                                </span>
+                                <strong>{p.name}</strong>
+                                <small>
+                                  {rosterCategory === 'finances'
+                                    ? `${ageAt(p.birthDate, c.date)} anos · até ${s.contractEnd.slice(0, 4)}`
+                                    : `${ageAt(p.birthDate, c.date)} anos · ${positionsLine(p)}`}
+                                  {s.listed ? ' · À VENDA' : ''}
+                                </small>
                               </span>
-                              <b className="roster-ovr">{overall(p, p.position, s)}</b>
-                              <strong>{money(marketValue(c, p))}</strong>
-                              <span className={available(c, p.id) ? '' : 'roster-status-alert'}>
-                                {c.lineup.includes(p.id) ? 'Titular' : 'Reserva'}
-                                {available(c, p.id) ? '' : ` · ${availability(p)}`}
+                            </span>
+                            {rosterCategory === 'stats' ? (
+                              <span className="roster-category-values">
+                                <b>{s.rated ?? 0}</b>
+                                <b>{s.goals}</b>
+                                <b>{s.assists}</b>
+                                <b>{p.position === 'GK' ? cleanSheets(p.id) : '—'}</b>
                               </span>
-                            </button>
-                            {open && ds && (
-                              <div className="roster-expand">
-                                <div
-                                  className="roster-actions"
-                                  role="toolbar"
-                                  aria-label={`Ações de ${p.name}`}
-                                >
-                                  {playerActions
-                                    .filter((a) => a.id !== 'summary')
-                                    .map((a) => (
-                                      <button
-                                        key={a.id}
-                                        type="button"
-                                        className={`roster-action ${action === a.id ? 'active' : ''} ${a.id === 'release' ? 'danger-text' : ''}`}
-                                        aria-pressed={action === a.id}
-                                        onClick={() => {
-                                          setKitId(null);
-                                          setKitPos(null);
-                                          setAction(action === a.id ? 'summary' : a.id);
-                                          setConfirmRelease(false);
-                                        }}
-                                      >
-                                        {a.label}
-                                      </button>
-                                    ))}
-                                  <button
-                                    type="button"
-                                    className={`roster-action ${kitId === p.id ? 'active' : ''}`}
-                                    aria-pressed={kitId === p.id}
-                                    onClick={() => {
-                                      setAction('summary');
-                                      setConfirmRelease(false);
-                                      setKitId(kitId === p.id ? null : p.id);
-                                      setKitPos(kitId === p.id ? null : p.position);
-                                    }}
-                                  >
-                                    <Dumbbell size={14} /> Posições e treino
-                                  </button>
-                                </div>
-                                {kitId === p.id ? kitEditor : action !== 'summary' && actionPanel}
-                              </div>
+                            ) : rosterCategory === 'qualities' ? (
+                              <span className="roster-category-values quality-values">
+                                <b>{ageAt(p.birthDate, c.date)} a.</b>
+                                <b className="roster-ovr">{overall(p, p.position, s)}</b>
+                                <b>{p.attributes.pace}</b>
+                                <b>{p.attributes.finishing}</b>
+                                <b>{p.attributes.shortPass}</b>
+                                <b>{p.attributes.marking}</b>
+                                <b>{p.attributes.strength}</b>
+                              </span>
+                            ) : (
+                              <span className="roster-category-values finance-values">
+                                <b>{money(marketValue(c, p))}</b>
+                                <b>{money(s.wage)}/mês</b>
+                                <b>{contractMonths(s.contractEnd)} meses</b>
+                              </span>
                             )}
-                          </div>
-                        );
-                      })}
-                    </div>
+                            <span className={available(c, p.id) ? '' : 'roster-status-alert'}>
+                              {c.lineup.includes(p.id) ? 'Titular' : 'Reserva'}
+                              {available(c, p.id) ? '' : ` · ${availability(p)}`}
+                            </span>
+                          </button>
+                          {open && ds && (
+                            <div className="roster-expand">
+                              <div
+                                className="roster-actions"
+                                role="toolbar"
+                                aria-label={`Ações de ${p.name}`}
+                              >
+                                {playerActions
+                                  .filter((a) => a.id !== 'summary')
+                                  .map((a) => (
+                                    <button
+                                      key={a.id}
+                                      type="button"
+                                      className={`roster-action ${action === a.id ? 'active' : ''} ${a.id === 'release' ? 'danger-text' : ''}`}
+                                      aria-pressed={action === a.id}
+                                      onClick={() => {
+                                        setKitId(null);
+                                        setKitPos(null);
+                                        setAction(action === a.id ? 'summary' : a.id);
+                                        setConfirmRelease(false);
+                                      }}
+                                    >
+                                      {a.label}
+                                    </button>
+                                  ))}
+                                <button
+                                  type="button"
+                                  className={`roster-action ${kitId === p.id ? 'active' : ''}`}
+                                  aria-pressed={kitId === p.id}
+                                  onClick={() => {
+                                    setAction('summary');
+                                    setConfirmRelease(false);
+                                    setKitId(kitId === p.id ? null : p.id);
+                                    setKitPos(kitId === p.id ? null : p.position);
+                                  }}
+                                >
+                                  <Dumbbell size={14} /> Posições e treino
+                                </button>
+                              </div>
+                              {kitId === p.id ? kitEditor : action !== 'summary' && actionPanel}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
-                </>
+                </div>
+              </>
             ) : view === 'tactics' ? (
               <>
                 <p className="eyebrow">IDENTIDADE EM CAMPO</p>
@@ -1512,6 +1666,88 @@ export function Squad({
                   })}
                 </div>
               </>
+            ) : view === 'staff' ? (
+              <>
+                <div className="panel-heading">
+                  <div>
+                    <p className="eyebrow">COMISSÃO TÉCNICA</p>
+                    <h2>Auxiliares por setor</h2>
+                  </div>
+                  <span>
+                    {Object.keys(c.assistantCoaches).length}/{ASSISTANT_STAFF_LIMIT} ·{' '}
+                    {ASSISTANT_STAFF_LIMIT - Object.keys(c.assistantCoaches).length} vagas
+                  </span>
+                </div>
+                <p className="muted small">
+                  Cada setor tem uma vaga. O salário semanal entra nas despesas mensais da comissão
+                  (52 semanas ÷ 12); a contratação não cobra taxa inicial.
+                  {' No controle: '}
+                  <ControllerButtonHint action="confirm" label="Selecionar" /> para contratar ou
+                  demitir.
+                </p>
+                <div className="assistant-grid">
+                  {assistantAreas.map((area) => {
+                    const labels: Record<AssistantArea, string> = {
+                      ataque: 'Ataque',
+                      meio: 'Meio-campo',
+                      defesa: 'Defesa',
+                      goleiro: 'Goleiros',
+                    };
+                    const coach = c.assistantCoaches[area];
+                    return (
+                      <article className="assistant-card" key={area}>
+                        <div>
+                          <p className="eyebrow">{labels[area]}</p>
+                          {coach ? (
+                            <>
+                              <h3>{coach.name}</h3>
+                              <p>
+                                Visão tática: <strong>{coach.tacticalVision}</strong>
+                              </p>
+                              <p>
+                                Conhecimento: <strong>{coach.skill}/5</strong> ·{' '}
+                                {money(coach.wageWeekly)}/semana
+                              </p>
+                              <div className="assistant-stars">
+                                {Object.entries(coach.stars)
+                                  .filter(([position]) =>
+                                    area === 'goleiro' ? position === 'GK' : position !== 'GK',
+                                  )
+                                  .map(([position, stars]) => (
+                                    <span key={position}>
+                                      {position}{' '}
+                                      {Array.from({ length: 5 }, (_, i) =>
+                                        i < stars ? '★' : '☆',
+                                      ).join('')}
+                                    </span>
+                                  ))}
+                              </div>
+                              <button
+                                type="button"
+                                className="danger-text"
+                                onClick={() => apply(() => fireAssistant(c, area))}
+                              >
+                                <UserMinus size={15} /> Demitir auxiliar
+                              </button>
+                            </>
+                          ) : (
+                            <>
+                              <h3>Vaga disponível</h3>
+                              <p>Contrate um auxiliar para este setor.</p>
+                              <button
+                                type="button"
+                                onClick={() => apply(() => hireAssistant(c, area))}
+                              >
+                                <UserPlus size={15} /> Contratar auxiliar
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </article>
+                    );
+                  })}
+                </div>
+              </>
             ) : (
               <>
                 <div className="panel-heading lineup-overview-heading">
@@ -1575,6 +1811,170 @@ export function Squad({
                       <span className="lineup-condition">{thresholdPercent(state.fitness)}%</span>
                     </button>
                   ))}
+                </div>
+                <div className="lineup-management">
+                  <div className="lineup-section-heading">
+                    <div>
+                      <p className="eyebrow">BANCO E ESCALAÇÕES</p>
+                      <h3>Reservas selecionados · {c.bench.length}/9</h3>
+                    </div>
+                    {(input === 'xbox' || input === 'playstation') && (
+                      <ControllerButtonHint action="confirm" label="Selecionar" />
+                    )}
+                  </div>
+                  <p className="muted small">
+                    Só estes reservas ficam disponíveis para substituições. Os demais atletas ficam
+                    fora da relação do jogo.
+                  </p>
+                  <div className="bench-management-list">
+                    {players
+                      .filter((player) => !c.lineup.includes(player.id))
+                      .sort(
+                        (a, b) =>
+                          Number(c.bench.includes(b.id)) - Number(c.bench.includes(a.id)) ||
+                          overall(b, b.position, c.players[b.id]) -
+                            overall(a, a.position, c.players[a.id]),
+                      )
+                      .map((player) => {
+                        const selected = c.bench.includes(player.id);
+                        return (
+                          <div className="bench-management-row" key={player.id}>
+                            <span>
+                              <b>{player.position}</b> {shortName(player.name)}
+                              <small>
+                                OVR {overall(player, player.position, c.players[player.id])} ·{' '}
+                                {available(c, player.id) ? 'Disponível' : availability(player)}
+                              </small>
+                            </span>
+                            {selected ? (
+                              <button
+                                type="button"
+                                onClick={() => apply(() => removeBenchPlayer(c, player.id))}
+                              >
+                                <UserMinus size={14} /> Tirar do banco
+                              </button>
+                            ) : (
+                              <button
+                                type="button"
+                                disabled={c.bench.length >= 9 || !available(c, player.id)}
+                                onClick={() => apply(() => selectBenchPlayer(c, player.id))}
+                              >
+                                <UserPlus size={14} />{' '}
+                                {c.bench.length >= 9 ? 'Banco cheio' : 'Adicionar'}
+                              </button>
+                            )}
+                          </div>
+                        );
+                      })}
+                  </div>
+                  <div className="saved-lineups">
+                    <div className="lineup-section-heading">
+                      <div>
+                        <p className="eyebrow">PLANOS SALVOS</p>
+                        <h3>Minhas escalações</h3>
+                      </div>
+                    </div>
+                    <div className="saved-lineup-actions">
+                      <label className="lineup-name-input">
+                        Nome
+                        <input
+                          value={lineupName}
+                          maxLength={32}
+                          onChange={(event) => setLineupName(event.target.value)}
+                          placeholder="Ex.: Pressão alta"
+                        />
+                      </label>
+                      <button type="button" onClick={() => apply(() => saveLineup(c, lineupName))}>
+                        <Sparkles size={15} /> Salvar escalação atual
+                      </button>
+                      <input
+                        ref={lineupFile}
+                        hidden
+                        type="file"
+                        accept="application/json,.json"
+                        aria-label="Arquivo JSON de escalação"
+                        onChange={(event) => {
+                          void importLineupFile(event.target.files?.[0]);
+                          event.target.value = '';
+                        }}
+                      />
+                      <button type="button" onClick={() => lineupFile.current?.click()}>
+                        <Upload size={15} /> Importar JSON
+                      </button>
+                    </div>
+                    <p className="muted small">
+                      No controle, use <ControllerButtonHint action="confirm" label="Selecionar" />{' '}
+                      para salvar, importar, pré-visualizar, aplicar, exportar ou excluir. Importar
+                      abre o seletor de arquivos do sistema.
+                    </p>
+                    {c.savedLineups.map((saved, index) => (
+                      <div className="saved-lineup-row" key={`${saved.name}-${index}`}>
+                        <button
+                          type="button"
+                          className={previewLineupIndex === index ? 'active' : ''}
+                          aria-pressed={previewLineupIndex === index}
+                          onClick={() => setPreviewLineupIndex(index)}
+                        >
+                          {saved.name} · {saved.formation}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => apply(() => applySavedLineup(c, index, world))}
+                        >
+                          Aplicar
+                        </button>
+                        <button
+                          type="button"
+                          aria-label={`Exportar escalação ${saved.name}`}
+                          onClick={() => exportLineup(saved.name, saved.formation, saved.playerIds)}
+                        >
+                          <Download size={15} /> Exportar
+                        </button>
+                        <button
+                          type="button"
+                          aria-label={`Excluir escalação ${saved.name}`}
+                          onClick={() => {
+                            onChange({
+                              ...c,
+                              savedLineups: c.savedLineups.filter((_, i) => i !== index),
+                            });
+                            setPreviewLineupIndex(null);
+                          }}
+                        >
+                          <UserX size={15} /> Excluir
+                        </button>
+                      </div>
+                    ))}
+                    {previewLineupIndex !== null && c.savedLineups[previewLineupIndex] && (
+                      <div className="saved-lineup-preview">
+                        <strong>
+                          Prévia: {c.savedLineups[previewLineupIndex].name} ·{' '}
+                          {c.savedLineups[previewLineupIndex].formation}
+                        </strong>
+                        <ol>
+                          {c.savedLineups[previewLineupIndex].playerIds.map((id) => {
+                            const player = players.find((candidate) => candidate.id === id);
+                            return (
+                              <li key={id}>
+                                {player
+                                  ? `${player.position} · ${player.name}`
+                                  : `Atleta indisponível · ${id}`}
+                              </li>
+                            );
+                          })}
+                        </ol>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const saved = c.savedLineups[previewLineupIndex];
+                            exportLineup(saved.name, saved.formation, saved.playerIds);
+                          }}
+                        >
+                          <Download size={15} /> Exportar prévia
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </>
             ))}

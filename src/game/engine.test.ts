@@ -161,7 +161,7 @@ describe('calendário nacional', () => {
     const next = advanceDay(career, world);
     expect(next.date).toBe('2026-02-01');
     expect(next.finances[career.clubId].history).toHaveLength(before + 1);
-    expect(next.players[career.lineup[0]].fitness).toBe(54);
+    expect(next.players[career.lineup[0]].fitness).toBe(54.25);
     expect(career.players[career.lineup[0]].fitness).toBe(50);
   });
 });
@@ -403,7 +403,7 @@ describe('mercado e relações', () => {
     });
     const c = answerIncoming(career, world, 'received', true);
     expect(c.players[p].clubId).toBe('palmeiras');
-    expect(c.sales).toBe(1000000);
+    expect(c.sales).toBe(950000);
     expect(() => answerIncoming(c, world, 'received', true)).toThrow('disponível');
   });
   it('renova contrato com custo real e salva memórias de respostas', () => {

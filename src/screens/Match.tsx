@@ -90,9 +90,11 @@ export function MatchScreen({
   const away = clubById(world, fixture.awayId);
   const label = fixtureLabel(fixture);
   const ownLineup = fixture.homeId === c.clubId ? match.homeLineup : match.awayLineup;
+  const selectedBench = c.benchConfigured ? new Set(c.bench) : null;
   const bench = world.players.filter(
     (p) =>
       c.players[p.id]?.clubId === c.clubId &&
+      (!selectedBench || selectedBench.has(p.id)) &&
       !ownLineup.includes(p.id) &&
       !match.replaced.includes(p.id) &&
       available(c, p.id),
@@ -167,7 +169,15 @@ export function MatchScreen({
       crowdWhistle(match.minute === 45 ? 2 : 3);
     }
     scoreRef.current = { home: match.homeGoals, away: match.awayGoals, minute: match.minute };
-  }, [match.homeGoals, match.awayGoals, match.minute, match.events, fixture.homeId, c.clubId, rumble]);
+  }, [
+    match.homeGoals,
+    match.awayGoals,
+    match.minute,
+    match.events,
+    fixture.homeId,
+    c.clubId,
+    rumble,
+  ]);
   useEffect(() => {
     if (!playing || sub || tactic || shout || paused || momentKey) return;
     const timer = setInterval(() => {
@@ -255,11 +265,11 @@ export function MatchScreen({
                       ? '▰'
                       : e.type === 'var'
                         ? 'VAR'
-                      : e.type === 'injury'
-                        ? '+'
-                        : e.type === 'sub'
-                          ? '↔'
-                          : '•'}
+                        : e.type === 'injury'
+                          ? '+'
+                          : e.type === 'sub'
+                            ? '↔'
+                            : '•'}
                 </span>
               ))}
             </div>
@@ -351,7 +361,9 @@ export function MatchScreen({
             </div>
           ))}
           <p className="muted small">Seed {match.seed} · A engine decide. A narração descreve.</p>
-          {match.minute === 90 && <MatchAnalysis match={match} fixture={fixture} clubId={c.clubId} />}
+          {match.minute === 90 && (
+            <MatchAnalysis match={match} fixture={fixture} clubId={c.clubId} />
+          )}
           <div className="match-ratings">
             <h3>{match.minute === 90 ? 'Melhores em campo' : 'Notas ao vivo'}</h3>
             {[...ratings]
@@ -438,11 +450,11 @@ export function MatchScreen({
                             ? '🟥 '
                             : e.type === 'var'
                               ? '📺 '
-                          : e.type === 'injury'
-                            ? '🚑 '
-                            : e.type === 'moment'
-                              ? '💬 '
-                              : ''}
+                              : e.type === 'injury'
+                                ? '🚑 '
+                                : e.type === 'moment'
+                                  ? '💬 '
+                                  : ''}
                       {e.text}
                     </span>
                   </div>
@@ -470,7 +482,9 @@ export function MatchScreen({
         >
           <p className="muted">
             {match.usedSubs} de 5 substituições utilizadas ·{' '}
-            {outgoing ? 'Escolha o reserva. B fecha esta janela.' : 'Escolha o titular que deixa o campo.'}
+            {outgoing
+              ? 'Escolha o reserva. B fecha esta janela.'
+              : 'Escolha o titular que deixa o campo.'}
           </p>
           {!outgoing ? (
             <div className="card-scroll">
@@ -484,8 +498,16 @@ export function MatchScreen({
                       career={c}
                       role={formations[c.tactic.formation][i]}
                       number={ownNumbers[id]}
-                      note={match.dismissed.includes(id) ? 'Expulso' : `Cansaço ${Math.round(match.energySpent[id] || 0)}`}
-                      accessibilityNote={match.dismissed.includes(id) ? 'Expulso' : `Cansaço ${Math.round(match.energySpent[id] || 0)}`}
+                      note={
+                        match.dismissed.includes(id)
+                          ? 'Expulso'
+                          : `Cansaço ${Math.round(match.energySpent[id] || 0)}`
+                      }
+                      accessibilityNote={
+                        match.dismissed.includes(id)
+                          ? 'Expulso'
+                          : `Cansaço ${Math.round(match.energySpent[id] || 0)}`
+                      }
                       disabled={match.dismissed.includes(id)}
                       autoFocus={i === 0}
                       onClick={() => {

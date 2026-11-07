@@ -3,7 +3,16 @@ import { TrophyArt } from '../components/TrophyArt';
 import { PlayerFace } from '../components/PlayerFace';
 import { LegacyPanel } from '../components/LivingPanels';
 import { NationalPanel } from '../components/NationalPanel';
-import { Award, CalendarDays, ChevronLeft, ChevronRight, Flag, Medal, Trophy } from 'lucide-react';
+import {
+  ArrowLeft,
+  Award,
+  CalendarDays,
+  ChevronLeft,
+  ChevronRight,
+  Flag,
+  Medal,
+  Trophy,
+} from 'lucide-react';
 import { Badge, dateLabel, SectionTitle } from '../components/ui';
 import { standings } from '../game/engine';
 import { competitionName, fixtureCompetition, fixtureLabel, milestones } from '../game/calendar';
@@ -101,27 +110,35 @@ const shiftMonth = (month: string, delta: number) => {
   return d.toISOString().slice(0, 7);
 };
 
+export type SeasonView =
+  'table' | 'calendar' | 'stats' | 'trophies' | 'awards' | 'legacy' | 'national';
+
 export function Season({
   career: c,
   world,
   onChange,
   onError,
+  initialView,
+  officeMode = false,
+  onBack,
 }: {
   career: Career;
   world: World;
   onChange: (career: Career) => void;
   onError: (message: string) => void;
+  initialView?: SeasonView;
+  officeMode?: boolean;
+  onBack?: () => void;
 }) {
   const club = world.clubs.find((club) => club.id === c.clubId)!;
   const { input, hints } = useGamepad();
   const [comp, setComp] = useState<string>(c.leagues[c.clubId] || club.league);
-  const [view, setView] = useState<
-    'table' | 'calendar' | 'stats' | 'trophies' | 'awards' | 'legacy' | 'national'
-  >('table');
+  const [view, setView] = useState<SeasonView>(initialView || 'table');
   const international = nextNationalFixture(c);
+  const internationalDate = international?.date;
   useEffect(() => {
-    if (international && international.date <= c.date) setView('national');
-  }, [international?.id, c.date]);
+    if (internationalDate && internationalDate <= c.date) setView('national');
+  }, [internationalDate, c.date]);
   const [month, setMonth] = useState(c.date.slice(0, 7));
   const [day, setDay] = useState(c.date);
   const available = ['A', 'B', `EST-${club.state}`, 'CDB', 'SUP', 'LIB', 'SUL'].filter(
@@ -246,7 +263,16 @@ export function Season({
   const shelf = ['A', 'B', `EST-${club.state}`, 'CDB', 'SUP', 'LIB', 'SUL'];
   return (
     <div className="screen-enter season-screen">
-      <SectionTitle kicker={`TEMPORADA / ${c.season}`} title="Cada rodada conta." />
+      <SectionTitle
+        kicker={`${officeMode ? 'ESCRITÓRIO / DADOS DA TEMPORADA' : 'TEMPORADA'} / ${c.season}`}
+        title={officeMode ? 'Competições e histórico.' : 'Cada rodada conta.'}
+      >
+        {officeMode && onBack && (
+          <button onClick={onBack}>
+            <ArrowLeft size={16} /> Voltar ao Escritório
+          </button>
+        )}
+      </SectionTitle>
       <div className="segmented" role="group" aria-label="Áreas da Temporada">
         {(
           [
@@ -413,7 +439,8 @@ export function Season({
               )}
               <span className="pill">
                 {ownFixtures.filter((f) => f.date.startsWith(month)).length +
-                  (c.national?.fixtures.filter((f) => f.date.startsWith(month)).length || 0)} jogos
+                  (c.national?.fixtures.filter((f) => f.date.startsWith(month)).length || 0)}{' '}
+                jogos
               </span>
             </div>
             <div className="month-grid">
@@ -491,12 +518,14 @@ export function Season({
             {secondDayFixture && (
               <p className="muted">
                 Também: Seleção Brasileira ×{' '}
-                {clubById(
-                  world,
-                  secondDayFixture.homeId === BRAZIL_NATIONAL_ID
-                    ? secondDayFixture.awayId
-                    : secondDayFixture.homeId,
-                ).name}
+                {
+                  clubById(
+                    world,
+                    secondDayFixture.homeId === BRAZIL_NATIONAL_ID
+                      ? secondDayFixture.awayId
+                      : secondDayFixture.homeId,
+                  ).name
+                }
                 {secondDayFixture.result
                   ? ` · ${secondDayFixture.result.homeGoals} × ${secondDayFixture.result.awayGoals}`
                   : ''}

@@ -7,7 +7,7 @@ A casca (`Game` em `src/App.tsx`) é a moldura persistente de todo o jogo: fundo
 ## Como se chega / como se sai
 
 - É montada uma vez em `App()` dentro de `<GamepadProvider>`; nunca sai.
-- `screen` (estado) define o conteúdo do palco: `'menu'` (inicial) → `MainMenu`; `'create'` → `CreateManager`; `'career'` → partida (`MatchScreen`) se `career.activeMatch`, senão uma das 5 abas.
+- `screen` (estado) define o conteúdo do palco: `'menu'` (inicial) → `MainMenu`; `'create'` → `CreateManager`; `'career'` → partida (`MatchScreen`) se `career.activeMatch`, senão uma das 6 áreas.
 - Transições: menu → (popup Nova carreira) → create → career; career → (Pausa › "Salvar e sair para o menu") → menu; menu → "Continuar/Carregar" → career (aba 0).
 
 ## Arquivos-fonte
@@ -22,7 +22,7 @@ A casca (`Game` em `src/App.tsx`) é a moldura persistente de todo o jogo: fundo
 
 ```
 ┌───────────────────────────────────────────────────────────────────────────────┐ .game-shell (100dvh, grid 3 linhas)
-│ [logo] MANDO   [L1] CENTRAL  TIME  TRANSFERÊNCIAS  ESCRITÓRIO•  TEMPORADA [R1]  │ .app-header
+│ [logo] MANDO [L1] CENTRAL NOTIFICAÇÕES• TIME TRANSFERÊNCIAS ACADEMIA ESCRITÓRIO [R1] │ .app-header
 │                                              ┌──────────────────┐  (⌁) (🎮)    │   .club-header  .header-status
 │                                              │[escudo] 01 jan.  │              │
 │                                              │         R$ 12 mi │              │
@@ -60,8 +60,8 @@ No menu e na criação o header tem só marca + status (sem abas e sem clube); n
 | Elemento                                       | O que mostra                                                                                                                                                                                                                                                                                                   | Quando                                                           |
 | ---------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
 | `.brand`                                       | `picture` com a nova marca horizontal `/logo-mando.png` (150×42, object-fit contain); até 1000px usa o símbolo `/logo-mando-160.png` (46×42). Sem repetir "MANDO" como texto                                                                                                                                   | Sempre                                                           |
-| `nav.main-nav` (`aria-label="Áreas do clube"`) | `.nav-shoulder` com dica `previousTab` (L1/LB, sem texto) · 5 botões `tabs = ['CENTRAL','TIME','TRANSFERÊNCIAS','ESCRITÓRIO','TEMPORADA']` · `.nav-shoulder` com dica `nextTab` (R1/RB). Ativa: branca com brilho ciano e sublinhado ciano→lima de 4px (`::after`); inativas: `--ink-3`; `aria-current="page"` | `screen==='career'` e fora de partida                            |
-| `b.nav-dot`                                    | Bolinha laranja com glow no canto da aba **ESCRITÓRIO** (índice 3)                                                                                                                                                                                                                                             | Quando `career.messages` tem alguma com `important && !resolved` |
+| `nav.main-nav` (`aria-label="Áreas do clube"`) | `.nav-shoulder` com dica `previousTab` (L1/LB, sem texto) · 6 botões `CENTRAL`, `NOTIFICAÇÕES`, `TIME`, `TRANSFERÊNCIAS`, `ACADEMIA`, `ESCRITÓRIO` (`PRIMARY_TABS` em `src/navigation.ts`) · `.nav-shoulder` com dica `nextTab` (R1/RB). Ativa: branca com brilho ciano e sublinhado ciano→lima de 4px (`::after`); inativas: `--ink-3`; `aria-current="page"` | `screen==='career'` e fora de partida                            |
+| `b.nav-dot`                                    | Bolinha laranja com glow no canto da aba **NOTIFICAÇÕES**                                                                                                                                                                                                                                                     | Quando `career.messages` tem alguma com `important && !resolved` |
 | `.club-header`                                 | `Badge` small do clube + `strong` data `dateLabel(career.date)` (ex.: "01 de jan. de 2026", caixa alta 17px) + `small` caixa `money(career.finances[career.clubId].cash)` em lima. Fundo branco 10%, borda esquerda lima 4px                                                                                   | `screen==='career'` (inclusive na partida)                       |
 | `.header-status`                               | `WifiOff` 18px (title "Offline") quando `offline` (`!navigator.onLine`); ícone `Gamepad2` 20px `.controller-status` — fica **lima com glow** quando há controle conectado; `title` = id do controle ou "Conecte um controle e pressione um botão"                                                              | Sempre (oculto ≤1100px)                                          |
 
@@ -70,7 +70,7 @@ No menu e na criação o header tem só marca + status (sem abas e sem clube); n
 - `key = "{screen}-{tab|match}"` → a cada troca de tela, aba ou entrada/saída de partida o conteúdo é remontado e roda `stage-in` (0.32s, desliza 46px da direita + fade).
 - `inert` enquanto há `popup`, `press`, `deleting`, `busy` ou `running` (bloqueia foco e clique por baixo dos modais). Durante `running`, o header também fica `inert`.
 - `.demo-strip` "DEMONSTRAÇÃO · Atletas e finanças sintéticos" (amarelo) no topo das abas quando `career.mode === 'demo'`.
-- Abas: 0 `CareerCentral`, 1 `Squad`, 2 `Transfers`, 3 `Office`, 4 `Season`; partida: `MatchScreen` (recebe `paused = Boolean(popup) || busy`).
+- Abas: 0 `CareerCentral`, 1 `Office` em modo Notificações, 2 `Squad`, 3 `Transfers`, 4 `Office` em modo Academia, 5 `Office`; os painéis de competição da antiga Temporada são acessados por atalhos do Escritório. Partida: `MatchScreen` (recebe `paused = Boolean(popup) || busy`).
 
 ### Footer (`footer.app-footer`, gradiente escuro de baixo para cima)
 
@@ -103,7 +103,7 @@ No menu e na criação o header tem só marca + status (sem abas e sem clube); n
   | ---------- | -------------------------------------------------------- | -------------------------- |
   | `match`    | "Dia de jogo! O avanço parou."                           | Abre modal **Dia de jogo** |
   | `decision` | "Uma decisão espera por você no escritório."             | Vai para ESCRITÓRIO        |
-  | `message`  | "Nova mensagem no escritório."                           | Vai para ESCRITÓRIO        |
+  | `message`  | "Nova mensagem em Notificações."                         | Vai para NOTIFICAÇÕES      |
   | `season`   | "Temporada encerrada."                                   | —                          |
   | `sacked`   | "Você foi demitido. Escolha um novo clube na Diretoria." | Vai para ESCRITÓRIO        |
 - Erro na simulação para e mostra toast de erro.
@@ -154,9 +154,9 @@ Ativos em menu e carreira; **desativados** na criação (`screen==='create'`, qu
 | Botão (PS / Xbox)                   | Ação                                                                                                                                                                                                                           |
 | ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | ○ / B (`back`)                      | Prioridade: (antes, o provider já fecha modal via "Voltar" e para a simulação) → se `running` para → se `detail` (jogador aberto no Elenco) fecha → se `deleting` cancela → se `popup` fecha → se na carreira **abre a Pausa** |
-| L1 / R1 (`previousTab`/`nextTab`)   | `switchTab(±1)` circular entre as 5 abas — bloqueado fora da carreira, na partida, com popup, detalhe de jogador aberto ou busy                                                                                                |
+| L1 / R1 (`previousTab`/`nextTab`)   | `switchTab(±1)` circular entre as 6 áreas — bloqueado fora da carreira, na partida, com popup, detalhe de jogador aberto ou busy                                                                                                |
 | □ / X (`secondary`)                 | Se simulando: para. Senão, na carreira fora de partida e sem popup: **Avançar** (`advance()`)                                                                                                                                  |
-| △ / Y (`info`)                      | Na carreira fora de partida e sem popup: vai para **ESCRITÓRIO**                                                                                                                                                               |
+| △ / Y (`info`)                      | Na carreira fora de partida e sem popup: vai para **NOTIFICAÇÕES**                                                                                                                                                            |
 | Options / ☰ (`menu`)               | Só na carreira. Se simulando: para. Na **CENTRAL** (aba 0) fora de partida e sem popup: abre **Preferências de avanço**. Nas outras abas/partida: alterna a **Pausa** (fecha se Pausa/Preferências já estiverem abertas)       |
 | L2 / R2 (`previousView`/`nextView`) | Sem ação do App: o provider troca a sub-aba (`.segmented`) da tela atual (dica "Sub-menu")                                                                                                                                     |
 | ✕ / A                               | Confirma o elemento focado; durante a simulação, para                                                                                                                                                                          |
@@ -185,7 +185,7 @@ Música começa com o primeiro gesto ou ao detectar controle; em partida é susp
 
 ## Regras que o redesign deve preservar
 
-1. Cinco áreas fixas na ordem CENTRAL, TIME, TRANSFERÊNCIAS, ESCRITÓRIO, TEMPORADA, trocáveis com L1/R1 (circular) e clique; indicador de pendência no ESCRITÓRIO.
+1. Seis áreas fixas na ordem CENTRAL, NOTIFICAÇÕES, TIME, TRANSFERÊNCIAS, ACADEMIA, ESCRITÓRIO, trocáveis com L1/R1 (circular) e clique; indicador de pendência em NOTIFICAÇÕES.
 2. Data atual e caixa do clube sempre visíveis na carreira (inclusive na partida), com escudo.
 3. Indicadores de offline e de controle conectado.
 4. Rodapé com dicas de botão contextuais e glifos do controle real; status do save (salvando/salvo/erro).

@@ -38,6 +38,7 @@ import { Squad } from './screens/Squad';
 import { Transfers } from './screens/Transfers';
 import { Office } from './screens/Office';
 import { Season } from './screens/Season';
+import { PRIMARY_TABS, TAB } from './navigation';
 import { MatchScreen } from './screens/Match';
 import { createDemoWorld } from './game/world';
 import { loadWorld2026 } from './game/realWorld';
@@ -109,7 +110,7 @@ import { AdvanceOverlay } from './components/CareerCalendar';
 import { playVoice, skipVoice, stopVoice, useVoice } from './components/voice';
 import { achievements, unlockAchievements, type Achievement } from './game/achievements';
 
-const tabs = ['CENTRAL', 'TIME', 'TRANSFERÊNCIAS', 'ESCRITÓRIO', 'TEMPORADA'];
+type OfficeSeasonView = 'table' | 'calendar' | 'stats' | 'legacy' | 'national';
 type Popup =
   'world' | 'contract' | 'tutorial' | 'pause' | 'prematch' | 'achievements' | 'prefs' | null;
 const onboardingTour = [
@@ -119,7 +120,7 @@ const onboardingTour = [
   },
   {
     title: 'Mensagens e notificações',
-    body: 'Por enquanto, sua caixa de entrada fica no Escritório. Leia as mensagens da diretoria, da comissão e da imprensa por lá.',
+    body: 'Leia recados na caixa de entrada e acompanhe conversas registradas com os atletas em Notificações.',
   },
   {
     title: 'Time',
@@ -131,7 +132,7 @@ const onboardingTour = [
   },
   {
     title: 'Escritório',
-    body: 'Este é o ponto de encontro para mensagens, decisões da diretoria, finanças e atividades de gestão.',
+    body: 'Aqui ficam objetivos, orçamento, carreira do manager e atalhos para tabelas, calendário e estatísticas.',
   },
 ];
 const contractChallengeObjectives: Record<Career['challenge'], string> = {
@@ -165,7 +166,7 @@ const stopNotes: Record<string, string> = {
   match: 'Dia de jogo! O avanço parou.',
   national: 'A Seleção joga hoje. Abra a convocação e prepare a partida.',
   decision: 'Uma decisão espera por você no escritório.',
-  message: 'Nova mensagem no escritório.',
+  message: 'Nova mensagem em Notificações.',
   season: 'Temporada encerrada.',
   sacked: 'Você foi demitido. Escolha um novo clube na Diretoria.',
 };
@@ -192,15 +193,15 @@ function Game() {
   const matchdayLabel = matchdayFixture ? fixtureLabel(matchdayFixture) : null;
   const matchdayLineupComplete = Boolean(
     career &&
-      live &&
-      career.lineup.length === 11 &&
-      new Set(career.lineup).size === 11 &&
-      live.players.some((player) => player.id === career.lineup[0] && player.position === 'GK') &&
-      career.lineup.every((id) => {
-        const state = career.players[id];
-        if (!state || state.clubId !== career.clubId) return false;
-        return Boolean(available(career, id));
-      }),
+    live &&
+    career.lineup.length === 11 &&
+    new Set(career.lineup).size === 11 &&
+    live.players.some((player) => player.id === career.lineup[0] && player.position === 'GK') &&
+    career.lineup.every((id) => {
+      const state = career.players[id];
+      if (!state || state.clubId !== career.clubId) return false;
+      return Boolean(available(career, id));
+    }),
   );
   const matchdayUnavailable =
     career && live
@@ -212,7 +213,8 @@ function Game() {
       : [];
   const [saves, setSaves] = useState<SavedCareer[]>([]);
   const [user, setUser] = useState<User | null>(null);
-  const [tab, setTab] = useState(0);
+  const [tab, setTab] = useState<number>(TAB.CENTRAL);
+  const [officeSeasonView, setOfficeSeasonView] = useState<OfficeSeasonView | null>(null);
   const [popup, setPopup] = useState<Popup>(null);
   const [tutorialStep, setTutorialStep] = useState(0);
   const [contractSigning, setContractSigning] = useState(false);
@@ -402,7 +404,8 @@ function Game() {
           : null,
     );
     setTutorialStep(0);
-    setTab(0);
+    setTab(TAB.CENTRAL);
+    setOfficeSeasonView(null);
   }, []);
   const signContract = () => {
     if (contractSigning) return;
@@ -477,14 +480,18 @@ function Game() {
   const switchTab = useCallback(
     (delta: number) => {
       if (screen !== 'career' || inMatch || popup || detail || busy || running) return;
-      setTab((t) => (t + delta + 5) % 5);
+      setOfficeSeasonView(null);
+      setTab((t) => (t + delta + PRIMARY_TABS.length) % PRIMARY_TABS.length);
     },
     [screen, inMatch, popup, detail, busy, running],
   );
   const advance = useCallback(() => {
     if (!career || !live || running || busy || inMatch) return;
     const mode = career.prefs?.advance || 'day';
-    if (career.sacked) return setTab(3);
+    if (career.sacked) {
+      setOfficeSeasonView(null);
+      return setTab(TAB.OFFICE);
+    }
     const nationalFixture = nextNationalFixture(career);
     if (
       mode !== 'auto' &&
@@ -492,7 +499,8 @@ function Game() {
       nationalFixture &&
       nationalFixture.date <= career.date
     ) {
-      setTab(4);
+      setOfficeSeasonView('national');
+      setTab(TAB.OFFICE);
       setNotice(stopNotes.national);
       return;
     }
@@ -519,13 +527,21 @@ function Game() {
           setNotice(stopNotes[result.stop]);
           rumble('whistle');
           if (result.stop === 'match') setPopup('prematch');
-          else if (result.stop === 'national') setTab(4);
-          else if (
+          else if (result.stop === 'national') {
+            setOfficeSeasonView('national');
+            setTab(TAB.OFFICE);
+          } else if (
             result.stop === 'decision' ||
             result.stop === 'message' ||
             result.stop === 'sacked'
-          )
-            setTab(3);
+          ) {
+            setOfficeSeasonView(null);
+            setTab(
+              result.stop === 'sacked' || result.stop === 'decision'
+                ? TAB.OFFICE
+                : TAB.NOTIFICATIONS,
+            );
+          }
         }
       } catch (e) {
         setRunning(false);
@@ -545,24 +561,25 @@ function Game() {
             else if (popup === 'contract') return;
             else if (popup === 'tutorial') finishTutorial();
             else if (popup) setPopup(null);
+            else if (screen === 'career' && tab === TAB.OFFICE && officeSeasonView)
+              setOfficeSeasonView(null);
             else if (screen === 'career') setPopup('pause');
           },
           previousTab: () => switchTab(-1),
           nextTab: () => switchTab(1),
           secondary: () => {
             if (running) return setRunning(false);
-            if (career && screen === 'career' && !inMatch && !popup && !running)
-              advance();
+            if (career && screen === 'career' && !inMatch && !popup && !running) advance();
           },
           info: () => {
-            if (screen === 'career' && !inMatch && !popup && !running) setTab(3);
+            if (screen === 'career' && !inMatch && !popup && !running) setTab(TAB.NOTIFICATIONS);
           },
           menu: () => {
             if (screen !== 'career') return;
             if (running) return setRunning(false);
             if (popup === 'contract' || popup === 'tutorial') return;
             // Na Central, START abre as preferências de avanço; nas demais telas, a pausa.
-            if (tab === 0 && !inMatch && !popup) {
+            if (tab === TAB.CENTRAL && !inMatch && !popup) {
               prefsFromPause.current = false;
               setPopup('prefs');
             } else
@@ -603,17 +620,21 @@ function Game() {
             <span className="nav-shoulder">
               <ControllerButtonHint action="previousTab" label="" />
             </span>
-            {tabs.map((name, i) => (
+            {PRIMARY_TABS.map((name, i) => (
               <button
                 key={name}
-                onClick={() => setTab(i)}
+                onClick={() => {
+                  setOfficeSeasonView(null);
+                  setTab(i);
+                }}
                 className={tab === i ? 'active' : ''}
                 aria-current={tab === i ? 'page' : undefined}
               >
                 {name}
-                {i === 3 && career!.messages.some((m) => m.important && !m.resolved) && (
-                  <b className="nav-dot" />
-                )}
+                {i === TAB.NOTIFICATIONS &&
+                  career!.messages.some((m) => m.important && !m.resolved) && (
+                    <b className="nav-dot" />
+                  )}
               </button>
             ))}
             <span className="nav-shoulder">
@@ -669,7 +690,8 @@ function Game() {
                 setScreen('career');
                 setPopup('contract');
                 setTutorialStep(0);
-                setTab(0);
+                setTab(TAB.CENTRAL);
+                setOfficeSeasonView(null);
               })
             }
           />
@@ -695,7 +717,8 @@ function Game() {
                 act(() => {
                   if (nationalCareer) {
                     setCareer(finishNationalMatch(career, live!));
-                    setTab(4);
+                    setOfficeSeasonView('national');
+                    setTab(TAB.OFFICE);
                     return;
                   }
                   let session: PressSession | null;
@@ -705,7 +728,7 @@ function Game() {
                     session = null;
                   }
                   setCareer(finishMatch(career, live!));
-                  setTab(0);
+                  setTab(TAB.CENTRAL);
                   if (session) {
                     setPress(session);
                     setPressStep(0);
@@ -731,17 +754,24 @@ function Game() {
               {career.mode === 'demo' && (
                 <p className="demo-strip">DEMONSTRAÇÃO · Atletas e finanças sintéticos</p>
               )}
-              {tab === 0 && (
+              {tab === TAB.CENTRAL && (
                 <CareerCentral
                   career={career}
                   world={live!}
                   busy={busy}
                   onAdvance={advance}
+                  onOpenSeason={(view) => {
+                    setOfficeSeasonView(view);
+                    setTab(TAB.OFFICE);
+                  }}
                   onMatch={() => {
                     const f = nextFixture(career);
-                    if (career.messages.some((m) => blocks(career, m))) setTab(3);
+                    if (career.messages.some((m) => blocks(career, m))) setTab(TAB.NOTIFICATIONS);
                     else if (f && f.date <= career.date) setPopup('prematch');
-                    else setTab(4);
+                    else {
+                      setOfficeSeasonView('table');
+                      setTab(TAB.OFFICE);
+                    }
                   }}
                   onTab={setTab}
                   onPreferences={() => {
@@ -758,7 +788,7 @@ function Game() {
                   }
                 />
               )}
-              {tab === 1 && (
+              {tab === TAB.SQUAD && (
                 <Squad
                   career={career}
                   world={live!}
@@ -832,7 +862,7 @@ function Game() {
                   }
                 />
               )}
-              {tab === 2 && (
+              {tab === TAB.TRANSFERS && (
                 <Transfers
                   career={career}
                   world={live!}
@@ -901,12 +931,29 @@ function Game() {
                   }
                 />
               )}
-              {tab === 3 && (
+              {(tab === TAB.NOTIFICATIONS ||
+                tab === TAB.ACADEMY ||
+                (tab === TAB.OFFICE && !officeSeasonView)) && (
                 <Office
+                  area={
+                    tab === TAB.NOTIFICATIONS
+                      ? 'notifications'
+                      : tab === TAB.ACADEMY
+                        ? 'academy'
+                        : 'office'
+                  }
                   career={career}
                   world={live!}
                   busy={busy}
                   aiAvailable={Boolean(supabase) && !offline}
+                  onOpenSeason={(view) => setOfficeSeasonView(view)}
+                  onOpenAcademy={() => setTab(TAB.ACADEMY)}
+                  onConversation={(id, choice) =>
+                    act(() => {
+                      setCareer(playerConversation(career, id, choice));
+                      setNotice('Conversa registrada na memória do jogador.');
+                    })
+                  }
                   onMessage={(id, choice) =>
                     act(() => setCareer(respondMessage(career, id, choice)))
                   }
@@ -1026,8 +1073,17 @@ function Game() {
                   }
                 />
               )}
-              {tab === 4 && (
-                <Season career={career} world={live!} onChange={setCareer} onError={fail} />
+              {tab === TAB.OFFICE && officeSeasonView && (
+                <Season
+                  key={officeSeasonView}
+                  career={career}
+                  world={live!}
+                  onChange={setCareer}
+                  onError={fail}
+                  initialView={officeSeasonView}
+                  officeMode
+                  onBack={() => setOfficeSeasonView(null)}
+                />
               )}
             </>
           ))}
@@ -1400,8 +1456,7 @@ function Game() {
           onSkip={() => {
             stopVoice();
             const answered = Object.keys(pressAnswers).length > 0;
-            if (answered)
-              act(() => setCareer(applyPress(career, live, press, pressAnswers)));
+            if (answered) act(() => setCareer(applyPress(career, live, press, pressAnswers)));
             setPress(null);
             if (press.mode === 'pre') setPopup('prematch');
             else
@@ -1502,12 +1557,7 @@ function Game() {
         </Modal>
       )}
       {popup === 'prematch' && career && world && (
-        <Modal
-          title="Dia de jogo"
-          onClose={() => setPopup(null)}
-          className="prematch-modal"
-          wide
-        >
+        <Modal title="Dia de jogo" onClose={() => setPopup(null)} className="prematch-modal" wide>
           <div className="matchday-overview">
             <div className="matchday-kicker">
               <p className="eyebrow">
@@ -1527,7 +1577,9 @@ function Game() {
                 <div className="matchday-team home">
                   <Badge club={matchdayHome} size="large" />
                   <div>
-                    <small>{matchdayFixture.homeId === career.clubId ? 'MANDANTE' : 'VISITANTE'}</small>
+                    <small>
+                      {matchdayFixture.homeId === career.clubId ? 'MANDANTE' : 'VISITANTE'}
+                    </small>
                     <strong>{matchdayHome.name}</strong>
                   </div>
                 </div>
@@ -1537,7 +1589,9 @@ function Game() {
                 </div>
                 <div className="matchday-team away">
                   <div>
-                    <small>{matchdayFixture.awayId === career.clubId ? 'MANDANTE' : 'VISITANTE'}</small>
+                    <small>
+                      {matchdayFixture.awayId === career.clubId ? 'MANDANTE' : 'VISITANTE'}
+                    </small>
                     <strong>{matchdayAway.name}</strong>
                   </div>
                   <Badge club={matchdayAway} size="large" />
@@ -1623,7 +1677,7 @@ function Game() {
             <button
               onClick={() => {
                 setPopup(null);
-                setTab(1);
+                setTab(TAB.SQUAD);
               }}
             >
               Revisar escalação

@@ -2,22 +2,19 @@
 
 ## Resumo
 
-O Escritório é a **quarta aba** do modo carreira (`tab === 3`, rótulo `ESCRITÓRIO`). Reúne tudo "além das quatro linhas": caixa de entrada com decisões e **voz (caixa postal)**, finanças com gráficos, diretoria (confiança, ultimato, propostas de emprego, objetivos e copas), comissão técnica e perfil do manager (com **retrato por IA via câmera**), rede de olheiros e captação na base, e o painel "Clube vivo" (mundo vivo: diretoria por eixos, torcida, treino, analista, vestiário, imprensa e técnicos rivais).
+O Escritório é a sexta área principal (`TAB.OFFICE`, rótulo `ESCRITÓRIO`). Seus painéis são orçamento/finanças, objetivos e mercado de trabalho, carreira/perfil do manager e Clube vivo. Atalhos explícitos abrem a classificação, calendário, estatísticas de atletas e histórico de carreira, reutilizando as telas de temporada. A caixa de entrada pertence a Notificações; captação, peneira e elenco jovem pertencem à Academia.
 
-A tela tem um cabeçalho (`SectionTitle`) e uma barra de **6 sub-abas** (`.segmented`) trocadas por clique ou por **L2/R2 (LT/RT)**.
+A tela tem um cabeçalho (`SectionTitle`), quatro sub-abas (`.segmented`) e uma linha de atalhos do Escritório. Os seletores segmentados são trocados por clique ou por **L2/R2 (LT/RT)**.
 
 ## Como se chega / como se sai
 
 **Entradas**
-- Clique em `ESCRITÓRIO` no menu superior, L1/R1 (LB/RB) ou `[`/`]`.
-- **△ / Y** em qualquer aba fora de partida e sem popup.
-- Da Central: tile do manager, linhas de mensagens, tile de avanço em "decisão pendente" ou "cargo encerrado", tile do jogo com decisão pendente.
-- Automático: quando o avanço contínuo para por `decision`, `message` ou `sacked` (App faz `setTab(3)`).
-- O ponto laranja `.nav-dot` em `ESCRITÓRIO` indica decisões pendentes.
+- Clique em `ESCRITÓRIO` no menu superior ou use L1/R1 (LB/RB) e `[`/`]` para percorrer as seis áreas.
+- Da Central: tile do manager, tile de avanço em "decisão pendente" ou "cargo encerrado".
+- Automático: decisões e demissão abrem Escritório; mensagens pendentes abrem Notificações.
+- A visão Seleção, inclusive após jogo internacional, é aberta por rota do Escritório.
 
-**Sub-aba inicial**: `board` (Diretoria) se `career.sacked`; senão `inbox` (Mensagens). A sub-aba e a mensagem selecionada **não são lembradas**: a `main` é remontada a cada troca de aba (chave `screen-tab`), voltando ao padrão.
-
-**Mensagem inicialmente selecionada**: a primeira `important && !resolved`; senão a primeira da lista (mais recente).
+**Sub-aba inicial**: `board` (Objetivos e mercado). O painel ativo não é lembrado ao trocar de área.
 
 **Saídas**: trocar de aba (L1/R1, clique no menu), ○/B → Pausa (sem modal aberto), START → Pausa (fora da Central START abre a pausa).
 
@@ -44,13 +41,22 @@ Cabeçalho + sub-abas (comum a todas):
 ┌──────────────────────────────────────────────────────────────────────────────────┐
 │ ESCRITÓRIO / ALÉM DAS QUATRO LINHAS                              [ 2 AÇÕES NECESSÁRIAS ] │
 │ UM CLUBE INTEIRO AO SEU REDOR.                                                    │
-│ [✉ Mensagens][📈 Finanças][🏛 Diretoria][👥 Comissão e perfil][📍 Olheiros e base][🏛 Clube vivo] │
+│ [📈 Orçamento][🏛 Objetivos e mercado][👥 Carreira e perfil][🏛 Clube vivo] │
+│ [Objetivos][Classificação][Calendário][Orçamento][Mercado][Histórico][Atletas][Personalização] │
 ├──────────────────────────────────────────────────────────────────────────────────┤
 │                         (conteúdo da sub-aba)                                     │
 └──────────────────────────────────────────────────────────────────────────────────┘
 ```
 
-Mensagens (`inbox`):
+O Escritório oferece atalhos para painéis reutilizados:
+
+- **Objetivos** e **Mercado de trabalho** abrem Diretoria.
+- **Classificação**, **Calendário**, **Estatísticas dos atletas** e **Histórico de carreira** abrem a tela de temporada na rota correspondente. O botão "Voltar ao Escritório" ou B/Esc retorna.
+- **Orçamento** abre Finanças; **Personalização** abre o perfil do manager; Academia fica na navegação superior.
+
+Caixa de entrada (`inbox`) e conversas com atletas estão descritas em [20-notificacoes.md](./20-notificacoes.md). Os painéis de captação, peneira e elenco jovem estão em [21-academia.md](./21-academia.md).
+
+Mensagens (`inbox`, em Notificações):
 
 ```
 ┌─ lista (260–380px) ──────────┐ ┌─ leitor ─────────────────────────────────────────┐
@@ -92,29 +98,28 @@ Diretoria (`board`):
 └───────────────────────────────┘ └─────────────────────────────────────────┘
 ```
 
-Comissão e perfil (`staff`), Olheiros e base (`scouts`), Clube vivo (`club`): grid de 2 colunas (`.staff-layout`, `1fr 1.3fr`); o Clube vivo tem 3 painéis (o 3º cai para a linha de baixo).
+Carreira e perfil (`staff`) e Clube vivo (`club`): grid de 2 colunas (`.staff-layout`, `1fr 1.3fr`); o Clube vivo tem 3 painéis (o 3º cai para a linha de baixo).
 
 ## Elementos comuns (cabeçalho e sub-abas)
 
-- `SectionTitle`: eyebrow ciano "ESCRITÓRIO / ALÉM DAS QUATRO LINHAS"; `h1` "Um clube inteiro ao seu redor." (itálico, caixa alta; termina com ponto, então não recebe o `.title-dot` lime).
+- `SectionTitle`: eyebrow "ESCRITÓRIO / GESTÃO DO CLUBE"; `h1` "Um clube inteiro ao seu redor.".
 - `span.status-pill` (laranja): "{n} AÇÕES NECESSÁRIAS", n = mensagens `important && !resolved` (mostra "0 AÇÕES NECESSÁRIAS" quando zero).
-- `.segmented` com 6 botões (ícone lucide 16 + texto), ativo com fundo branco:
-  1. `inbox` — `MessageSquare` "Mensagens"
-  2. `finances` — `TrendingUp` "Finanças"
-  3. `board` — `Landmark` "Diretoria"
-  4. `staff` — `Users` "Comissão e perfil"
-  5. `scouts` — `MapPinned` "Olheiros e base"
-  6. `club` — `Landmark` "Clube vivo" (mesmo ícone da Diretoria)
+- `.segmented` com 4 botões (ícone lucide 16 + texto):
+  1. `finances` — `TrendingUp` "Orçamento"
+  2. `board` — `Landmark` "Objetivos e mercado"
+  3. `staff` — `Users` "Carreira e perfil"
+  4. `club` — `HeartPulse` "Clube vivo"
+- `nav.office-route-links` permite acesso por mouse/controle aos objetivos, classificação, calendário, orçamento, mercado, histórico de carreira, estatísticas de atletas e personalização.
 
 ### Interações comuns
 - Mouse: clique na sub-aba.
 - Controle: **L2/R2 (LT/RT)** = sub-aba anterior/próxima (circular; `cycleView` clica e foca o botão). D-pad para cima até a barra e ✕/A também funciona.
 - Teclado: `q`/`e` = sub-aba anterior/próxima; setas + Enter.
-- Demais botões globais: ✕/A confirma o foco; ○/B abre a Pausa (ou fecha o modal da câmera); □/X avança o calendário (mesmo estando no Escritório); △/Y já está no Escritório (sem efeito visível); L1/R1 troca de aba principal; START/Options/☰ abre/fecha a Pausa; analógico direito rola a área rolável mais próxima (lista de mensagens, leitor, painéis).
+- Demais botões globais: ✕/A confirma o foco; ○/B fecha a rota de dados da temporada se aberta (senão abre a Pausa); □/X avança o calendário; △/Y abre Notificações; L1/R1 troca de área principal; START/Options/☰ abre/fecha a Pausa; analógico direito rola a área rolável mais próxima.
 
 ---
 
-## Sub-aba 1 — Mensagens (Caixa de entrada, `view === 'inbox'`)
+## Notificações — Mensagens (Caixa de entrada, `view === 'inbox'`)
 
 ### Elementos
 
@@ -265,7 +270,7 @@ Comissão e perfil (`staff`), Olheiros e base (`scouts`), Clube vivo (`club`): g
 
 ---
 
-## Sub-aba 5 — Olheiros e base (`view === 'scouts'`)
+## Painel reutilizado pela Academia — Captação e base (`view === 'scouts'`)
 
 (Tela citada pelo usuário como uma das que ele **gostou**.)
 

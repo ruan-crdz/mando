@@ -22,7 +22,11 @@ export const staffHireCost = (level: number) => 250000 * level;
 export const staffWage = (level: number) => 15000 * level;
 
 export const staffPayroll = (c: Career) =>
-  staffRoles.reduce((n, role) => n + staffWage(staffLevel(c, role)), 0);
+  staffRoles.reduce((n, role) => n + staffWage(staffLevel(c, role)), 0) +
+  Object.values(c.assistantCoaches ?? {}).reduce(
+    (total, assistant) => total + assistant.wageWeekly * (52 / 12),
+    0,
+  );
 
 export const fitnessEffect = (level: number) => ({
   /** Desgaste a menos em campo. */
@@ -81,7 +85,10 @@ export function staffEffectText(role: StaffRole, level: number): string[] {
   }
   if (role === 'goalkeeping') {
     const e = goalkeepingEffect(level);
-    return [`+${pct(e.growth)} de evolução dos goleiros`, `−${pct(e.save)} de gols sofridos por finalização`];
+    return [
+      `+${pct(e.growth)} de evolução dos goleiros`,
+      `−${pct(e.save)} de gols sofridos por finalização`,
+    ];
   }
   if (role === 'director') {
     const e = directorEffect(level);
@@ -92,7 +99,10 @@ export function staffEffectText(role: StaffRole, level: number): string[] {
     ];
   }
   const e = youthCoachEffect(level);
-  return [`+${e.potential} de potencial por jovem revelado`, `+${e.extra} ${e.extra === 1 ? 'jovem revelado' : 'jovens revelados'} por temporada`];
+  return [
+    `+${e.potential} de potencial por jovem revelado`,
+    `+${e.extra} ${e.extra === 1 ? 'jovem revelado' : 'jovens revelados'} por temporada`,
+  ];
 }
 
 const first = [
@@ -149,7 +159,8 @@ export function hireStaff(career: Career, role: StaffRole, level: number): Caree
   if (level > current) {
     const cost = staffHireCost(level);
     const f = c.finances[c.clubId];
-    if (f.cash < cost) throw new Error(`Caixa insuficiente para contratar o ${staffTitles[role].toLowerCase()}.`);
+    if (f.cash < cost)
+      throw new Error(`Caixa insuficiente para contratar o ${staffTitles[role].toLowerCase()}.`);
     f.cash -= cost;
     f.history.push({ date: c.date, income: 0, expenses: cost, balance: f.cash });
   }

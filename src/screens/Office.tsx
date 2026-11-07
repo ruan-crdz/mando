@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import {
   BriefcaseBusiness,
+  CalendarDays,
   Camera,
   Check,
   ChevronRight,
@@ -12,6 +13,7 @@ import {
   Settings2,
   Square,
   Target,
+  Trophy,
   TrendingUp,
   TriangleAlert,
   UserMinus,
@@ -20,7 +22,13 @@ import {
   Voicemail,
   Volume2,
 } from 'lucide-react';
-import { type Career, type FacilityKind, type Living, type Message, type World } from '../game/types';
+import {
+  type Career,
+  type FacilityKind,
+  type Living,
+  type Message,
+  type World,
+} from '../game/types';
 import { ClubPanel } from '../components/LivingPanels';
 import { FacilitiesPanel, SponsorPanel, StadiumPanel } from '../components/FinancePanels';
 import { economyOf, upkeep } from '../game/economy';
@@ -34,7 +42,7 @@ import {
   type VoiceRole,
 } from '../components/voice';
 import { squad } from '../game/matches';
-import { standings } from '../game/engine';
+import { blocks, standings } from '../game/engine';
 import { competitionName } from '../game/calendar';
 import { ageAt } from '../game/random';
 import { overall } from '../game/ratings';
@@ -62,8 +70,12 @@ const messageKindLabel: Record<Message['kind'], string> = {
 };
 
 export function Office({
+  area = 'office',
   career: c,
   world,
+  onConversation,
+  onOpenSeason,
+  onOpenAcademy,
   onMessage,
   onRead,
   onAvatar,
@@ -86,8 +98,12 @@ export function Office({
   aiAvailable,
   busy,
 }: {
+  area?: 'office' | 'notifications' | 'academy';
   career: Career;
   world: World;
+  onConversation: (id: string, choice: 'praise' | 'challenge' | 'promise') => void;
+  onOpenSeason?: (view: 'table' | 'calendar' | 'stats' | 'legacy' | 'national') => void;
+  onOpenAcademy?: () => void;
   onMessage: (id: string, choice: 'support' | 'firm') => void;
   onRead: (id: string) => void;
   onAvatar: (photo?: string) => void;
@@ -115,9 +131,21 @@ export function Office({
   const [financeView, setFinanceView] = useState<'overview' | 'stadium' | 'sponsor' | 'facilities'>(
     'overview',
   );
-  const [view, setView] = useState<'inbox' | 'finances' | 'board' | 'staff' | 'scouts' | 'club'>(
-    c.sacked ? 'board' : 'inbox',
+  type View =
+    | 'inbox'
+    | 'conversations'
+    | 'finances'
+    | 'board'
+    | 'staff'
+    | 'scouts'
+    | 'club'
+    | 'roster'
+    | 'development'
+    | 'tournament';
+  const [view, setView] = useState<View>(
+    area === 'academy' ? 'scouts' : area === 'office' ? 'board' : 'inbox',
   );
+  const [conversationPlayerId, setConversationPlayerId] = useState<string | null>(null);
   const [selectedId, setSelected] = useState(
     c.messages.find((m) => m.important && !m.resolved)?.id || c.messages[0]?.id,
   );
@@ -165,6 +193,34 @@ export function Office({
     );
   };
   const players = squad(c, world);
+  const conversationPlayers = players;
+  const conversationPlayer =
+    conversationPlayers.find((player) => player.id === conversationPlayerId) ||
+    conversationPlayers[0];
+  const conversationMessages = c.messages.filter(
+    (message) => message.playerId === conversationPlayer?.id,
+  );
+  const conversationMemories = c.memories.filter(
+    (memory) => memory.playerId === conversationPlayer?.id,
+  );
+  const blockedConversation = conversationMessages.some((message) => blocks(c, message));
+  const hasBlockingMessage = c.messages.some((message) => blocks(c, message));
+  const conversationEntries = [
+    ...conversationMessages.map((message) => ({
+      id: message.id,
+      date: message.date,
+      text: message.aiText || message.body,
+      from: message.from,
+      messageId: message.id,
+    })),
+    ...conversationMemories.map((memory, index) => ({
+      id: `memory-${conversationPlayer?.id}-${index}`,
+      date: memory.date,
+      text: memory.text,
+      from: 'Conversa registrada',
+      messageId: undefined,
+    })),
+  ].sort((a, b) => a.date.localeCompare(b.date));
   const wages = players.reduce((sum, p) => sum + c.players[p.id].wage, 0);
   const economy = economyOf(c, world);
   const operation = club.reputation * 30000 + upkeep(economy);
@@ -253,8 +309,8 @@ export function Office({
           <MapPinned size={22} /> Rede de olheiros
         </h2>
         <p className="muted">
-          A cada 7 dias de observação, o olheiro entrega um jovem talento. Quanto maior o nível, maior
-          o potencial e menor a incerteza do relatório. A caixa guarda até 5 relatórios.
+          A cada 7 dias de observação, o olheiro entrega um jovem talento. Quanto maior o nível,
+          maior o potencial e menor a incerteza do relatório. A caixa guarda até 5 relatórios.
         </p>
         {inboxFull && c.scouts.length > 0 && (
           <p className="scout-paused" role="status">
@@ -332,7 +388,9 @@ export function Office({
                   ))}
                 </div>
                 {finance.cash < scoutCost && (
-                  <small className="scout-warning">Caixa insuficiente ({money(finance.cash)}).</small>
+                  <small className="scout-warning">
+                    Caixa insuficiente ({money(finance.cash)}).
+                  </small>
                 )}
               </div>
             </article>
@@ -368,12 +426,16 @@ export function Office({
         </p>
         {!academy?.candidates.length && (
           <p className="muted">
-            {academy ? 'Todos os candidatos desta peneira já foram avaliados.' : 'Nenhuma peneira disponível ainda.'}
+            {academy
+              ? 'Todos os candidatos desta peneira já foram avaliados.'
+              : 'Nenhuma peneira disponível ainda.'}
           </p>
         )}
         {academy?.candidates.map((candidate) => (
           <div key={candidate.id}>
-            <span>{candidate.position} · {ageAt(candidate.birthDate, c.date)} anos</span>
+            <span>
+              {candidate.position} · {ageAt(candidate.birthDate, c.date)} anos
+            </span>
             <strong>{candidate.name}</strong>
             <p>
               OVR {overall(candidate)} · potencial estimado {candidate.potential} · incerteza{' '}
@@ -422,9 +484,7 @@ export function Office({
                 ))}
               </div>
               <h3>Encerrar contrato</h3>
-              <p className="muted small">
-                Libera a vaga na rede. Você confirma na próxima etapa.
-              </p>
+              <p className="muted small">Libera a vaga na rede. Você confirma na próxima etapa.</p>
               <button className="scout-fire" onClick={() => fireStep(true)}>
                 <UserMinus size={15} /> Dispensar olheiro…
               </button>
@@ -465,7 +525,9 @@ export function Office({
         <Modal title={`Dispensar ${releasing.name}?`} onClose={() => setReleasing(null)}>
           <p>O candidato sairá desta peneira e não será integrado ao elenco.</p>
           <div className="button-row">
-            <button data-autofocus onClick={() => setReleasing(null)}>Manter candidato</button>
+            <button data-autofocus onClick={() => setReleasing(null)}>
+              Manter candidato
+            </button>
             <button
               className="danger"
               onClick={() => {
@@ -483,23 +545,56 @@ export function Office({
   return (
     <div className="screen-enter office-screen">
       <SectionTitle
-        kicker="ESCRITÓRIO / ALÉM DAS QUATRO LINHAS"
-        title="Um clube inteiro ao seu redor."
+        kicker={
+          area === 'notifications'
+            ? 'NOTIFICAÇÕES / CAIXA DE ENTRADA E CONVERSAS'
+            : area === 'academy'
+              ? 'ACADEMIA / CATEGORIAS DE BASE'
+              : 'ESCRITÓRIO / GESTÃO DO CLUBE'
+        }
+        title={
+          area === 'notifications'
+            ? 'Recados e conversas com o elenco.'
+            : area === 'academy'
+              ? 'Formação e captação de jovens.'
+              : 'Um clube inteiro ao seu redor.'
+        }
       >
-        <span className={`status-pill ${pendingActions ? 'attention' : 'no-actions'}`}>
-          {pendingActions} AÇÕES NECESSÁRIAS
-        </span>
+        {area === 'office' && (
+          <span className={`status-pill ${pendingActions ? 'attention' : 'no-actions'}`}>
+            {pendingActions} AÇÕES NECESSÁRIAS
+          </span>
+        )}
       </SectionTitle>
-      <div className="segmented" role="group" aria-label="Áreas do Escritório">
-        {(
-          [
-            ['inbox', 'Mensagens', MessageSquare],
-            ['finances', 'Finanças', TrendingUp],
-            ['board', 'Diretoria', Landmark],
-            ['staff', 'Comissão e perfil', Users],
-            ['scouts', 'Olheiros e base', MapPinned],
-            ['club', 'Clube vivo', HeartPulse],
-          ] as const
+      <div
+        className="segmented"
+        role="group"
+        aria-label={
+          area === 'notifications'
+            ? 'Subáreas de Notificações'
+            : area === 'academy'
+              ? 'Subáreas da Academia'
+              : 'Áreas do Escritório'
+        }
+      >
+        {(area === 'notifications'
+          ? ([
+              ['inbox', 'Caixa de entrada', MessageSquare],
+              ['conversations', 'Conversas com atletas', Users],
+            ] as const)
+          : area === 'academy'
+            ? ([
+                ['scouts', 'Captação e peneira', MapPinned],
+                ['roster', 'Elenco jovem', Users],
+                ['development', 'Desenvolvimento', TrendingUp],
+                ['tournament', 'Torneio de base', Trophy],
+              ] as const)
+            : ([
+                ['finances', 'Orçamento', TrendingUp],
+                ['board', 'Objetivos e mercado', Landmark],
+                ['staff', 'Carreira e perfil', Users],
+                ['club', 'Clube vivo', HeartPulse],
+              ] as const)
         ).map(([id, label, Icon]) => (
           <button
             key={id}
@@ -515,7 +610,35 @@ export function Office({
           </button>
         ))}
       </div>
-      {view === 'inbox' && (
+      {area === 'office' && (
+        <nav className="office-route-links" aria-label="Atalhos do Escritório">
+          <button onClick={() => setView('board')}>
+            <Target size={15} /> Objetivos e mercado
+          </button>
+          <button onClick={() => onOpenSeason?.('table')}>
+            <Trophy size={15} /> Classificação
+          </button>
+          <button onClick={() => onOpenSeason?.('calendar')}>
+            <CalendarDays size={15} /> Calendário
+          </button>
+          <button onClick={() => setView('finances')}>
+            <TrendingUp size={15} /> Orçamento
+          </button>
+          <button onClick={() => setView('board')}>
+            <BriefcaseBusiness size={15} /> Mercado de trabalho
+          </button>
+          <button onClick={() => onOpenSeason?.('legacy')}>
+            <BriefcaseBusiness size={15} /> Histórico de carreira
+          </button>
+          <button onClick={() => onOpenSeason?.('stats')}>
+            <Users size={15} /> Estatísticas dos atletas
+          </button>
+          <button onClick={() => setView('staff')}>
+            <Camera size={15} /> Personalização
+          </button>
+        </nav>
+      )}
+      {area === 'notifications' && view === 'inbox' && (
         <div className="office-inbox">
           <section className="panel message-list">
             {voiceAvailable() && (
@@ -672,7 +795,124 @@ export function Office({
           </article>
         </div>
       )}
-      {view === 'finances' && (
+      {area === 'notifications' && view === 'conversations' && (
+        <div className="office-inbox player-conversations">
+          <section className="panel message-list" aria-label="Conversas com atletas">
+            {conversationPlayers.map((player) => {
+              const count =
+                c.memories.filter((memory) => memory.playerId === player.id).length +
+                c.messages.filter((message) => message.playerId === player.id).length;
+              return (
+                <button
+                  key={player.id}
+                  className={player.id === conversationPlayer?.id ? 'selected' : ''}
+                  aria-pressed={player.id === conversationPlayer?.id}
+                  onClick={() => setConversationPlayerId(player.id)}
+                >
+                  <span className="message-indicator" />
+                  <span>
+                    <small>
+                      {player.position} · {count} registro{count === 1 ? '' : 's'}
+                    </small>
+                    <strong>{player.name}</strong>
+                  </span>
+                  <ChevronRight size={15} />
+                </button>
+              );
+            })}
+          </section>
+          <article className="panel message-reader">
+            {conversationPlayer ? (
+              <>
+                <div className="message-byline">
+                  <span className="message-avatar" aria-hidden="true">
+                    {conversationPlayer.name.slice(0, 2).toUpperCase()}
+                  </span>
+                  <div>
+                    <strong>{conversationPlayer.name}</strong>
+                    <p>{conversationPlayer.position} · conversa registrada na carreira</p>
+                  </div>
+                </div>
+                <div className="player-chat-history" aria-live="polite">
+                  {conversationEntries.length ? (
+                    conversationEntries.map((entry) => (
+                      <article className="player-chat-entry" key={entry.id}>
+                        <small>
+                          {entry.from} · {dateLabel(entry.date, true)}
+                        </small>
+                        <p>{entry.text}</p>
+                        {entry.messageId && (
+                          <button
+                            className="text-button"
+                            onClick={() => {
+                              const message = c.messages.find(
+                                (item) => item.id === entry.messageId,
+                              );
+                              if (message) {
+                                setSelected(message.id);
+                                onRead(message.id);
+                                setView('inbox');
+                              }
+                            }}
+                          >
+                            Abrir na caixa de entrada
+                          </button>
+                        )}
+                      </article>
+                    ))
+                  ) : (
+                    <p className="empty-state">
+                      Ainda não há mensagens ou conversas registradas com este atleta.
+                    </p>
+                  )}
+                </div>
+                <section className="player-chat-actions" aria-label="Registrar uma conversa">
+                  <p className="eyebrow">ESCOLHA COMO ABORDAR O ATLETA</p>
+                  <p className="muted small">
+                    As opções usam as mesmas respostas e efeitos já disponíveis em Time. Nenhuma
+                    fala nova é criada.
+                  </p>
+                  {hasBlockingMessage && (
+                    <p className="status-pill attention" role="status">
+                      Responda primeiro às decisões pendentes na Caixa de entrada.
+                    </p>
+                  )}
+                  {blockedConversation && (
+                    <p className="muted small">
+                      Há uma decisão deste atleta aguardando resposta. Abra a mensagem na Caixa de
+                      entrada.
+                    </p>
+                  )}
+                  <div className="button-row">
+                    <button
+                      className="primary"
+                      disabled={hasBlockingMessage || blockedConversation}
+                      onClick={() => onConversation(conversationPlayer.id, 'praise')}
+                    >
+                      Elogiar esforço
+                    </button>
+                    <button
+                      disabled={hasBlockingMessage || blockedConversation}
+                      onClick={() => onConversation(conversationPlayer.id, 'challenge')}
+                    >
+                      Cobrar dedicação
+                    </button>
+                    <button
+                      disabled={hasBlockingMessage || blockedConversation}
+                      onClick={() => onConversation(conversationPlayer.id, 'promise')}
+                    >
+                      Prometer mais minutos
+                    </button>
+                  </div>
+                </section>
+              </>
+            ) : (
+              <p className="empty-state">Nenhum atleta disponível para conversa.</p>
+            )}
+          </article>
+        </div>
+      )}
+      {area === 'office' && view === 'finances' && (
         <div className="finance-section">
           <div
             className="segmented compact club-tabs finance-tabs"
@@ -708,110 +948,110 @@ export function Office({
             <FacilitiesPanel career={c} world={world} onWork={onWork} />
           )}
           {financeView === 'overview' && (
-        <div className="finance-layout">
-          <div className="metrics-strip">
-            <Metric label="CAIXA ATUAL" value={money(finance.cash)} />
-            <Metric label="TRANSFERÊNCIAS" value={money(finance.transferBudget)} />
-            <Metric label="FOLHA MENSAL" value={money(wages)} />
-            <Metric label="DÍVIDA" value={money(finance.debt)} />
-          </div>
-          <div className="finance-charts">
-            <section className="panel">
-              <p className="eyebrow">DISTRIBUIÇÃO MENSAL PREVISTA</p>
-              <h2>Para onde vai o dinheiro</h2>
-              <div className="donut-container">
-                <div
-                  role="img"
-                  aria-label={`Salários ${Math.round(wageShare)}%, operação ${Math.round(opShare)}%, juros ${Math.round(100 - wageShare - opShare)}%`}
-                  className="donut"
-                  style={{
-                    background: `conic-gradient(#36d6e7 0 ${wageShare}%, #8c6cff ${wageShare}% ${wageShare + opShare}%, #334258 ${wageShare + opShare}% 100%)`,
-                  }}
-                >
-                  <span>
-                    {money(expenses)}
-                    <small>POR MÊS</small>
-                  </span>
-                </div>
-                <ul className="chart-legend">
-                  <li>
-                    Salários <strong>{Math.round(wageShare)}%</strong>
-                  </li>
-                  <li>
-                    Operação <strong>{Math.round(opShare)}%</strong>
-                  </li>
-                  <li>
-                    Juros <strong>{Math.round(100 - wageShare - opShare)}%</strong>
-                  </li>
-                </ul>
+            <div className="finance-layout">
+              <div className="metrics-strip">
+                <Metric label="CAIXA ATUAL" value={money(finance.cash)} />
+                <Metric label="TRANSFERÊNCIAS" value={money(finance.transferBudget)} />
+                <Metric label="FOLHA MENSAL" value={money(wages)} />
+                <Metric label="DÍVIDA" value={money(finance.debt)} />
               </div>
-            </section>
-            <section className="panel">
-              <p className="eyebrow">EVOLUÇÃO DO CAIXA</p>
-              <h2>O equilíbrio do projeto</h2>
-              {history.length > 1 ? (
-                <svg
-                  className="line-chart"
-                  viewBox="0 0 560 170"
-                  role="img"
-                  aria-label={`Caixa de ${money(balances[0])} para ${money(balances.at(-1)!)}`}
-                >
-                  <path
-                    d="M0 150H560M0 85H560M0 20H560"
-                    stroke="rgba(255,255,255,.18)"
-                    fill="none"
-                  />
-                  <polyline points={path} fill="none" stroke="#c6ff00" strokeWidth="3" />
-                </svg>
-              ) : (
-                <p className="empty-state">
-                  O gráfico aparece após os primeiros lançamentos financeiros.
-                </p>
-              )}
-              <div className="cash-flow">
-                <span>
-                  Receitas <b>{money(income)}</b>
-                </span>
-                <div>
-                  <i style={{ width: `${(income / Math.max(1, income, outgo)) * 100}%` }} />
-                </div>
-                <span>
-                  Despesas <b>{money(outgo)}</b>
-                </span>
-                <div>
-                  <i
-                    className="expense"
-                    style={{ width: `${(outgo / Math.max(1, income, outgo)) * 100}%` }}
-                  />
-                </div>
+              <div className="finance-charts">
+                <section className="panel">
+                  <p className="eyebrow">DISTRIBUIÇÃO MENSAL PREVISTA</p>
+                  <h2>Para onde vai o dinheiro</h2>
+                  <div className="donut-container">
+                    <div
+                      role="img"
+                      aria-label={`Salários ${Math.round(wageShare)}%, operação ${Math.round(opShare)}%, juros ${Math.round(100 - wageShare - opShare)}%`}
+                      className="donut"
+                      style={{
+                        background: `conic-gradient(#36d6e7 0 ${wageShare}%, #8c6cff ${wageShare}% ${wageShare + opShare}%, #334258 ${wageShare + opShare}% 100%)`,
+                      }}
+                    >
+                      <span>
+                        {money(expenses)}
+                        <small>POR MÊS</small>
+                      </span>
+                    </div>
+                    <ul className="chart-legend">
+                      <li>
+                        Salários <strong>{Math.round(wageShare)}%</strong>
+                      </li>
+                      <li>
+                        Operação <strong>{Math.round(opShare)}%</strong>
+                      </li>
+                      <li>
+                        Juros <strong>{Math.round(100 - wageShare - opShare)}%</strong>
+                      </li>
+                    </ul>
+                  </div>
+                </section>
+                <section className="panel">
+                  <p className="eyebrow">EVOLUÇÃO DO CAIXA</p>
+                  <h2>O equilíbrio do projeto</h2>
+                  {history.length > 1 ? (
+                    <svg
+                      className="line-chart"
+                      viewBox="0 0 560 170"
+                      role="img"
+                      aria-label={`Caixa de ${money(balances[0])} para ${money(balances.at(-1)!)}`}
+                    >
+                      <path
+                        d="M0 150H560M0 85H560M0 20H560"
+                        stroke="rgba(255,255,255,.18)"
+                        fill="none"
+                      />
+                      <polyline points={path} fill="none" stroke="#c6ff00" strokeWidth="3" />
+                    </svg>
+                  ) : (
+                    <p className="empty-state">
+                      O gráfico aparece após os primeiros lançamentos financeiros.
+                    </p>
+                  )}
+                  <div className="cash-flow">
+                    <span>
+                      Receitas <b>{money(income)}</b>
+                    </span>
+                    <div>
+                      <i style={{ width: `${(income / Math.max(1, income, outgo)) * 100}%` }} />
+                    </div>
+                    <span>
+                      Despesas <b>{money(outgo)}</b>
+                    </span>
+                    <div>
+                      <i
+                        className="expense"
+                        style={{ width: `${(outgo / Math.max(1, income, outgo)) * 100}%` }}
+                      />
+                    </div>
+                  </div>
+                </section>
               </div>
-            </section>
-          </div>
-          <section className="panel ledger">
-            <h2>Últimos lançamentos</h2>
-            {history
-              .slice(-15)
-              .reverse()
-              .map((h, i) => (
-                <div key={i}>
-                  <span>{dateLabel(h.date)}</span>
-                  <span>+ {money(h.income)}</span>
-                  <span>− {money(h.expenses)}</span>
-                  <strong>{money(h.balance)}</strong>
-                </div>
-              ))}
-            {!history.length && (
-              <p className="muted">
-                Nenhum lançamento. As finanças são processadas mensalmente e em partidas, contratos
-                e transferências.
-              </p>
-            )}
-          </section>
-        </div>
+              <section className="panel ledger">
+                <h2>Últimos lançamentos</h2>
+                {history
+                  .slice(-15)
+                  .reverse()
+                  .map((h, i) => (
+                    <div key={i}>
+                      <span>{dateLabel(h.date)}</span>
+                      <span>+ {money(h.income)}</span>
+                      <span>− {money(h.expenses)}</span>
+                      <strong>{money(h.balance)}</strong>
+                    </div>
+                  ))}
+                {!history.length && (
+                  <p className="muted">
+                    Nenhum lançamento. As finanças são processadas mensalmente e em partidas,
+                    contratos e transferências.
+                  </p>
+                )}
+              </section>
+            </div>
           )}
         </div>
       )}
-      {view === 'board' && (
+      {area === 'office' && view === 'board' && (
         <div className="board-layout">
           <section className="panel confidence-panel">
             <Landmark size={35} />
@@ -914,7 +1154,7 @@ export function Office({
           </section>
         </div>
       )}
-      {view === 'staff' && (
+      {area === 'office' && view === 'staff' && (
         <div className="staff-layout">
           <section className="panel profile-panel">
             <ManagerPortrait manager={c.manager} />
@@ -996,8 +1236,8 @@ export function Office({
             <div>
               <span>COMISSÃO COMPLETA</span>
               <strong>
-                Goleiros {staffLevel(c, 'goalkeeping')} · Diretor {staffLevel(c, 'director')} ·
-                Base {staffLevel(c, 'youth')} · Analista {c.living.analyst}
+                Goleiros {staffLevel(c, 'goalkeeping')} · Diretor {staffLevel(c, 'director')} · Base{' '}
+                {staffLevel(c, 'youth')} · Analista {c.living.analyst}
               </strong>
               <p>
                 Folha da comissão: {money(staffPayroll(c))}/mês. Contrate e troque profissionais em
@@ -1023,8 +1263,7 @@ export function Office({
           </section>
         </div>
       )}
-      {view === 'scouts' && scoutingPanel}
-      {view === 'club' && (
+      {area === 'office' && view === 'club' && (
         <ClubPanel
           career={c}
           world={world}
@@ -1033,9 +1272,65 @@ export function Office({
           onHireStaff={onHireStaff}
           onMentor={onMentor}
           onEndMentor={onEndMentor}
-          onOpenScouts={() => setView('scouts')}
+          onOpenScouts={() => onOpenAcademy?.()}
           initialView={clubStart}
         />
+      )}
+      {area === 'academy' && view === 'scouts' && scoutingPanel}
+      {area === 'academy' && view === 'roster' && (
+        <section className="panel academy-youth-roster">
+          <h2>
+            <Users size={20} /> Elenco jovem
+          </h2>
+          {c.youth.length ? (
+            <div className="academy-player-grid">
+              {c.youth.map((player) => (
+                <article key={player.id}>
+                  <span>
+                    {player.position} · {ageAt(player.birthDate, c.date)} anos
+                  </span>
+                  <strong>{player.name}</strong>
+                  <p>
+                    OVR {overall(player)} · potencial {player.potential} · {player.nationality}
+                  </p>
+                </article>
+              ))}
+            </div>
+          ) : (
+            <p className="empty-state">
+              A base ainda não tem atletas. Jovens promovidos por olheiros ou pela peneira aparecem
+              aqui.
+            </p>
+          )}
+        </section>
+      )}
+      {area === 'academy' && view === 'development' && (
+        <section className="panel academy-development">
+          <h2>
+            <TrendingUp size={20} /> Desenvolvimento da base
+          </h2>
+          <p>
+            {c.youth.length} atletas registrados na base. O desenvolvimento específico de jogadores
+            da base ainda não tem planos individuais ou torneios no motor atual.
+          </p>
+          <p className="muted">
+            Planos de desenvolvimento disponíveis hoje aplicam-se ao elenco profissional em Time.
+            Nenhum efeito de treino de base é aplicado por esta tela.
+          </p>
+          <button onClick={() => setView('roster')}>Ver elenco jovem</button>
+        </section>
+      )}
+      {area === 'academy' && view === 'tournament' && (
+        <section className="panel academy-tournament">
+          <span className="status-pill">FUNCIONALIDADE FUTURA</span>
+          <h2>
+            <Trophy size={20} /> Torneio de base
+          </h2>
+          <p>
+            O motor atual não agenda nem simula torneios de base. Não há calendário, tabela ou
+            resultados para exibir; esta área não altera a carreira.
+          </p>
+        </section>
       )}
     </div>
   );

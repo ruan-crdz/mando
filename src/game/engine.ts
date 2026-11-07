@@ -239,6 +239,10 @@ export function createCareer(
     ),
     fixtures: createSchedule(world.clubs, 2026),
     lineup: [],
+    bench: [],
+    benchConfigured: false,
+    savedLineups: [],
+    assistantCoaches: {},
     roles: {},
     tactic: {
       formation: '4-2-3-1',
@@ -1190,13 +1194,7 @@ export function simulateOwnMatch(career: Career, world: World): Career {
 }
 
 export type AdvanceStop =
-  | 'match'
-  | 'national'
-  | 'decision'
-  | 'message'
-  | 'season'
-  | 'sacked'
-  | null;
+  'match' | 'national' | 'decision' | 'message' | 'season' | 'sacked' | null;
 
 /**
  * Um passo do avanço contínuo. "event" para em qualquer novidade; "auto" simula
@@ -1213,8 +1211,7 @@ export function advanceStep(
   if (mode === 'auto')
     for (const m of c.messages.filter((m) => m.important && !m.resolved))
       c = respondMessage(c, m.id, 'support');
-  else if (c.messages.some((m) => blocks(c, m)))
-    return { career: c, stop: 'decision' };
+  else if (c.messages.some((m) => blocks(c, m))) return { career: c, stop: 'decision' };
   const nationalFixture = nextNationalFixture(c);
   if (nationalFixture && nationalFixture.date <= c.date) {
     if (mode === 'event') return { career: c, stop: 'national' };
@@ -1380,7 +1377,14 @@ function runAcademyTrial(career: Career, world: World) {
   const coordinator = youthCoachEffect(staffLevel(career, 'youth'));
   const bonus = youthBonus(youthLevel(career)) + coordinator.potential;
   const candidates = Array.from({ length: 3 + coordinator.extra }, (_, index) => {
-    const player = youthPlayer(career, club.id, club.reputation, 100 + index, undefined, club.state);
+    const player = youthPlayer(
+      career,
+      club.id,
+      club.reputation,
+      100 + index,
+      undefined,
+      club.state,
+    );
     player.id = `academy-${career.season}-${club.id}-${index}`;
     player.birthDate = `${career.season - 17}${player.birthDate.slice(4)}`;
     player.potential = Math.min(94, player.potential + bonus);
@@ -1719,16 +1723,16 @@ export function validateCareerForWorld(career: Career, world: World) {
     ) ||
     Boolean(
       academy &&
-        (academy.clubId !== c.clubId ||
-          academy.season > c.season ||
-          new Set(academy.candidates.map((player) => player.id)).size !== academy.candidates.length ||
-          academy.candidates.some(
-            (player) =>
-              player.clubId !== academy.clubId ||
-              playerIds.has(player.id) ||
-              c.prospects.some((prospect) => prospect.id === player.id) ||
-              player.birthDate >= c.date,
-          )),
+      (academy.clubId !== c.clubId ||
+        academy.season > c.season ||
+        new Set(academy.candidates.map((player) => player.id)).size !== academy.candidates.length ||
+        academy.candidates.some(
+          (player) =>
+            player.clubId !== academy.clubId ||
+            playerIds.has(player.id) ||
+            c.prospects.some((prospect) => prospect.id === player.id) ||
+            player.birthDate >= c.date,
+        )),
     ) ||
     (national &&
       (new Set(national.callups).size !== national.callups.length ||
@@ -1749,15 +1753,14 @@ export function validateCareerForWorld(career: Career, world: World) {
         Boolean(c.activeMatch && national.activeMatch) ||
         Boolean(
           national.activeMatch &&
-            !national.fixtures.some(
-              (fixture) =>
-                fixture.id === national.activeMatch?.fixtureId && !fixture.result,
-            ),
+          !national.fixtures.some(
+            (fixture) => fixture.id === national.activeMatch?.fixtureId && !fixture.result,
+          ),
         ))) ||
     Boolean(
       c.international &&
-        (c.international.from > c.international.until ||
-          Object.keys(c.international.players).some((id) => !playerIds.has(id))),
+      (c.international.from > c.international.until ||
+        Object.keys(c.international.players).some((id) => !playerIds.has(id))),
     ) ||
     c.date < base.date ||
     c.date > `${c.season}-12-31`

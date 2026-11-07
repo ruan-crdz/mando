@@ -76,3 +76,162 @@
     grid-template-columns: 1fr;
   }
 }
+
+.roster-category-tabs,
+.saved-lineup-actions,
+.saved-lineup-row,
+.lineup-section-heading {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+.roster-category-tabs button,
+.saved-lineup-row button {
+  padding: 6px 9px;
+  font-size: 12px;
+}
+.roster-category-tabs button.active,
+.saved-lineup-row > button.active {
+  border-color: var(--mando-cyan);
+  color: var(--mando-cyan);
+}
+.roster-columns {
+  display: grid;
+  grid-template-columns: minmax(0, 1.8fr) minmax(0, 2.2fr) minmax(0, 0.75fr);
+  gap: 8px;
+  padding: 8px 10px 4px;
+  color: var(--mando-text-secondary);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+}
+.roster-category-values {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 3px;
+  align-items: center;
+  text-align: center;
+  font-size: 12px;
+}
+.quality-values {
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  font-size: 10px;
+}
+.finance-values {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  font-size: 11px;
+}
+.roster-category-values b {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.position-eta {
+  display: block;
+  margin-top: 5px;
+  color: var(--mando-cyan);
+}
+.lineup-management,
+.saved-lineups {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--mando-border);
+}
+.lineup-section-heading {
+  justify-content: space-between;
+}
+.lineup-section-heading h3,
+.assistant-card h3 {
+  margin: 0;
+}
+.bench-management-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 260px;
+  overflow-y: auto;
+}
+.bench-management-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  background: rgba(8, 19, 34, 0.55);
+}
+.bench-management-row > span {
+  min-width: 0;
+}
+.bench-management-row small {
+  display: block;
+  color: var(--mando-text-secondary);
+}
+.bench-management-row button,
+.assistant-card button,
+.saved-lineup-actions button,
+.saved-lineup-preview button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.lineup-name-input {
+  display: grid;
+  gap: 4px;
+  font-size: 12px;
+}
+.lineup-name-input input {
+  min-width: 150px;
+}
+.saved-lineup-row {
+  padding: 6px 0;
+  border-bottom: 1px solid var(--mando-border);
+}
+.saved-lineup-preview {
+  padding: 10px;
+  background: rgba(8, 19, 34, 0.6);
+}
+.saved-lineup-preview ol {
+  columns: 2;
+  padding-left: 22px;
+  font-size: 12px;
+}
+.assistant-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+.assistant-card {
+  padding: 12px;
+  border: 1px solid var(--mando-border);
+  background: rgba(8, 19, 34, 0.55);
+}
+.assistant-card p {
+  margin: 5px 0;
+}
+.assistant-stars {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 3px 8px;
+  margin: 9px 0;
+  font-size: 11px;
+}
+@media (max-width: 700px) {
+  .assistant-grid {
+    grid-template-columns: 1fr;
+  }
+  .roster-columns {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr);
+  }
+  .roster-columns > :last-child {
+    display: none;
+  }
+  .roster-row {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr);
+  }
+  .roster-row > :last-child {
+    display: none;
+  }
+}

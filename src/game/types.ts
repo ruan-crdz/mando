@@ -171,6 +171,20 @@ export const roleNames = [
   'Lateral esquerdo',
   'Lateral direito',
 ] as const;
+export const assistantAreas = ['ataque', 'meio', 'defesa', 'goleiro'] as const;
+export type AssistantArea = (typeof assistantAreas)[number];
+const assistantCoachSchema = z.object({
+  name: z.string().min(2),
+  tacticalVision: z.enum(['Ofensivo', 'Retranqueiro', 'Pressão', 'Posse', 'Contra-ataque']),
+  skill: z.number().int().min(1).max(5),
+  stars: z.record(positionSchema, z.number().int().min(1).max(5)),
+  wageWeekly: z.number().nonnegative().max(5000),
+});
+const savedLineupSchema = z.object({
+  name: z.string().min(1).max(32),
+  formation: z.enum(Object.keys(formations) as [Formation, ...Formation[]]),
+  playerIds: z.array(z.string()).length(11),
+});
 export const playerStateSchema = z.object({
   clubId: z.string().nullable(),
   fitness: percent,
@@ -719,9 +733,7 @@ export const livingSchema = z.object({
     })
     .prefault({}),
   /** Duplas de mentoria: veterano → jovem. */
-  mentors: z
-    .array(z.object({ mentor: z.string(), pupil: z.string(), since: isoDate }))
-    .default([]),
+  mentors: z.array(z.object({ mentor: z.string(), pupil: z.string(), since: isoDate })).default([]),
   /** % sobre a próxima venda do atleta devida ao clube credor. */
   sellOns: z
     .array(
@@ -791,6 +803,14 @@ export const careerSchema = z.object({
   ),
   fixtures: z.array(fixtureSchema),
   lineup: z.array(z.string()).length(11),
+  /** Reservas escolhidos para as substituições; vazio em saves antigos mantém a disponibilidade anterior. */
+  bench: z.array(z.string()).max(9).default([]),
+  /** Distingue um banco explicitamente vazio do comportamento automático de saves antigos. */
+  benchConfigured: z.boolean().default(false),
+  /** Esquemas criados pelo treinador para reutilização e exportação. */
+  savedLineups: z.array(savedLineupSchema).default([]),
+  /** Auxiliares por área; saves antigos começam sem contratações. */
+  assistantCoaches: z.partialRecord(z.enum(assistantAreas), assistantCoachSchema).default({}),
   roles: z.record(z.string(), z.string()),
   tactic: tacticSchema,
   messages: z.array(messageSchema),

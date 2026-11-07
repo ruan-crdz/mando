@@ -2,18 +2,19 @@
 
 ## Resumo
 
-A tela **TIME** é a segunda aba principal da carreira (índice `1` em `tabs = ['CENTRAL', 'TIME', 'TRANSFERÊNCIAS', 'ESCRITÓRIO', 'TEMPORADA']`, em `src\App.tsx`). É o "Squad Hub" do Mando: tudo o que diz respeito aos jogadores do clube do treinador acontece aqui, sem modais próprios.
+A tela **TIME** é a terceira área principal da carreira (`TAB.SQUAD` em `src/navigation.ts`; ordem: CENTRAL, NOTIFICAÇÕES, TIME, TRANSFERÊNCIAS, ACADEMIA, ESCRITÓRIO). É o "Squad Hub" do Mando: tudo o que diz respeito aos jogadores do clube do treinador acontece aqui, sem modais próprios.
 
 Ela é composta por:
 
 1. **Cabeçalho da seção** (`SectionTitle`): kicker `TIME / GESTÃO DO ELENCO`, título `Onze nomes. Uma ideia.` e o botão **Autoescalar**.
-2. **Barra de sub-abas** (`.segmented`) com 4 abas internas, nesta ordem e com estes textos exatos:
+2. **Barra de sub-abas** (`.segmented`) com 5 abas internas, nesta ordem e com estes textos exatos:
    | # | Texto | Ícone lucide | `view` interno |
    |---|-------|--------------|----------------|
    | 1 | **Escalação** | `Shield` (16 px) | `'lineup'` (padrão ao montar) |
    | 2 | **Tática** | `SlidersHorizontal` (16 px) | `'tactics'` |
    | 3 | **Responsabilidades** | `ClipboardList` (16 px) | `'roles'` |
    | 4 | **Jogadores** | `Users` (16 px) | `'kit'` |
+   | 5 | **Comissão** | `Users` (16 px) | `'staff'` |
 3. **Layout de duas colunas** (`.squad-layout`, grid `minmax(300px, 0.9fr) | minmax(0, 1.3fr)`, gap 8 px):
    - **Coluna esquerda**: nas abas Escalação/Tática/Responsabilidades é sempre o **campinho** (`section.panel.pitch-panel`, `data-focus-region="pitch"`); na aba Jogadores é substituída pelo **painel de stats do jogador focado** (`section.panel.player-stats`).
    - **Coluna direita** (`section.panel.squad-controls`, `data-focus-region="panel"`): conteúdo muda conforme a aba e conforme o "modo de escolha" (`picking`) ativo.
@@ -23,14 +24,14 @@ O estado `view` é **local** do componente (volta a `'lineup'` sempre que a tela
 ## Como se chega / como se sai
 
 **Entradas:**
-- Barra de navegação principal (header): clique em `TIME`, ou L1/R1 (PS) · LB/RB (Xbox) · teclas `[` e `]` no teclado (função `switchTab`, circular entre as 5 abas).
-- **Central** (`src\screens\CareerCentral.tsx`, linha ~200): tile `tile tile-orange squad-preview` chama `onTab(1)`.
-- Popup **pré-jogo** (`App.tsx`, ~linha 1107): botão **"Revisar escalação"** fecha o popup e faz `setTab(1)`.
+- Barra de navegação principal (header): clique em `TIME`, ou L1/R1 (PS) · LB/RB (Xbox) · teclas `[` e `]` no teclado (função `switchTab`, circular entre as 6 áreas).
+- **Central** (`src\screens\CareerCentral.tsx`): tile `squad-preview` abre TIME.
+- Popup **pré-jogo**: botão **"Revisar escalação"** fecha o popup e abre TIME.
 - Sempre que entra, a tela abre na sub-aba **Escalação** (estado local).
 
 **Saídas:**
 - L1/R1 · LB/RB · `[`/`]` para a aba anterior/seguinte (**bloqueado enquanto `detail` estiver aberto**, i.e. com uma linha expandida na aba Jogadores, e também com popup, partida ativa ou simulação rodando).
-- △ (PS) / Y (Xbox) vai direto para **ESCRITÓRIO** (`info` → `setTab(3)`).
+- △ (PS) / Y (Xbox) vai direto para **NOTIFICAÇÕES** (`info` → `TAB.NOTIFICATIONS`).
 - Options/☰ abre a **Pausa**.
 - □ (PS) / X (Xbox) = **Avançar dia** (ação global `secondary` do App), exceto quando o foco está num controle com modo edição (`data-toggle-edit`), onde □/X entra/sai da edição.
 - Clicar em outro item do menu do header (mouse) — funciona mesmo com `detail` aberto (o `detail` não é limpo; ver Problemas).
@@ -42,7 +43,7 @@ O estado `view` é **local** do componente (volta a `'lineup'` sempre que a tela
 
 | Arquivo | Papel |
 |---|---|
-| `src\screens\Squad.tsx` | Tela inteira: estado, 4 sub-abas, campinho, seletor de jogadores, lista "Jogadores", linha expansível, painel de ações, editor "Posições e treino", painel de stats. |
+| `src\screens\Squad.tsx` | Tela inteira: estado, 5 sub-abas, campinho, seletor de jogadores, lista "Jogadores", linha expansível, painel de ações, editor "Posições e treino", painel de stats e auxiliares por setor. |
 | `src\App.tsx` (linhas ~592–645) | Renderiza `<Squad>` com todas as props/handlers; estado `detail`; navegação L1/R1, B fecha `detail`; rodapé de dicas. |
 | `src\components\PlayerCard.tsx` | `PlayerCard` (card quadrado FIFA), `PlayerPicker` (grade "Recomendados" + "Elenco por posição"), `byPosition`, `roleFits`, `shortName`, `positionOrder`. |
 | `src\components\PlayerFace.tsx` | Foto real (`/assets/jogadores/{id}.webp`, lista em `src\game\data\player-faces.json`) ou bonequinho SVG neutro. |
@@ -66,8 +67,9 @@ O estado `view` é **local** do componente (volta a `'lineup'` sempre que a tela
 - Botão à direita: ícone `Sparkles` (17 px) + **`Autoescalar`**. Ação: `bestLineup(c, world)`; se não retornar 11 atletas → erro `"Não há onze atletas disponíveis."`; senão `onChange({...c, lineup})`. Não mexe em formação nem tática. Disponível em todas as sub-abas.
 
 ### Barra de sub-abas (`.segmented`)
-- 4 botões (ver tabela acima). Ativo: classe `active`, fundo petróleo e filete ciano. Inativos: transparentes, texto `--ink-2`.
+- 5 botões (ver tabela acima). Ativo: classe `active`, fundo petróleo e filete ciano. Inativos: transparentes, texto `--ink-2`.
 - Clicar em qualquer sub-aba: `setView(...)` + `setPicking(null)` (cancela qualquer escolha de posição/função em andamento). Em **Jogadores** também `setKitId(null)` (fecha o editor "Posições e treino").
+- Em **Comissão**, também fecha a linha de jogador expandida (`setDetail(null)`).
 - **Não** limpa `detail` (linha expandida da aba Jogadores continua aberta ao voltar para ela).
 - Controle: **L2/R2 (PS) · LT/RT (Xbox)** ciclam as sub-abas (função `cycleView` do GamepadProvider: procura `.segmented:not(.compact)` dentro de `main`, clica e foca o próximo/anterior, circular). Teclado: **`q`** (anterior) e **`e`** (próxima). O rodapé mostra "R2/RT Sub-menu".
 
@@ -606,3 +608,10 @@ Editor "Posições e treino" (dentro da linha expandida no painel direito):
 ## Fase 2: staff e vestiário
 
 - Na ficha do jogador, ação **Evolução e função**, aparece o bloco **Mentoria**: jovens até 21 anos sem mentor listam até 4 veteranos livres (28+, priorizando Líder/Profissional/Disciplinado e mesma posição) com o multiplicador de crescimento; jogadores em dupla mostram o parceiro, os efeitos e o botão "Encerrar mentoria". O contador respeita o limite de 3 duplas. Regras completas em `07-escritorio.md`.
+
+## Fase 3: auxiliares por setor
+
+- A quinta sub-aba, **Comissão**, mostra quatro vagas: **Ataque**, **Meio-campo**, **Defesa** e **Goleiros**. Cada vaga permite contratar ou demitir um auxiliar; o cabeçalho informa vagas ocupadas e livres.
+- Cada auxiliar exibe nome, visão tática, conhecimento, salário semanal e estrelas por posição. A contratação não cobra taxa inicial; a folha semanal é contabilizada nas despesas mensais da comissão (52 semanas ÷ 12).
+- O save antigo recebe `assistantCoaches: {}` ao ser carregado; a ausência do campo continua válida para compatibilidade.
+- **Limite atual:** os auxiliares e suas estrelas/visões são registrados e exibidos, e o salário afeta as despesas; ainda não alteram a simulação das partidas nem os atributos dos atletas.

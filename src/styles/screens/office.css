@@ -77,6 +77,67 @@
   line-height: 1.5;
   margin-bottom: 12px;
 }
+.office-route-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.office-route-links button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+}
+.player-chat-history {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  max-height: min(42vh, 480px);
+  overflow-y: auto;
+  margin-bottom: 14px;
+}
+.player-chat-entry,
+.academy-player-grid article {
+  padding: 10px 12px;
+  border: 1px solid var(--mando-border);
+  background: rgba(255, 255, 255, 0.035);
+}
+.player-chat-entry small,
+.academy-player-grid article > span {
+  color: var(--mando-text-secondary);
+  font-size: 12px;
+}
+.player-chat-entry p {
+  margin: 6px 0;
+  white-space: pre-line;
+}
+.player-chat-actions {
+  border-top: 1px solid var(--mando-border);
+  padding-top: 12px;
+}
+.academy-player-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 8px;
+}
+.academy-player-grid article {
+  display: grid;
+  gap: 5px;
+}
+.academy-youth-roster h2,
+.academy-development h2,
+.academy-tournament h2 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.text-button {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--mando-cyan);
+  text-decoration: underline;
+}
 .voice-button {
   align-self: flex-start;
   margin: 2px 0 12px;

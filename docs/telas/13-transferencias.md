@@ -2,7 +2,7 @@
 
 ## Resumo
 
-Terceira aba principal do modo carreira (`TRANSFERÊNCIAS`, índice 2 do menu superior `CENTRAL · TIME · TRANSFERÊNCIAS · ESCRITÓRIO · TEMPORADA`). É onde o técnico procura reforços em clubes brasileiros, acompanha alvos observados e conduz todas as negociações por chat — tanto **compras** (proposta → acordo com o clube → contrato com o agente do atleta) quanto **vendas** (propostas recebidas de clubes nacionais e do exterior pelos atletas do usuário, com aceitar / pedir mais / recusar).
+Quarta área principal do modo carreira (`TRANSFERÊNCIAS`, `TAB.TRANSFERS` em `src/navigation.ts`; menu: CENTRAL · NOTIFICAÇÕES · TIME · TRANSFERÊNCIAS · ACADEMIA · ESCRITÓRIO). É onde o técnico procura reforços em clubes brasileiros, acompanha alvos observados e conduz todas as negociações por chat — tanto **compras** (proposta → acordo com o clube → contrato com o agente do atleta) quanto **vendas** (propostas recebidas de clubes nacionais e do exterior pelos atletas do usuário, com aceitar / pedir mais / recusar).
 
 A tela tem **4 subvistas** (botões segmentados, alternáveis com LT/RT) e **1 modal grande** com subetapas:
 
@@ -38,13 +38,13 @@ A tela tem **4 subvistas** (botões segmentados, alternáveis com LT/RT) e **1 m
 
 **Chegar**
 - Clique/toque em `TRANSFERÊNCIAS` no menu superior (`nav.main-nav` em `App.tsx`).
-- Controle: **LB/RB** (Xbox) ou **L1/R1** (PS5) percorrem as 5 abas principais em ciclo (teclado: `[` e `]`).
+- Controle: **LB/RB** (Xbox) ou **L1/R1** (PS5) percorrem as 6 áreas principais em ciclo (teclado: `[` e `]`).
 - Mensagens do Escritório do tipo `market` dizem "Responda na aba Negociações das transferências" (não há link direto; o usuário navega manualmente).
 - A tela sempre abre na subvista **Mercado** (estado local `useState('market')`; trocar de aba principal desmonta o componente e perde filtros, página e modal).
 
 **Sair**
 - LB/RB / L1/R1 ou clique em outra aba principal (inclusive com o modal aberto — ver Problemas).
-- **Y / △** (ação `info`) vai direto para ESCRITÓRIO.
+- **Y / △** (ação `info`) vai direto para NOTIFICAÇÕES.
 - **Menu/Options** abre a pausa.
 - **B / ○** sem modal e sem conversa ativa abre a pausa (comportamento global do App).
 
@@ -97,7 +97,7 @@ Todos passam por `act()`: qualquer `throw` vira **toast vermelho** com a mensage
 | confirm | A | ✕ | Enter / clique | Ativa o elemento focado; em campo de texto/numérico abre o **teclado virtual** |
 | back | B | ○ | Esc | Sai do modo edição → fecha modal (`[data-dialog-close]`) → sai da conversa (`[data-trap-exit]`) → senão abre a pausa |
 | secondary | X | □ | — | Em `NumberStepper`/`OptionCycler`: liga/desliga modo ajuste. **Fora deles: "Avançar dia"** |
-| info | Y | △ | — | Vai para a aba ESCRITÓRIO |
+| info | Y | △ | — | Vai para a área NOTIFICAÇÕES |
 | previousTab / nextTab | LB / RB | L1 / R1 | `[` / `]` | Aba principal anterior/seguinte |
 | previousView / nextView | LT / RT | L2 / R2 | `q` / `e` | Cicla **Mercado ↔ Observados ↔ Negociações** (primeiro `.segmented` do `main`; dentro do modal não faz nada) |
 | menu | ☰ | Options | — | Pausa |

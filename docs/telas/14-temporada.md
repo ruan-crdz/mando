@@ -2,7 +2,7 @@
 
 ## Resumo
 
-Quinta aba principal do modo carreira (`TEMPORADA`, índice 4 em `tabs` do `App.tsx`). Reúne tudo que é "competição" e "histórico": tabela/chaves das competições, calendário mensal do clube, artilharia e outros rankings, sala de troféus, prêmios mensais/anuais e o legado do técnico (linha do tempo, hall da fama, maiores negócios).
+Os painéis de dados antes agrupados como Temporada não são mais uma aba principal. São abertos pelos atalhos do Escritório: Classificação, Calendário, Estatísticas dos atletas e Histórico de carreira. Reúnem tabela/chaves, calendário mensal, rankings, troféus, prêmios e legado. A navegação superior continua em seis áreas e não há uma área TEMPORADA.
 
 A tela tem **7 sub-abas** num seletor segmentado (`.segmented`), trocadas com clique ou LT/RT (L2/R2):
 
@@ -21,15 +21,15 @@ Sub-aba inicial ao entrar: `table`, exceto quando há jogo da Seleção pendente
 ## Como se chega / como se sai
 
 **Entrar**
-- Clique em `TEMPORADA` na barra de navegação do cabeçalho (`.main-nav`), ou LB/RB (L1/R1) ciclando as 5 abas (`switchTab`, circular). Teclado: `[` e `]`.
-- Na Central (`CareerCentral`): o tile "PRÓXIMO JOGO" chama `onMatch`; se **não** há pendência importante e **não** é dia de jogo, `App` faz `setTab(4)` → abre a Temporada. Se não existe próximo jogo (fim de temporada), o tile chama `onTab(4)` diretamente.
+- No Escritório, escolha Classificação, Calendário, Estatísticas dos atletas ou Histórico de carreira. Uma ação "Voltar ao Escritório" retorna à área anterior.
+- Na Central, o tile de fim da temporada abre Classificação pelo Escritório. Jogo da Seleção pendente abre a visão Seleção pelo mesmo caminho.
 - LB/RB são bloqueados se houver partida ativa, popup, detalhe de jogador aberto ou `busy`.
 
 **Sair**
-- Outra aba no cabeçalho / LB / RB.
-- B (○) / Esc sem modal aberto → abre o popup de **Pausa** (`setPopup('pause')`), não volta de aba.
+- Outra área no cabeçalho / LB / RB.
+- "Voltar ao Escritório" ou B (○) / Esc fecha a rota de dados e retorna ao Escritório.
 - START/☰/Options → Pausa (fora da Central).
-- Y (△) → vai para Escritório (tab 3).
+- Y (△) → vai para Notificações.
 - X (□) → avança o dia/até evento (`advance()`), mesmo estando nesta aba.
 
 ## Arquivos-fonte
@@ -45,7 +45,7 @@ Sub-aba inicial ao entrar: `table`, exceto quando há jogo da Seleção pendente
 - `src\game\engine.ts` → `standings(c, world, 'A'|'B')`.
 - `src\game\npc.ts` → `clubById`.
 - `src\controller\GamepadProvider.tsx` → `useGamepad` (`input`, `hints`), `useStickX`, `cycleView` (LT/RT).
-- `src\App.tsx` → montagem `{tab === 4 && <Season career={career} world={live!} />}`.
+- `src\App.tsx` → `Season` é montada em `TAB.OFFICE` com `initialView`; links de rota ficam em `Office`.
 - `src\styles.css` → classes listadas abaixo.
 
 ## Wireframe atual (ASCII)

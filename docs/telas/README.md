@@ -26,14 +26,18 @@ Uma doc por tela/popup do jogo, descrevendo o estado atual: wireframe, elementos
 | 04 | [04-criar-manager.md](./04-criar-manager.md) | Criar manager (3 passos) |
 | 05 | [05-popup-excluir-carreira.md](./05-popup-excluir-carreira.md) | Popup Excluir carreira |
 | 06 | [06-central.md](./06-central.md) | Central (hub) |
-| 07 | [07-escritorio.md](./07-escritorio.md) | Escritório (6 abas) |
+| 07 | [07-escritorio.md](./07-escritorio.md) | Escritório e rotas para dados da temporada |
 | 08 | [08-popup-pausa.md](./08-popup-pausa.md) | Popup Pausa |
 | 09 | [09-popup-conquistas.md](./09-popup-conquistas.md) | Popup Conquistas |
 | 10 | [10-popup-preferencias-avanco.md](./10-popup-preferencias-avanco.md) | Popup Preferências de avanço |
 | 11 | [11-overlay-simulacao-continua.md](./11-overlay-simulacao-continua.md) | Overlay de simulação contínua |
-| 12 | [12-time.md](./12-time.md) | Time (Escalação, Tática, Responsabilidades, Jogadores) |
+| 12 | [12-time.md](./12-time.md) | Time (Escalação, Tática, Responsabilidades, Jogadores, Comissão) |
 | 13 | [13-transferencias.md](./13-transferencias.md) | Transferências (Mercado, Observados, Negociações, Sala de negociação) |
-| 14 | [14-temporada.md](./14-temporada.md) | Temporada (Tabela, Calendário, Estatísticas, Troféus, Prêmios, Legado) |
+| 14 | [14-temporada.md](./14-temporada.md) | Dados da temporada (abertos pelo Escritório) |
 | 15 | [15-partida.md](./15-partida.md) | Partida ao vivo e pós-jogo |
 | 16 | [16-popup-dia-de-jogo.md](./16-popup-dia-de-jogo.md) | Popup Dia de jogo (pré-jogo) |
 | 17 | [17-sala-de-imprensa.md](./17-sala-de-imprensa.md) | Sala de imprensa (coletiva) |
+| 18 | [18-popup-contrato-inicial.md](./18-popup-contrato-inicial.md) | Proposta e assinatura do contrato inicial |
+| 19 | [19-tutorial-inicial.md](./19-tutorial-inicial.md) | Tutorial inicial |
+| 20 | [20-notificacoes.md](./20-notificacoes.md) | Notificações (caixa de entrada e conversas com atletas) |
+| 21 | [21-academia.md](./21-academia.md) | Academia (captação, elenco jovem e lacunas de simulação) |

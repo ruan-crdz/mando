@@ -19,6 +19,7 @@ import { standings } from '../game/engine';
 import { overall } from '../game/ratings';
 import { type Career, type World } from '../game/types';
 import { MarketFeed } from '../components/LivingPanels';
+import { TAB } from '../navigation';
 
 export function CareerCentral({
   career: c,
@@ -26,6 +27,7 @@ export function CareerCentral({
   onAdvance,
   onMatch,
   onTab,
+  onOpenSeason,
   onNewSeason,
   onPreferences,
   busy,
@@ -34,7 +36,8 @@ export function CareerCentral({
   world: World;
   onAdvance: () => void;
   onMatch: () => void;
-  onTab: (tab: number) => void;
+  onTab: (tab: (typeof TAB)[keyof typeof TAB]) => void;
+  onOpenSeason: (view: 'table' | 'national') => void;
   onNewSeason: () => void;
   onPreferences: () => void;
   busy: boolean;
@@ -57,18 +60,18 @@ export function CareerCentral({
   const mode = c.prefs?.advance || 'day';
   const auto = mode === 'auto' && !c.seasonEnded && !c.sacked;
   const advanceAction = c.sacked
-    ? () => onTab(3)
+    ? () => onTab(TAB.NOTIFICATIONS)
     : auto
       ? onAdvance
       : pending.length
-        ? () => onTab(3)
+        ? () => onTab(TAB.NOTIFICATIONS)
         : c.seasonEnded
           ? onNewSeason
-        : nationalToday
-          ? () => onTab(4)
-        : isMatchDay
-            ? onMatch
-            : onAdvance;
+          : nationalToday
+            ? () => onOpenSeason('national')
+            : isMatchDay
+              ? onMatch
+              : onAdvance;
   return (
     <div className="screen central">
       <div className="central-strip">
@@ -97,7 +100,7 @@ export function CareerCentral({
         </div>
       </div>
       {nationalToday && (
-        <button className="national-central-notice" onClick={() => onTab(4)}>
+        <button className="national-central-notice" onClick={() => onOpenSeason('national')}>
           A Seleção joga hoje. Abrir convocação e partida.
         </button>
       )}
@@ -106,7 +109,7 @@ export function CareerCentral({
         <button
           className="tile tile-primary fixture-tile"
           data-autofocus
-          onClick={fixture ? onMatch : () => onTab(4)}
+          onClick={fixture ? onMatch : () => onOpenSeason('table')}
         >
           <span className="tile-label">
             <Radio size={14} /> {isMatchDay ? 'HOJE É DIA DE JOGO' : 'PRÓXIMO JOGO'}
@@ -152,9 +155,9 @@ export function CareerCentral({
                     ? 'FÉRIAS ACABARAM'
                     : nationalToday
                       ? 'A SELEÇÃO ENTRA EM CAMPO'
-                    : isMatchDay
-                      ? 'O ESTÁDIO ESTÁ PRONTO'
-                      : 'O CLUBE NÃO PARA'}
+                      : isMatchDay
+                        ? 'O ESTÁDIO ESTÁ PRONTO'
+                        : 'O CLUBE NÃO PARA'}
           </span>
           <h2>
             {c.sacked
@@ -167,11 +170,11 @@ export function CareerCentral({
                     ? `Iniciar ${c.season + 1}`
                     : nationalToday
                       ? 'Jogo da Seleção'
-                    : isMatchDay
-                      ? 'Dia de jogo'
-                      : mode === 'event'
-                        ? 'Avançar até o evento'
-                        : 'Avançar dia'}
+                      : isMatchDay
+                        ? 'Dia de jogo'
+                        : mode === 'event'
+                          ? 'Avançar até o evento'
+                          : 'Avançar dia'}
           </h2>
           <span className="advance-dates">
             <span>
@@ -205,8 +208,8 @@ export function CareerCentral({
           </span>
           <ControllerButtonHint action="menu" label="Mudar modo de avanço" />
         </button>
-        <MarketFeed career={c} world={world} onOpen={() => onTab(3)} />
-        <button className="tile tile-raised manager-tile" onClick={() => onTab(3)}>
+        <MarketFeed career={c} world={world} onOpen={() => onTab(TAB.TRANSFERS)} />
+        <button className="tile tile-raised manager-tile" onClick={() => onTab(TAB.OFFICE)}>
           <span className="tile-label">MANAGER · {club.short}</span>
           <ManagerPortrait manager={c.manager} />
           <span className="manager-title">
@@ -228,7 +231,7 @@ export function CareerCentral({
               <button
                 className={`inbox-row ${m.read ? 'read' : 'unread'}`}
                 key={m.id}
-                onClick={() => onTab(3)}
+                onClick={() => onTab(TAB.NOTIFICATIONS)}
               >
                 <span
                   className={`message-indicator ${m.important && !m.resolved ? 'important' : ''}`}
@@ -247,7 +250,7 @@ export function CareerCentral({
             {!c.messages.length && <p className="inbox-empty">Sua caixa de entrada está em dia.</p>}
           </div>
         </section>
-        <button className="tile tile-surface squad-preview" onClick={() => onTab(1)}>
+        <button className="tile tile-surface squad-preview" onClick={() => onTab(TAB.SQUAD)}>
           <span className="tile-label">
             <Users size={14} /> SEU TIME <em>{c.tactic.formation}</em>
           </span>
@@ -263,7 +266,7 @@ export function CareerCentral({
             GERENCIAR <ArrowRight size={16} />
           </span>
         </button>
-        <button className="tile tile-data table-preview" onClick={() => onTab(4)}>
+        <button className="tile tile-data table-preview" onClick={() => onOpenSeason('table')}>
           <span className="tile-label">
             <Trophy size={14} /> SÉRIE {club.league}
           </span>
