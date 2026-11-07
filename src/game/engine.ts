@@ -211,6 +211,12 @@ export function createCareer(
     title: 'Vamos começar pelo elenco',
     body: 'A escalação e as funções da equipe estão no Central. Consulte o calendário antes de avançar o tempo; a simulação para em partidas e decisões importantes.',
   });
+  message(c, {
+    from: 'Comissão técnica',
+    kind: 'staff',
+    title: 'Rotina de trabalho',
+    body: 'A equipe está pronta para iniciar os trabalhos. Acompanhe o Escritório para ler as mensagens da comissão e da diretoria.',
+  });
   scoutNext(c, careerWorld(world, c));
   return careerSchema.parse(c);
 }
