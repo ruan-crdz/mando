@@ -55,7 +55,7 @@ import {
   setReleaseClause,
   blocks,
 } from './game/engine';
-import { available, bestLineup, beginMatch, substitute } from './game/matches';
+import { available, bestLineup, beginMatch, substitute, syncBenchWithLineup } from './game/matches';
 import { careerWorld } from './game/live';
 import { fixtureLabel, nextFixture } from './game/calendar';
 import { clubById } from './game/npc';
@@ -697,7 +697,8 @@ function Game() {
                     act(() => {
                       const updated = releasePlayer(career, live!, id);
                       const lineup = bestLineup(updated, live!);
-                      if (lineup.length === 11) updated.lineup = lineup;
+                      if (lineup.length === 11)
+                        Object.assign(updated, syncBenchWithLineup(updated, lineup));
                       setCareer(updated);
                       setDetail(null);
                       setNotice('Contrato rescindido. O atleta deixou o clube.');
@@ -757,7 +758,8 @@ function Game() {
                     act(() => {
                       const updated = answerIncoming(career, live!, id, accept);
                       const lineup = bestLineup(updated, live!);
-                      if (lineup.length === 11) updated.lineup = lineup;
+                      if (lineup.length === 11)
+                        Object.assign(updated, syncBenchWithLineup(updated, lineup));
                       setCareer(updated);
                     })
                   }
@@ -768,7 +770,8 @@ function Game() {
                     act(() => {
                       const updated = counterIncoming(career, live!, id, fee);
                       const lineup = bestLineup(updated, live!);
-                      if (lineup.length === 11) updated.lineup = lineup;
+                      if (lineup.length === 11)
+                        Object.assign(updated, syncBenchWithLineup(updated, lineup));
                       setCareer(updated);
                     })
                   }

@@ -5,6 +5,7 @@ import {
   reconcileSquad,
   simulateMatch,
   squad,
+  syncBenchWithLineup,
   validateLineup,
 } from './matches';
 import { competitionName, createSchedule, fixtureLabel, nextFixture } from './calendar';
@@ -1005,8 +1006,15 @@ export function simulateOwnMatch(career: Career, world: World): Career {
   if (!fixture || fixture.date > c.date) throw new Error('Não há partida hoje.');
   try {
     validateLineup(c, live);
-  } catch {
-    c.lineup = bestLineup(c, live);
+  } catch (error) {
+    Object.assign(c, syncBenchWithLineup(c, bestLineup(c, live)));
+    validateLineup(c, live);
+    message(c, {
+      kind: 'staff',
+      from: 'Assistente técnico',
+      title: 'Escalação ajustada no modo automático',
+      body: `${error instanceof Error ? error.message : String(error)} O auxiliar reorganizou os titulares e o banco para esta partida.`,
+    });
   }
   c.activeMatch = simulateMatch(c, live, fixture);
   return finishMatch(c, world);
@@ -1058,7 +1066,8 @@ export function applyStaffPlan(career: Career, world: World, id: string): Career
   const live = careerWorld(world, c);
   const changed = plan.formation !== c.tactic.formation;
   c.tactic = { ...plan };
-  if (changed) c.lineup = bestLineup(c, live, c.clubId, plan.formation);
+  if (changed)
+    Object.assign(c, syncBenchWithLineup(c, bestLineup(c, live, c.clubId, plan.formation)));
   return c;
 }
 
@@ -1605,7 +1614,7 @@ export function startNextSeason(career: Career, world: World): Career {
   }
   if (c.challenge === 'Do zero') c.finances[c.clubId].transferBudget = 0;
   reconcileSquad(c, nextWorld);
-  if (c.lineup.length !== 11) c.lineup = bestLineup(c, nextWorld);
+  if (c.lineup.length !== 11) Object.assign(c, syncBenchWithLineup(c, bestLineup(c, nextWorld)));
   const goal =
     ourLeague === 'A'
       ? lib.includes(c.clubId)

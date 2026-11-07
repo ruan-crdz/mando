@@ -254,8 +254,7 @@ export function Squad({
   const updateTactic = (change: Partial<Tactic>) => {
     const next = { ...c, tactic: { ...c.tactic, ...change } };
     if (change.formation && change.formation !== c.tactic.formation) {
-      next.lineup = bestLineup(next, world);
-      next.bench = c.bench.filter((id) => !next.lineup.includes(id));
+      Object.assign(next, syncBenchWithLineup(next, bestLineup(next, world)));
     }
     if (next.lineup.length !== 11) {
       onError('Não há atletas disponíveis para esta formação.');

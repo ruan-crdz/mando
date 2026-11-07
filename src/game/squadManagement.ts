@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { available } from './matches';
+import { available, syncBenchWithLineup } from './matches';
 import { ageAt, hash } from './random';
 import { familiarity, LEARNED, trainingGain } from './positions';
 import {
@@ -16,6 +16,7 @@ import {
 } from './types';
 
 export const ASSISTANT_STAFF_LIMIT = 4;
+export { syncBenchWithLineup };
 const lineupFileSchema = z.object({
   format: z.literal('mando-lineup'),
   version: z.literal(1),
@@ -53,19 +54,6 @@ export function replaceBenchPlayer(career: Career, incoming: string, outgoing: s
     ...career,
     bench: career.bench.map((id) => (id === outgoing ? incoming : id)),
     benchConfigured: true,
-  };
-}
-
-export function syncBenchWithLineup(career: Career, lineup: string[]): Career {
-  const outgoing = career.lineup.filter((id) => !lineup.includes(id) && available(career, id));
-  let next = 0;
-  const bench = career.bench.flatMap((id) =>
-    lineup.includes(id) ? (outgoing[next] ? [outgoing[next++]] : []) : [id],
-  );
-  return {
-    ...career,
-    lineup: [...lineup],
-    bench: [...new Set(bench)].slice(0, 9),
   };
 }
 

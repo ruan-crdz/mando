@@ -31,12 +31,7 @@ export const stateOf = (career: Career, id: string) =>
 
 export const available = (career: Career, id: string) => {
   const p = stateOf(career, id);
-  return (
-    p &&
-    p.injuryDays === 0 &&
-    p.suspension === 0 &&
-    p.fitness >= 30
-  );
+  return p && p.injuryDays === 0 && p.suspension === 0 && p.fitness >= 30;
 };
 
 export function squad(career: Career, world: World, clubId = career.clubId) {
@@ -82,12 +77,30 @@ export function bestLineup(
   return chosen;
 }
 
+export function syncBenchWithLineup(career: Career, lineup: string[]): Career {
+  const outgoing = career.lineup.filter(
+    (id) =>
+      !lineup.includes(id) && career.players[id]?.clubId === career.clubId && available(career, id),
+  );
+  let next = 0;
+  const bench = career.bench.flatMap((id) =>
+    lineup.includes(id)
+      ? outgoing[next]
+        ? [outgoing[next++]]
+        : []
+      : career.players[id]?.clubId === career.clubId
+        ? [id]
+        : [],
+  );
+  return { ...career, lineup: [...lineup], bench: [...new Set(bench)].slice(0, 9) };
+}
+
 export function reconcileSquad(career: Career, world: World) {
   if (career.lineup.some((id) => career.players[id]?.clubId !== career.clubId)) {
     const lineup = bestLineup(career, world);
     if (lineup.length !== 11)
       throw new Error('O clube ficou sem onze atletas disponíveis. Reveja a operação.');
-    career.lineup = lineup;
+    Object.assign(career, syncBenchWithLineup(career, lineup));
   }
   for (const [role, id] of Object.entries(career.roles)) {
     if (career.players[id]?.clubId !== career.clubId)
@@ -185,11 +198,7 @@ export function beginMatch(career: Career, world: World, fixture: Fixture): Matc
   };
 }
 
-export function stepMatch(
-  career: Career,
-  world: World,
-  current: Match,
-): Match {
+export function stepMatch(career: Career, world: World, current: Match): Match {
   if (current.minute >= 90) return current;
   const match = structuredClone(current);
   match.injured ??= [];
@@ -224,11 +233,7 @@ export function stepMatch(
   const ownTire = (1 - physio.energy) * (activeShout === 'pressionar' ? 1.08 : 1);
   for (const [ids, tactic, tire] of [
     [match.homeLineup, ht, ownHome ? ownTire : 1],
-    [
-      match.awayLineup,
-      at,
-      fixture.awayId === career.clubId ? ownTire : 1,
-    ],
+    [match.awayLineup, at, fixture.awayId === career.clubId ? ownTire : 1],
   ] as const) {
     for (const id of ids) {
       if (match.dismissed.includes(id)) continue;
@@ -250,12 +255,7 @@ export function stepMatch(
     tactic: at,
     profile: profile(career, world, awayActive, at.formation),
   };
-  const scale = (
-    s: Strength,
-    k: number,
-    own: boolean,
-    dismissed: number,
-  ): Strength => {
+  const scale = (s: Strength, k: number, own: boolean, dismissed: number): Strength => {
     const numerical = Math.max(0.7, 1 - dismissed * 0.1);
     const command = own ? activeShout : undefined;
     return {
@@ -270,8 +270,7 @@ export function stepMatch(
             : command === 'incentivar'
               ? 1.02
               : 1),
-      midfield:
-        s.midfield * k * numerical * (command === 'acalmar' ? 1.04 : 1),
+      midfield: s.midfield * k * numerical * (command === 'acalmar' ? 1.04 : 1),
       defense:
         s.defense *
         k *
@@ -469,9 +468,7 @@ export function stepMatch(
     !match.injured.includes(athlete.id) &&
     rng() <
       (0.0015 + Math.max(0, 65 - stateOf(career, athlete.id)!.fitness) * 0.0002) *
-        (clubId === career.clubId
-          ? (1 - trainingEffect().injury) * (1 - physio.injury)
-          : 1)
+        (clubId === career.clubId ? (1 - trainingEffect().injury) * (1 - physio.injury) : 1)
   ) {
     match.injured.push(athlete.id);
     match.events.push({

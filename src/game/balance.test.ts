@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { createCareer } from './engine';
-import { bestLineup, simulateMatch } from './matches';
+import { bestLineup, simulateMatch, syncBenchWithLineup } from './matches';
 import { careerWorld } from './live';
 import { expectedBalance, npcTactic, profile, recommendTactic, strength } from './tactics';
 import { matchRatings } from './matchRatings';
@@ -125,7 +125,7 @@ describe('balanceamento da engine', () => {
               }
             }
     const run = (tactic: Tactic, lineup: string[], tag: string) =>
-      play({ ...c, tactic, lineup }, live, c.clubId, opponent.id, 300, tag);
+      play({ ...syncBenchWithLineup(c, lineup), tactic }, live, c.clubId, opponent.id, 300, tag);
     const base = run(c.tactic, c.lineup, 'base');
     const best = run(rec.tactic, rec.lineup, 'best');
     const worst = run(bad, c.lineup, 'worst');

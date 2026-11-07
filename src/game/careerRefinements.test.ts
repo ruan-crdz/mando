@@ -19,7 +19,7 @@ import {
   hireAssistant,
   replaceBenchPlayer,
 } from './squadManagement';
-import { bestLineup, simulateMatch } from './matches';
+import { bestLineup, simulateMatch, syncBenchWithLineup } from './matches';
 import { setTraining, familiarity } from './positions';
 
 const world = createDemoWorld();
@@ -203,9 +203,11 @@ describe('prova de controles táticos e condição em partidas simuladas', () =>
       const withTactic = (change: Partial<Tactic>) => {
         const tactic = { ...career.tactic, ...change };
         return {
-          ...career,
+          ...syncBenchWithLineup(
+            career,
+            bestLineup(career, world, career.clubId, tactic.formation),
+          ),
           tactic,
-          lineup: bestLineup(career, world, career.clubId, tactic.formation),
         };
       };
       const low = grid(withTactic(variant.low)),

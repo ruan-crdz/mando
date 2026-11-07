@@ -9,7 +9,7 @@ import {
   standings,
   validateCareerForWorld,
 } from './engine';
-import { bestLineup, simulateMatch } from './matches';
+import { bestLineup, simulateMatch, syncBenchWithLineup } from './matches';
 import { nextFixture } from './calendar';
 import { cupGroups, cupTies } from './competitions';
 import { careerWorld } from './live';
@@ -33,7 +33,7 @@ function playSeason(start: Career) {
     const f = nextFixture(c);
     if (f && f.date <= c.date) {
       const live = careerWorld(world, c);
-      c = { ...c, lineup: bestLineup(c, live) };
+      c = syncBenchWithLineup(c, bestLineup(c, live));
       c = finishMatch({ ...c, activeMatch: simulateMatch(c, live, f) }, live);
       continue;
     }
