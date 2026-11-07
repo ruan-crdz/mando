@@ -373,13 +373,18 @@ export function readMailbox(messages: Message[], onMessage: (id: string) => void
   const token = generation;
   const entries = messages.flatMap((message) => {
     const text = `${message.from}. ${message.title}. ${message.aiText || message.body}`;
-    const chunks = text.match(/[^.!?]+[.!?]?/g) || [text];
-    return chunks.flatMap((chunk) => {
-      const pieces: string[] = [];
-      for (let index = 0; index < chunk.length; index += 180)
-        pieces.push(chunk.slice(index, index + 180));
-      return pieces.map((piece) => ({ id: message.id, text: piece }));
-    });
+    const chunks: string[] = [];
+    let chunk = '';
+    for (const word of text.trim().split(/\s+/)) {
+      if (chunk && chunk.length + word.length + 1 > 180) {
+        chunks.push(chunk);
+        chunk = word;
+      } else {
+        chunk = chunk ? `${chunk} ${word}` : word;
+      }
+    }
+    if (chunk) chunks.push(chunk);
+    return chunks.map((piece) => ({ id: message.id, text: piece }));
   });
   let index = 0;
   const next = () => {
@@ -393,8 +398,17 @@ export function readMailbox(messages: Message[], onMessage: (id: string) => void
     onMessage(entry.id);
     const utterance = new SpeechSynthesisUtterance(entry.text);
     utterance.lang = 'pt-BR';
-    utterance.rate = 1.05;
-    utterance.voice = speechSynthesis.getVoices().find((voice) => voice.lang === 'pt-BR') || null;
+    utterance.rate = 1.3;
+    const voices = speechSynthesis
+      .getVoices()
+      .filter((voice) => /^pt[-_]br$/i.test(voice.lang));
+    utterance.voice =
+      voices.find(
+        (voice) => voice.localService && /natural|neural|enhanced|premium/i.test(voice.name),
+      ) ||
+      voices.find((voice) => voice.localService) ||
+      voices[0] ||
+      null;
     utterance.onend = next;
     utterance.onerror = (event) => {
       if (token !== generation || event.error === 'canceled' || event.error === 'interrupted')

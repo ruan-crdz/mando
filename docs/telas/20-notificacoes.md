@@ -20,7 +20,8 @@ contextuais e têm cooldown global e individual.
 
 - Y/△ inicia ou interrompe a leitura de todas as mensagens.
 - Um toque sonoro anuncia a caixa postal; a seleção acompanha a leitura.
-- Usa a voz pt-BR disponível no navegador, sem gerar áudio em serviço externo.
+- Usa voz pt-BR do navegador, priorizando vozes naturais locais quando disponíveis.
+- Lê a 1,3× e agrupa frases sem cortar palavras para reduzir pausas artificiais.
 - A música abaixa durante a fala. Sair da área cancela a leitura.
 - Ausência de voz, permissão negada ou falha de reprodução gera aviso explícito.
 
