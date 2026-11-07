@@ -47,6 +47,7 @@ import {
   fireScout,
   reassignScout,
   signProspect,
+  reviewAcademyCandidate,
   playerConversation,
   setDevelopmentPlan,
   setReleaseClause,
@@ -824,6 +825,16 @@ function Game() {
                     act(() => {
                       setCareer(signProspect(career, id));
                       setNotice('Jovem talento integrado às categorias de base.');
+                    })
+                  }
+                  onReviewAcademy={(id, decision) =>
+                    act(() => {
+                      setCareer(reviewAcademyCandidate(career, id, decision));
+                      setNotice(
+                        decision === 'promote'
+                          ? 'Candidato integrado ao elenco profissional.'
+                          : 'Candidato dispensado da peneira.',
+                      );
                     })
                   }
                   onAcceptJob={(id) =>

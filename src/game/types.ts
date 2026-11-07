@@ -526,6 +526,13 @@ export const livingSchema = z.object({
       ),
     )
     .default({}),
+  academy: z
+    .object({
+      clubId: z.string(),
+      season: z.number().int().min(2026),
+      candidates: z.array(playerSchema),
+    })
+    .optional(),
   managerRecord: z
     .object({
       since: isoDate,

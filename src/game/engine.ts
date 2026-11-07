@@ -564,6 +564,24 @@ function promoteYoungster(career: Career, player: Player) {
   career.players[player.id] = freshState(player);
 }
 
+export function reviewAcademyCandidate(
+  career: Career,
+  playerId: string,
+  decision: 'promote' | 'release',
+): Career {
+  const c = structuredClone(career);
+  const academy = c.living.academy;
+  const index = academy?.candidates.findIndex((player) => player.id === playerId) ?? -1;
+  if (!academy || academy.clubId !== c.clubId || index < 0)
+    throw new Error('Candidato da peneira não encontrado neste clube.');
+  const [player] = academy.candidates.splice(index, 1);
+  if (decision === 'promote') {
+    promoteYoungster(c, player);
+    remember(c, 'base', `${player.name} foi promovido ao profissional após a peneira do clube`);
+  }
+  return careerSchema.parse(c);
+}
+
 export function playerConversation(
   career: Career,
   playerId: string,
@@ -670,6 +688,7 @@ export function advanceDay(career: Career, world: World): Career {
   if (fixture && fixture.date <= c.date)
     throw new Error('Hoje é dia de jogo. Prepare a equipe e comece a partida.');
   c.date = addDays(c.date, 1);
+  if (c.date.endsWith('-05-01')) runAcademyTrial(c, live);
   c.jobOffers = c.jobOffers.filter((offer) => offer.expires >= c.date);
   const ct = trainingEffect();
   const physio = fitnessEffect(staffLevel(c, 'fitness'));
@@ -1065,6 +1084,39 @@ function youthPlayer(
   };
 }
 
+function runAcademyTrial(career: Career, world: World) {
+  if (career.living.academy?.season === career.season) return;
+  const club = world.clubs.find((item) => item.id === career.clubId);
+  if (!club) throw new Error('Não foi possível organizar a peneira do clube.');
+  const expired = career.living.academy?.candidates.length || 0;
+  const coordinator = youthCoachEffect(staffLevel(career, 'youth'));
+  const bonus = youthBonus() + coordinator.potential;
+  const candidates = Array.from({ length: 3 + coordinator.extra }, (_, index) => {
+    const player = youthPlayer(
+      career,
+      club.id,
+      club.reputation,
+      100 + index,
+      undefined,
+      club.state,
+    );
+    player.id = `academy-${career.season}-${club.id}-${index}`;
+    player.birthDate = `${career.season - 17}${player.birthDate.slice(4)}`;
+    player.potential = Math.min(94, player.potential + bonus);
+    return player;
+  });
+  career.living.academy = { clubId: club.id, season: career.season, candidates };
+  const expiredNotice = expired
+    ? ` ${expired} candidato(s) da peneira anterior deixaram a avaliação.`
+    : '';
+  message(career, {
+    kind: 'staff',
+    from: 'Categorias de base',
+    title: 'Peneira anual concluída',
+    body: `${candidates.length} candidatos aguardam sua avaliação em Academia → Captação e peneira.${expiredNotice}`,
+  });
+}
+
 /** Fecha a temporada encerrada e prepara a seguinte com acesso, vagas continentais e base. */
 export function startNextSeason(career: Career, world: World): Career {
   const c = structuredClone(career);
@@ -1359,6 +1411,7 @@ export function validateCareerForWorld(career: Career, world: World) {
   const live = careerWorld(base, c);
   const playerIds = new Set(live.players.map((p) => p.id));
   const clubIds = new Set(base.clubs.map((club) => club.id));
+  const academy = c.living.academy;
   if (
     !clubIds.has(c.clubId) ||
     live.players.length !== playerIds.size ||
@@ -1374,6 +1427,20 @@ export function validateCareerForWorld(career: Career, world: World) {
     new Set(c.fixtures.map((f) => f.id)).size !== c.fixtures.length ||
     c.fixtures.some(
       (f) => !knownClub(base, f.homeId) || !knownClub(base, f.awayId) || f.homeId === f.awayId,
+    ) ||
+    Boolean(
+      academy &&
+        (academy.clubId !== c.clubId ||
+          academy.season > c.season ||
+          new Set(academy.candidates.map((player) => player.id)).size !==
+            academy.candidates.length ||
+          academy.candidates.some(
+            (player) =>
+              player.clubId !== academy.clubId ||
+              playerIds.has(player.id) ||
+              c.prospects.some((prospect) => prospect.id === player.id) ||
+              player.birthDate >= c.date,
+          )),
     ) ||
     c.date < base.date ||
     c.date > `${c.season}-12-31`
