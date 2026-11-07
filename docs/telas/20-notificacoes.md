@@ -22,7 +22,8 @@ contextuais e têm cooldown global e individual.
 - Um toque sonoro anuncia a caixa postal; a seleção acompanha a leitura.
 - Usa voz pt-BR do navegador, priorizando vozes naturais locais quando disponíveis.
 - Lê a 1,3× e agrupa frases sem cortar palavras para reduzir pausas artificiais.
-- A música abaixa durante a fala. Sair da área cancela a leitura.
+- A música abaixa durante a fala. A leitura continua ao navegar para outras áreas;
+  o botão da caixa postal interrompe a reprodução.
 - Ausência de voz, permissão negada ou falha de reprodução gera aviso explícito.
 
 ## Navegação e acessibilidade

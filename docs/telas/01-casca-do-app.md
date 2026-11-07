@@ -27,8 +27,8 @@ Mouse, teclado e controle podem navegar. L1/R1 ou LB/RB alternam áreas; o foco 
 ## Cabeçalho e rodapé
 
 - Identidade do MANDO, área atual, clube/data/caixa e estado de conexão quando aplicável.
-- O rodapé apresenta glifos de controle correspondentes ao dispositivo e estado do save: salvando, salvo ou erro.
-- O save local/nuvem é gerenciado pelo App; cada atualização da carreira atualiza o estado de persistência.
+- O rodapé apresenta glifos de controle correspondentes ao dispositivo e estado do save local: salvando, salvo ou erro.
+- Cada atualização da carreira grava localmente; o backup na nuvem é consolidado após as ações e tenta sincronizar ao voltar a ficar online ou ocultar a página. O App preserva a versão local mais recente mesmo se uma sincronização antiga terminar depois.
 
 ## Modais e overlays globais
 

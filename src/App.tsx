@@ -201,6 +201,8 @@ function Game() {
   const revisions = useRef(new Map<string, number>());
   const lastSaved = useRef<Career | null>(null);
   const saveVersion = useRef(0);
+  const latestSave = useRef({ career, world });
+  latestSave.current = { career, world };
   const lock = useRef(false);
   const { rumble } = controller;
   const fail = useCallback(
@@ -305,12 +307,38 @@ function Game() {
       });
   }, [career, world, fail]);
   useEffect(() => {
+    const flush = () => {
+      const { career: current, world: base } = latestSave.current;
+      if (!current || !base || lastSaved.current === current) return;
+      const write = queue.current.then(() =>
+        saveLocal(current, base, revisions.current.get(current.id) || 0),
+      );
+      queue.current = write.catch((error: unknown) => {
+        if (latestSave.current.career === current) setSaveState('error');
+        fail(new Error(`Save local não gravado: ${readableError(error)}.`));
+      });
+      void write
+        .then(() => {
+          lastSaved.current = current;
+          if (latestSave.current.career === current) setSaveState('saved');
+        })
+        .catch(() => undefined);
+    };
     const leave = (e: BeforeUnloadEvent) => {
-      if (career && lastSaved.current !== career) e.preventDefault();
+      const { career: current } = latestSave.current;
+      if (current && lastSaved.current !== current) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+      flush();
     };
     window.addEventListener('beforeunload', leave);
-    return () => window.removeEventListener('beforeunload', leave);
-  }, [career]);
+    window.addEventListener('pagehide', flush);
+    return () => {
+      window.removeEventListener('beforeunload', leave);
+      window.removeEventListener('pagehide', flush);
+    };
+  }, [fail]);
 
   const continueCareer = useCallback((record: SavedCareer) => {
     validateCareerForWorld(record.career, record.world);
@@ -369,13 +397,17 @@ function Game() {
     () =>
       run(async () => {
         await queue.current;
-        if (career && world) await saveLocal(career, world, revisions.current.get(career.id) || 0);
+        const { career: current, world: base } = latestSave.current;
+        if (current && base) {
+          await saveLocal(current, base, revisions.current.get(current.id) || 0);
+          lastSaved.current = current;
+        }
         setSaves(await listLocal());
         setScreen('menu');
         setPopup(null);
         setDetail(null);
       }),
-    [career, world, run],
+    [run],
   );
   const sync = useCallback(
     (current: Career) => {
@@ -386,19 +418,49 @@ function Game() {
         await queue.current;
         const revision = await saveCloud(current, revisions.current.get(current.id) || 0);
         revisions.current.set(current.id, revision);
-        await saveLocal(current, target, revision);
+        const latest = latestSave.current;
+        if (latest.career?.id === current.id && latest.world) {
+          const newest = latest.career;
+          const newestWorld = latest.world;
+          const write = queue.current.then(() => saveLocal(newest, newestWorld, revision));
+          queue.current = write.catch((error: unknown) => {
+            if (latestSave.current.career === newest) setSaveState('error');
+            fail(new Error(`Save local não gravado: ${readableError(error)}.`));
+          });
+          await write;
+          lastSaved.current = newest;
+          if (latestSave.current.career === newest) setSaveState('saved');
+        }
       });
       cloudQueue.current = task.catch(() => undefined);
       return task;
     },
-    [world],
+    [fail, world],
   );
   useEffect(() => {
     if (!career || !user || !z.string().uuid().safeParse(career.worldId).success) return;
-    const timer = window.setTimeout(() => {
-      sync(career).catch((e: unknown) => console.warn('cloud_backup_failed', e));
-    }, 6000);
-    return () => window.clearTimeout(timer);
+    const backupLatest = () => {
+      const latest = latestSave.current.career;
+      if (!latest || !z.string().uuid().safeParse(latest.worldId).success) return;
+      sync(latest).catch((error: unknown) => {
+        console.warn('cloud_backup_failed', error);
+        if (navigator.onLine) setNotice('Save local preservado. Backup na nuvem pendente.');
+      });
+    };
+    const timer = window.setTimeout(backupLatest, 1200);
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        window.clearTimeout(timer);
+        backupLatest();
+      }
+    };
+    window.addEventListener('online', backupLatest);
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    return () => {
+      window.clearTimeout(timer);
+      window.removeEventListener('online', backupLatest);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+    };
   }, [career, user, sync]);
   const switchTab = useCallback(
     (delta: number) => {
@@ -923,7 +985,11 @@ function Game() {
             ) : (
               <X size={15} />
             )}
-            {saveState === 'saving' ? 'SALVANDO' : saveState === 'saved' ? 'SALVO' : 'ERRO NO SAVE'}
+            {saveState === 'saving'
+              ? 'SALVANDO LOCAL'
+              : saveState === 'saved'
+                ? 'SALVO LOCAL'
+                : 'ERRO NO SAVE LOCAL'}
           </span>
         )}
       </footer>

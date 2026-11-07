@@ -1,4 +1,4 @@
-import { useEffect, useState, useSyncExternalStore } from 'react';
+import { useState, useSyncExternalStore } from 'react';
 import {
   BriefcaseBusiness,
   CalendarDays,
@@ -106,7 +106,6 @@ export function Office({
     area === 'academy' ? 'scouts' : area === 'office' ? (initialSeasonView ?? 'board') : 'inbox',
   );
   const audio = useSyncExternalStore(subscribeAudio, audioState);
-  useEffect(() => () => stopReading(), []);
   const [conversationPlayerId, setConversationPlayerId] = useState<string | null>(null);
   const [selectedId, setSelected] = useState(
     c.messages.find((m) => m.important && !m.resolved)?.id || c.messages[0]?.id,
