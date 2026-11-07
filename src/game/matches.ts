@@ -7,7 +7,6 @@ import {
   applyTactic,
   npcTactic,
   profile,
-  rivalPlan,
   shotChance,
   strength,
   tacticalEdge,
@@ -145,33 +144,17 @@ export function beginMatch(career: Career, world: World, fixture: Fixture): Matc
   if (ours) validateLineup(career, world);
   const empty = { shots: 0, xg: 0, possession: 50, passes: 0 };
   const own = ours ? profile(career, world, career.lineup, career.tactic.formation).ovr : undefined;
-  // Contra o usuário, o técnico rival pode ter estudado o padrão dele.
-  const plan = (clubId: string, home: boolean) =>
-    ours ? rivalPlan(career, world, clubId, home, own) : npcTactic(career, world, clubId);
-  const homePlan = fixture.homeId === career.clubId ? null : plan(fixture.homeId, true);
-  const awayPlan = fixture.awayId === career.clubId ? null : plan(fixture.awayId, false);
+  const plan = (clubId: string) => npcTactic(career, world, clubId, own);
+  const homePlan = fixture.homeId === career.clubId ? null : plan(fixture.homeId);
+  const awayPlan = fixture.awayId === career.clubId ? null : plan(fixture.awayId);
   const homeOvr = own ?? homePlan!.ovr;
   const awayOvr = own ?? awayPlan!.ovr;
   if (homePlan && !ours) homePlan.tactic = adjustMentality(homePlan.tactic, homePlan.ovr - awayOvr);
   if (awayPlan && !ours) awayPlan.tactic = adjustMentality(awayPlan.tactic, awayPlan.ovr - homeOvr);
   const homeLineup = homePlan ? homePlan.lineup : [...career.lineup];
   const awayLineup = awayPlan ? awayPlan.lineup : [...career.lineup];
-  const rivalLineup = fixture.homeId === career.clubId ? awayLineup : homeLineup;
-  const marked =
-    ours && career.living?.marking
-      ? rivalLineup
-          .map((id) => findPlayer(world, id))
-          .filter((p): p is Player => Boolean(p) && p!.position !== 'GK')
-          .sort(
-            (a, b) => overall(b) + b.attributes.finishing - overall(a) - a.attributes.finishing,
-          )[0]?.id
-      : undefined;
-  const studied =
-    Boolean(homePlan && 'studied' in homePlan && homePlan.studied) ||
-    Boolean(awayPlan && 'studied' in awayPlan && awayPlan.studied);
   return {
-    ...(marked ? { marked } : {}),
-    ...(ours ? { studied, aiSubs: 0 } : {}),
+    ...(ours ? { aiSubs: 0 } : {}),
     fixtureId: fixture.id,
     seed: hash(`${career.seed}:${fixture.id}`),
     minute: 0,
@@ -270,7 +253,6 @@ export function stepMatch(
   const scale = (
     s: Strength,
     k: number,
-    markCost: boolean,
     own: boolean,
     dismissed: number,
   ): Strength => {
@@ -289,7 +271,7 @@ export function stepMatch(
               ? 1.02
               : 1),
       midfield:
-        s.midfield * k * numerical * (markCost ? 0.985 : 1) * (command === 'acalmar' ? 1.04 : 1),
+        s.midfield * k * numerical * (command === 'acalmar' ? 1.04 : 1),
       defense:
         s.defense *
         k *
@@ -305,7 +287,6 @@ export function stepMatch(
       tacticalEdge(homeSide, awaySide),
     ),
     1.02,
-    Boolean(match.marked) && ourSideHome,
     ourSideHome,
     match.homeLineup.filter((id) => match.dismissed.includes(id)).length,
   );
@@ -316,7 +297,6 @@ export function stepMatch(
       tacticalEdge(awaySide, homeSide),
     ),
     1,
-    Boolean(match.marked) && !ourSideHome && ours,
     fixture.awayId === career.clubId,
     match.awayLineup.filter((id) => match.dismissed.includes(id)).length,
   );
@@ -358,7 +338,6 @@ export function stepMatch(
   let scorer = pick(
     (p, role) =>
       (shooterWeight[role] || 1) *
-      (p.id === match.marked ? 0.45 : 1) *
       Math.pow((p.attributes.finishing * familiarity(p, role, stateOf(career, p.id))) / 7000, 3),
   );
   if (

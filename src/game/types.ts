@@ -325,10 +325,6 @@ export const matchSchema = z.object({
   bonus: z.record(z.string(), z.number()).optional(),
   /** Craque do jogo, definido no apito final. */
   mvp: z.string().optional(),
-  /** Atleta adversário com marcação individual. */
-  marked: z.string().optional(),
-  /** O técnico rival estudou o padrão do usuário. */
-  studied: z.boolean().optional(),
   /** Trocas feitas pelo técnico da IA. */
   aiSubs: z.number().int().optional(),
   /** Instrução temporária da beira do campo e minuto do último comando. */

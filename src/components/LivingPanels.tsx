@@ -208,9 +208,6 @@ export function MatchAnalysis({
   else reasons.push('Empate equilibrado nas chances.');
   if (us.possession >= 58) reasons.push(`Dominamos a bola (${us.possession}%).`);
   if (us.possession <= 42) reasons.push(`Cedemos a posse (${us.possession}%).`);
-  if (match.studied) reasons.push('O técnico rival estudou nossos jogos e montou um plano específico.');
-  if (match.marked)
-    reasons.push('A marcação individual travou o principal jogador deles, ao custo de força no meio.');
   return (
     <div className="match-analysis">
       <h3>Por que {goalsFor > goalsAgainst ? 'vencemos' : goalsFor < goalsAgainst ? 'perdemos' : 'empatamos'}</h3>

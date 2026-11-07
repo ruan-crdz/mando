@@ -485,69 +485,6 @@ export function misplaced(career: Career, world: World) {
     .map(({ player, role }) => ({ player, role: positionNames[roleOf(role)] }));
 }
 
-/** Plano que o técnico costuma usar (os rivais estudam os últimos jogos). */
-export function typicalTactic(career: Career): Tactic | null {
-  const list = career.living?.recentTactics || [];
-  if (list.length < 3) return null;
-  const mode = <T extends string>(values: T[]) =>
-    values.sort((a, b) => values.filter((v) => v === b).length - values.filter((v) => v === a).length)[0];
-  const avg = (key: 'pressure' | 'width' | 'tempo' | 'line') =>
-    Math.round(list.reduce((n, t) => n + t[key], 0) / list.length);
-  return {
-    formation: mode(list.map((t) => t.formation)),
-    mentality: mode(list.map((t) => t.mentality)),
-    pressure: avg('pressure'),
-    width: avg('width'),
-    tempo: avg('tempo'),
-    line: avg('line'),
-  };
-}
-
-/**
- * Plano do rival contra o usuário: técnicos com repertório (nível 3+) estudam o
- * padrão do adversário e escolhem os ajustes que mais rendem contra ele.
- */
-export function rivalPlan(
-  career: Career,
-  world: World,
-  clubId: string,
-  rivalHome: boolean,
-  ourOvr?: number,
-): { tactic: Tactic; lineup: string[]; ovr: number; studied: boolean } {
-  const plan = npcTactic(career, world, clubId, ourOvr);
-  const coach = career.living?.coaches[clubId];
-  const typical = typicalTactic(career);
-  if (!coach || coach.skill < 3 || !typical || plan.lineup.length < 11)
-    return { ...plan, studied: false };
-  const ourLineup =
-    typical.formation === career.tactic.formation
-      ? career.lineup
-      : bestLineup(career, world, career.clubId, typical.formation);
-  if (ourLineup.length < 11) return { ...plan, studied: false };
-  const ours = {
-    tactic: typical,
-    profile: profile(career, world, ourLineup, typical.formation),
-    base: strength(career, world, ourLineup, typical.formation),
-  };
-  const p = profile(career, world, plan.lineup, plan.tactic.formation);
-  const base = strength(career, world, plan.lineup, plan.tactic.formation);
-  const range = coach.skill >= 5 ? [1, 2, 3, 4, 5] : [2, 3, 4];
-  let best = plan.tactic;
-  let score = -Infinity;
-  for (const mentality of ['Defensiva', 'Equilibrada', 'Ofensiva'] as const)
-    for (const pressure of range)
-      for (const line of range)
-        for (const tempo of range) {
-          const tactic: Tactic = { ...plan.tactic, mentality, pressure, line, tempo };
-          const r = expectedBalance({ tactic, profile: p, base }, ours, rivalHome);
-          if (r.goalsFor - r.goalsAgainst > score) {
-            score = r.goalsFor - r.goalsAgainst;
-            best = tactic;
-          }
-        }
-  return { tactic: best, lineup: plan.lineup, ovr: plan.ovr, studied: true };
-}
-
 const poisson = (lambda: number, k: number) => {
   let f = 1;
   for (let i = 2; i <= k; i++) f *= i;
@@ -564,7 +501,7 @@ export function winProbability(career: Career, world: World, fixture: Fixture) {
     profile: profile(career, world, career.lineup, career.tactic.formation),
     base: strength(career, world, career.lineup, career.tactic.formation),
   };
-  const plan = rivalPlan(career, world, rivalId, !home, ours.profile.ovr);
+  const plan = npcTactic(career, world, rivalId, ours.profile.ovr);
   if (plan.lineup.length < 11) return null;
   const theirs = {
     tactic: plan.tactic,
@@ -590,7 +527,5 @@ export function winProbability(career: Career, world: World, fixture: Fixture) {
     loss: Math.round(loss * 100),
     xgFor: Math.round(gf * 100) / 100,
     xgAgainst: Math.round(ga * 100) / 100,
-    studied: plan.studied,
-    notes: cond.notes,
   };
 }

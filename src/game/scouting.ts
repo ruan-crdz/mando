@@ -7,7 +7,7 @@ import {
   describeTactic,
   lineupSlots,
   misplaced,
-  rivalPlan,
+  npcTactic,
   winProbability,
   profile,
   recommendTactic,
@@ -26,10 +26,7 @@ export function scoutReport(
   const opponentId = home ? fixture.awayId : fixture.homeId;
   const opponent = clubById(world, opponentId);
   const ours = profile(career, world, career.lineup, career.tactic.formation);
-  const plan = rivalPlan(career, world, opponentId, !home, ours.ovr);
-  // A precisão do relatório depende do analista de desempenho contratado.
-  const analyst = career.living?.analyst ?? 2;
-  const noise = Math.round(((fixture.id.length * 7 + analyst) % 5) - 2) * Math.max(0, 4 - analyst);
+  const plan = npcTactic(career, world, opponentId, ours.ovr);
   if (plan.lineup.length < 11) return null;
   const theirs = profile(career, world, plan.lineup, plan.tactic.formation);
   const stars = lineupSlots(world, plan.lineup, plan.tactic.formation)
@@ -52,23 +49,15 @@ export function scoutReport(
     `E aí, ${first}, beleza? Próximo jogo: ${opponent.name} (${home ? 'em casa' : 'fora'}) pela ${fixtureLabel(fixture).name}.`,
     '',
     `Como eles jogam: ${describeTactic(plan.tactic)}.`,
-    `Força: overall ${analyst <= 2 ? '~' : ''}${Math.round(theirs.ovr) + noise} contra o nosso ${Math.round(ours.ovr)} (${gap - noise >= 0 ? '+' : ''}${gap - noise}).`,
+    `Força: overall ${Math.round(theirs.ovr)} contra o nosso ${Math.round(ours.ovr)} (${gap >= 0 ? '+' : ''}${gap}).`,
     `Fique de olho: ${stars.map((s) => `${s.player.name} (${positionNames[roleOf(s.role)] || s.role}, ${s.ovr})`).join(', ')}.`,
   ];
   if (traits.length)
-    lines.push(`O que eu vi no vídeo: ${traits.slice(0, Math.max(1, analyst)).join('; ')}.`);
-  if (plan.studied)
-    lines.push(
-      `Atenção: o técnico deles estudou nossos últimos jogos. Devem vir com ${describeTactic(plan.tactic)} para anular o nosso padrão.`,
-    );
-  const odds = analyst >= 3 ? winProbability(career, world, fixture) : null;
+    lines.push(`Pontos observados: ${traits.slice(0, 2).join('; ')}.`);
+  const odds = winProbability(career, world, fixture);
   if (odds)
     lines.push(
-      `Nosso modelo: ${odds.win}% vitória, ${odds.draw}% empate, ${odds.loss}% derrota (xG ${odds.xgFor} × ${odds.xgAgainst}).${odds.notes.length ? ` Fatores: ${odds.notes.join('; ')}.` : ''}`,
-    );
-  if (analyst <= 1)
-    lines.push(
-      '(Analista nível 1: dados com margem de erro alta. Contrate um analista melhor na Comissão.)',
+      `Nosso modelo: ${odds.win}% vitória, ${odds.draw}% empate, ${odds.loss}% derrota (xG ${odds.xgFor} × ${odds.xgAgainst}).`,
     );
   lines.push('');
   const change = rec.balance - rec.current;

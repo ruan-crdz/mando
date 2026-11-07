@@ -865,17 +865,6 @@
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
-.office-screen .facilities-grid .analyst-step {
-  grid-template-columns: 30px minmax(0, 1fr);
-}
-
-.office-screen .facilities-grid .analyst-step > em,
-.office-screen .facilities-grid .analyst-step > button,
-.office-screen .facilities-grid .analyst-step > small {
-  grid-column: 2;
-  justify-self: start;
-}
-
 .office-screen .price-options {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
