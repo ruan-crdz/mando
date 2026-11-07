@@ -246,9 +246,16 @@ test('PWA mantém o jogo e o save acessíveis após ficar offline', async ({ pag
   await page.evaluate(async () => {
     await navigator.serviceWorker.ready;
   });
+  await page.reload();
+  const continueCareer = page.getByRole('button', { name: /CONTINUAR CARREIRA/ });
+  await expect(continueCareer).toBeVisible();
+  await expect.poll(() => page.evaluate(() => Boolean(navigator.serviceWorker.controller))).toBe(
+    true,
+  );
   await context.setOffline(true);
   await page.reload();
-  await page.getByRole('button', { name: /CONTINUAR CARREIRA/ }).click();
+  await expect(continueCareer).toBeVisible();
+  await continueCareer.click();
   await expect(page.getByRole('heading', { name: /Bom trabalho, Alex/ })).toBeVisible();
   await page.getByRole('button', { name: /Avançar dia/ }).click();
   await expect(page.locator('.club-header')).toContainText('02');
