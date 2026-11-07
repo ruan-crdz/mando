@@ -5,13 +5,11 @@ import {
   Camera,
   Check,
   ChevronRight,
-  HeartPulse,
   Landmark,
   MapPinned,
   MessageSquare,
   Radar,
   Settings2,
-  Square,
   Target,
   Trophy,
   TrendingUp,
@@ -19,28 +17,12 @@ import {
   UserMinus,
   UserPlus,
   Users,
-  Voicemail,
-  Volume2,
 } from 'lucide-react';
 import {
   type Career,
-  type FacilityKind,
-  type Living,
   type Message,
   type World,
 } from '../game/types';
-import { ClubPanel } from '../components/LivingPanels';
-import { FacilitiesPanel, SponsorPanel, StadiumPanel } from '../components/FinancePanels';
-import { economyOf, upkeep } from '../game/economy';
-import { staffLevel, staffName, staffPayroll, type StaffRole } from '../game/staff';
-import {
-  playVoice,
-  stopVoice,
-  useVoice,
-  voiceAvailable,
-  type VoiceItem,
-  type VoiceRole,
-} from '../components/voice';
 import { squad } from '../game/matches';
 import { blocks, standings } from '../game/engine';
 import { competitionName } from '../game/calendar';
@@ -50,15 +32,6 @@ import { PortraitCamera } from '../components/PortraitCamera';
 import { dateLabel, ManagerPortrait, Metric, Modal, money, SectionTitle } from '../components/ui';
 
 const scoutRegions = ['Brasil', 'América do Sul', 'Europa'] as const;
-
-const messageVoice: Record<Message['kind'], VoiceRole> = {
-  board: 'president',
-  finance: 'president',
-  staff: 'staff',
-  market: 'staff',
-  player: 'player',
-  news: 'narrator',
-};
 
 const messageKindLabel: Record<Message['kind'], string> = {
   board: 'DIRETORIA',
@@ -75,7 +48,6 @@ export function Office({
   world,
   onConversation,
   onOpenSeason,
-  onOpenAcademy,
   onMessage,
   onRead,
   onAvatar,
@@ -84,17 +56,8 @@ export function Office({
   onFireScout,
   onReassignScout,
   onSignProspect,
-  onReviewAcademy,
   onAcceptJob,
   onDeclineJob,
-  onLiving,
-  onUpgradeAnalyst,
-  onHireStaff,
-  onMentor,
-  onEndMentor,
-  onPrices,
-  onSponsor,
-  onWork,
   aiAvailable,
   busy,
 }: {
@@ -102,8 +65,7 @@ export function Office({
   career: Career;
   world: World;
   onConversation: (id: string, choice: 'praise' | 'challenge' | 'promise') => void;
-  onOpenSeason?: (view: 'table' | 'calendar' | 'stats' | 'legacy' | 'national') => void;
-  onOpenAcademy?: () => void;
+  onOpenSeason?: (view: 'table' | 'calendar' | 'stats' | 'legacy') => void;
   onMessage: (id: string, choice: 'support' | 'firm') => void;
   onRead: (id: string) => void;
   onAvatar: (photo?: string) => void;
@@ -112,25 +74,12 @@ export function Office({
   onFireScout: (id: string) => void;
   onReassignScout: (id: string, region: string) => void;
   onSignProspect: (id: string) => void;
-  onReviewAcademy: (id: string, decision: 'promote' | 'release') => void;
   onAcceptJob: (id: string) => void;
   onDeclineJob: (id: string) => void;
-  onLiving: (patch: Partial<Living>) => void;
-  onUpgradeAnalyst: () => void;
-  onHireStaff: (role: StaffRole, level: number) => void;
-  onMentor: (mentorId: string, pupilId: string) => void;
-  onEndMentor: (pupilId: string) => void;
-  onPrices: (patch: { ticket?: number; fee?: number }) => void;
-  onSponsor: (index: number) => void;
-  onWork: (kind: FacilityKind) => void;
   aiAvailable: boolean;
   busy: boolean;
 }) {
   const [camera, setCamera] = useState(false);
-  const [clubStart, setClubStart] = useState<'board' | 'staff'>('board');
-  const [financeView, setFinanceView] = useState<'overview' | 'stadium' | 'sponsor' | 'facilities'>(
-    'overview',
-  );
   type View =
     | 'inbox'
     | 'conversations'
@@ -138,7 +87,6 @@ export function Office({
     | 'board'
     | 'staff'
     | 'scouts'
-    | 'club'
     | 'roster'
     | 'development'
     | 'tournament';
@@ -153,30 +101,13 @@ export function Office({
   const pendingActions = c.messages.filter(
     (message) => message.important && !message.resolved,
   ).length;
-  const voice = useVoice();
-  const speaking = voice.mailbox ? null : voice.current?.id;
-  const voiceItem = (msg: Message): VoiceItem => ({
-    id: msg.id,
-    title: msg.title,
-    text: `${msg.from}. ${msg.title}. ${msg.aiText || msg.body}`,
-    voice: messageVoice[msg.kind],
-  });
-  const unread = c.messages.filter((msg) => !msg.read);
-  const listenAll = () => {
-    if (voice.mailbox) return stopVoice();
-    // Caixa postal: primeiro as não lidas, da mais recente para a mais antiga; sem novas, todas.
-    playVoice((unread.length ? unread : c.messages).map(voiceItem), true);
-  };
   const club = world.clubs.find((club) => club.id === c.clubId)!;
   const finance = c.finances[c.clubId];
   const scoutCost = 500000 + c.scouts.length * 250000;
   const inboxFull = c.prospects.length >= 5;
   const [managingId, setManaging] = useState<string | null>(null);
   const [confirmFire, setConfirmFire] = useState(false);
-  const [releasingId, setReleasing] = useState<string | null>(null);
   const managed = c.scouts.find((scout) => scout.id === managingId);
-  const academy = c.living.academy?.clubId === c.clubId ? c.living.academy : undefined;
-  const releasing = academy?.candidates.find((candidate) => candidate.id === releasingId);
   const closeManage = () => {
     setManaging(null);
     setConfirmFire(false);
@@ -222,8 +153,7 @@ export function Office({
     })),
   ].sort((a, b) => a.date.localeCompare(b.date));
   const wages = players.reduce((sum, p) => sum + c.players[p.id].wage, 0);
-  const economy = economyOf(c, world);
-  const operation = club.reputation * 30000 + upkeep(economy);
+  const operation = club.reputation * 30000;
   const expenses = wages + operation + finance.debt * 0.002;
   const wageShare = (wages / Math.max(1, expenses)) * 100;
   const opShare = (operation / Math.max(1, expenses)) * 100;
@@ -419,38 +349,6 @@ export function Office({
             </button>
           </div>
         ))}
-        <h3>Peneira anual {academy?.season || ''}</h3>
-        <p className="muted">
-          Em 1º de maio, a base apresenta candidatos. Promovidos integram diretamente o elenco
-          profissional por R$ 5 mil mensais; quem não for escolhido sai na próxima peneira.
-        </p>
-        {!academy?.candidates.length && (
-          <p className="muted">
-            {academy
-              ? 'Todos os candidatos desta peneira já foram avaliados.'
-              : 'Nenhuma peneira disponível ainda.'}
-          </p>
-        )}
-        {academy?.candidates.map((candidate) => (
-          <div key={candidate.id}>
-            <span>
-              {candidate.position} · {ageAt(candidate.birthDate, c.date)} anos
-            </span>
-            <strong>{candidate.name}</strong>
-            <p>
-              OVR {overall(candidate)} · potencial estimado {candidate.potential} · incerteza{' '}
-              {candidate.uncertainty}
-            </p>
-            <div className="button-row">
-              <button className="primary" onClick={() => onReviewAcademy(candidate.id, 'promote')}>
-                <UserPlus size={15} /> Integrar ao profissional
-              </button>
-              <button onClick={() => setReleasing(candidate.id)}>
-                <UserMinus size={15} /> Dispensar…
-              </button>
-            </div>
-          </div>
-        ))}
       </section>
       {managed && (
         <Modal
@@ -521,25 +419,6 @@ export function Office({
           )}
         </Modal>
       )}
-      {releasing && (
-        <Modal title={`Dispensar ${releasing.name}?`} onClose={() => setReleasing(null)}>
-          <p>O candidato sairá desta peneira e não será integrado ao elenco.</p>
-          <div className="button-row">
-            <button data-autofocus onClick={() => setReleasing(null)}>
-              Manter candidato
-            </button>
-            <button
-              className="danger"
-              onClick={() => {
-                onReviewAcademy(releasing.id, 'release');
-                setReleasing(null);
-              }}
-            >
-              Confirmar dispensa
-            </button>
-          </div>
-        </Modal>
-      )}
     </div>
   );
   return (
@@ -557,7 +436,7 @@ export function Office({
             ? 'Recados e conversas com o elenco.'
             : area === 'academy'
               ? 'Formação e captação de jovens.'
-              : 'Um clube inteiro ao seu redor.'
+              : 'Objetivos, orçamento e carreira.'
         }
       >
         {area === 'office' && (
@@ -584,23 +463,21 @@ export function Office({
             ] as const)
           : area === 'academy'
             ? ([
-                ['scouts', 'Captação e peneira', MapPinned],
-                ['roster', 'Elenco jovem', Users],
-                ['development', 'Desenvolvimento', TrendingUp],
-                ['tournament', 'Torneio de base', Trophy],
-              ] as const)
-            : ([
-                ['finances', 'Orçamento', TrendingUp],
-                ['board', 'Objetivos e mercado', Landmark],
-                ['staff', 'Carreira e perfil', Users],
-                ['club', 'Clube vivo', HeartPulse],
-              ] as const)
+              ['scouts', 'Olheiros', MapPinned],
+              ['roster', 'Elenco jovem', Users],
+              ['development', 'Desenvolvimento', TrendingUp],
+              ['tournament', 'Torneio de base', Trophy],
+            ] as const)
+          : ([
+              ['finances', 'Orçamento', TrendingUp],
+              ['board', 'Objetivos e mercado', Landmark],
+              ['staff', 'Carreira e perfil', Users],
+            ] as const)
         ).map(([id, label, Icon]) => (
           <button
             key={id}
             className={view === id ? 'active' : ''}
             onClick={() => {
-              setClubStart('board');
               setView(id);
             }}
             aria-pressed={view === id}
@@ -641,33 +518,11 @@ export function Office({
       {area === 'notifications' && view === 'inbox' && (
         <div className="office-inbox">
           <section className="panel message-list">
-            {voiceAvailable() && (
-              <button
-                className={`mailbox-button ${voice.mailbox ? 'speaking' : ''}`}
-                onClick={listenAll}
-                aria-label={
-                  voice.mailbox ? 'Parar caixa postal' : 'Ouvir todas as mensagens da caixa postal'
-                }
-              >
-                {voice.mailbox ? <Square size={16} /> : <Voicemail size={18} />}
-                <span>
-                  <strong>{voice.mailbox ? 'Parar caixa postal' : 'Ouvir caixa postal'}</strong>
-                  <small>
-                    {voice.mailbox
-                      ? `Recado ${voice.position} de ${voice.total}${voice.loading ? ' · preparando voz…' : ''}`
-                      : unread.length
-                        ? `${unread.length} recado${unread.length > 1 ? 's' : ''} novo${unread.length > 1 ? 's' : ''}`
-                        : `Todas as ${c.messages.length} mensagens`}
-                  </small>
-                </span>
-              </button>
-            )}
             {c.messages.map((msg) => (
               <button
                 key={msg.id}
-                className={`${msg.id === selectedId ? 'selected' : ''} ${!msg.read ? 'unread' : ''} ${voice.current?.id === msg.id ? 'playing' : ''}`}
+                className={`${msg.id === selectedId ? 'selected' : ''} ${!msg.read ? 'unread' : ''}`}
                 onClick={() => {
-                  if (!voice.mailbox && voice.current) stopVoice();
                   setSelected(msg.id);
                   onRead(msg.id);
                 }}
@@ -699,27 +554,6 @@ export function Office({
                   </span>
                 </div>
                 <h2>{m.title}</h2>
-                {voiceAvailable() && (
-                  <button
-                    className={`voice-button ${speaking === m.id ? 'speaking' : ''}`}
-                    onClick={() => (speaking === m.id ? stopVoice() : playVoice([voiceItem(m)]))}
-                    aria-label={speaking === m.id ? 'Parar áudio' : 'Ouvir mensagem'}
-                  >
-                    {speaking === m.id ? <Square size={16} /> : <Volume2 size={18} />}
-                    <span className="voice-wave" aria-hidden="true">
-                      <i />
-                      <i />
-                      <i />
-                      <i />
-                      <i />
-                    </span>
-                    {speaking === m.id
-                      ? voice.loading
-                        ? 'Preparando voz…'
-                        : 'Parar'
-                      : 'Ouvir mensagem'}
-                  </button>
-                )}
                 <p className="message-body">{m.aiText || m.body}</p>
                 {m.tactic && (
                   <div className="button-row">
@@ -743,18 +577,6 @@ export function Office({
                           Ouvir e oferecer apoio
                         </button>
                         <button onClick={() => onMessage(m.id, 'firm')}>Cobrar dedicação</button>
-                      </div>
-                    ) : m.id === economy.offersMessage && economy.offers.length ? (
-                      <div className="button-row sponsor-choice">
-                        {economy.offers.map((o, i) => (
-                          <button
-                            key={o.name}
-                            className={i === 0 ? 'primary' : ''}
-                            onClick={() => onSponsor(i)}
-                          >
-                            {o.name} · {o.style} · {money(o.monthly)}/mês
-                          </button>
-                        ))}
                       </div>
                     ) : (
                       <button className="primary" onClick={() => onMessage(m.id, 'support')}>
@@ -913,42 +735,7 @@ export function Office({
         </div>
       )}
       {area === 'office' && view === 'finances' && (
-        <div className="finance-section">
-          <div
-            className="segmented compact club-tabs finance-tabs"
-            role="group"
-            aria-label="Áreas das finanças"
-          >
-            {(
-              [
-                ['overview', 'Visão geral'],
-                ['stadium', 'Estádio e torcida'],
-                ['sponsor', 'Patrocínio'],
-                ['facilities', 'Instalações'],
-              ] as const
-            ).map(([id, label]) => (
-              <button
-                key={id}
-                className={financeView === id ? 'active' : ''}
-                aria-pressed={financeView === id}
-                onClick={() => setFinanceView(id)}
-              >
-                {label}
-                {id === 'sponsor' && economy.offers.length > 0 && <b className="nav-dot" />}
-              </button>
-            ))}
-          </div>
-          {financeView === 'stadium' && (
-            <StadiumPanel career={c} world={world} onPrices={onPrices} />
-          )}
-          {financeView === 'sponsor' && (
-            <SponsorPanel career={c} world={world} onSponsor={onSponsor} />
-          )}
-          {financeView === 'facilities' && (
-            <FacilitiesPanel career={c} world={world} onWork={onWork} />
-          )}
-          {financeView === 'overview' && (
-            <div className="finance-layout">
+        <div className="finance-layout">
               <div className="metrics-strip">
                 <Metric label="CAIXA ATUAL" value={money(finance.cash)} />
                 <Metric label="TRANSFERÊNCIAS" value={money(finance.transferBudget)} />
@@ -1047,44 +834,20 @@ export function Office({
                   </p>
                 )}
               </section>
-            </div>
-          )}
         </div>
       )}
       {area === 'office' && view === 'board' && (
         <div className="board-layout">
-          <section className="panel confidence-panel">
-            <Landmark size={35} />
-            <p className="eyebrow">CONFIANÇA DA DIRETORIA</p>
-            <strong className="huge-number">
-              {Math.round(c.confidence)}
-              <span>%</span>
-            </strong>
-            <meter min={0} max={100} value={c.confidence} />
+          <section className="panel manager-market">
+            <p className="eyebrow">CARREIRA / MERCADO DE MANAGERS</p>
             <h2>
-              {c.confidence >= 70
-                ? 'Seu trabalho tem respaldo.'
-                : c.confidence >= 40
-                  ? 'É hora de mostrar uma resposta.'
-                  : 'A pressão está no limite.'}
+              <Landmark size={23} /> Propostas de trabalho
             </h2>
-            <p>
-              Resultados, dificuldade e desafio determinam a reação da diretoria. A confiança não
-              aumenta o overall dos adversários.
-            </p>
-            {c.sacked && <strong className="status-pill">CARGO ENCERRADO</strong>}
-            {!c.sacked && c.living.ultimatum && (
-              <p className="living-headline">
-                Ultimato: {c.living.ultimatum.points}/{c.living.ultimatum.target} pontos ·{' '}
-                {c.living.ultimatum.games - c.living.ultimatum.played} jogos restantes
+            {!c.jobOffers.length && (
+              <p className="muted">
+                Não há propostas abertas no momento. O mercado é atualizado durante a temporada.
               </p>
             )}
-            {!c.sacked &&
-              !c.living.ultimatum &&
-              c.living.hiredAt &&
-              (Date.parse(c.date) - Date.parse(c.living.hiredAt)) / 864e5 < 45 && (
-                <p className="muted">Período de adaptação: a diretoria ainda não ameaça o cargo.</p>
-              )}
             {c.jobOffers.map((offer) => {
               const target = world.clubs.find((item) => item.id === offer.clubId);
               return (
@@ -1092,16 +855,13 @@ export function Office({
                   <h3>{target?.name}</h3>
                   <p>
                     {target ? `Série ${target.league} · reputação ${target.reputation} · ` : ''}
-                    {c.sacked
-                      ? 'Aguardando sua resposta'
-                      : `Proposta válida até ${dateLabel(offer.expires)}`}{' '}
-                    · {money(offer.salary)}/mês
+                    Proposta válida até {dateLabel(offer.expires)} · {money(offer.salary)}/mês
                   </p>
                   <div className="button-row">
                     <button className="primary" onClick={() => onAcceptJob(offer.id)}>
                       Aceitar desafio
                     </button>
-                    {!c.sacked && <button onClick={() => onDeclineJob(offer.id)}>Recusar</button>}
+                    <button onClick={() => onDeclineJob(offer.id)}>Recusar</button>
                   </div>
                 </article>
               );
@@ -1187,94 +947,7 @@ export function Office({
               )}
             </div>
           </section>
-          <section className="panel staff-reports">
-            <h2>
-              <BriefcaseBusiness size={22} /> Sua comissão
-            </h2>
-            <div>
-              <span>AUXILIAR TÉCNICO</span>
-              <strong>
-                {c.tactic.formation} · {c.tactic.mentality}
-              </strong>
-              <p>
-                {c.tactic.pressure > 3
-                  ? 'Pressão alta exige rotação. Observe as condições antes de escalar.'
-                  : 'Um bloco equilibrado ajuda a controlar o ritmo e preservar energia.'}
-              </p>
-            </div>
-            <div>
-              <span>
-                PREPARADOR FÍSICO · {staffName(c, 'fitness')} · NÍVEL {staffLevel(c, 'fitness')}
-              </span>
-              <strong>
-                {players.filter((p) => c.players[p.id].fitness < 70).length} atletas precisam de
-                descanso
-              </strong>
-              <p>
-                Condição média:{' '}
-                {Math.round(
-                  players.reduce((n, p) => n + c.players[p.id].fitness, 0) / players.length,
-                )}
-                %
-              </p>
-            </div>
-            <div>
-              <span>
-                DEPARTAMENTO MÉDICO · {staffName(c, 'medical')} · NÍVEL {staffLevel(c, 'medical')}
-              </span>
-              <strong>
-                {players.filter((p) => c.players[p.id].injuryDays > 0).length} atletas em
-                recuperação
-              </strong>
-              <p>
-                {players
-                  .filter((p) => c.players[p.id].injuryDays > 0)
-                  .map((p) => `${p.name}: ${c.players[p.id].injuryDays} dias`)
-                  .join(' · ') || 'Todos os atletas estão liberados clinicamente.'}
-              </p>
-            </div>
-            <div>
-              <span>COMISSÃO COMPLETA</span>
-              <strong>
-                Goleiros {staffLevel(c, 'goalkeeping')} · Diretor {staffLevel(c, 'director')} · Base{' '}
-                {staffLevel(c, 'youth')} · Analista {c.living.analyst}
-              </strong>
-              <p>
-                Folha da comissão: {money(staffPayroll(c))}/mês. Contrate e troque profissionais em
-                Clube vivo → Comissão.
-              </p>
-              <button
-                onClick={() => {
-                  setClubStart('staff');
-                  setView('club');
-                }}
-              >
-                Abrir Comissão <ChevronRight size={14} />
-              </button>
-            </div>
-            <div>
-              <span>SCOUT</span>
-              <strong>Recrutamento nacional</strong>
-              <p>
-                Combine os filtros do mercado. O potencial tem incerteza e o valor da transferência
-                depende também de contrato, clube e interesse.
-              </p>
-            </div>
-          </section>
         </div>
-      )}
-      {area === 'office' && view === 'club' && (
-        <ClubPanel
-          career={c}
-          world={world}
-          onUpdate={onLiving}
-          onUpgradeAnalyst={onUpgradeAnalyst}
-          onHireStaff={onHireStaff}
-          onMentor={onMentor}
-          onEndMentor={onEndMentor}
-          onOpenScouts={() => onOpenAcademy?.()}
-          initialView={clubStart}
-        />
       )}
       {area === 'academy' && view === 'scouts' && scoutingPanel}
       {area === 'academy' && view === 'roster' && (
@@ -1298,8 +971,7 @@ export function Office({
             </div>
           ) : (
             <p className="empty-state">
-              A base ainda não tem atletas. Jovens promovidos por olheiros ou pela peneira aparecem
-              aqui.
+              A base ainda não tem atletas. Jovens promovidos por olheiros aparecem aqui.
             </p>
           )}
         </section>

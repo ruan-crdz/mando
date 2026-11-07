@@ -32,5 +32,3 @@ verify_jwt = false
 verify_jwt = false
 [functions.ai-manager-avatar]
 verify_jwt = false
-[functions.ai-voice]
-verify_jwt = false

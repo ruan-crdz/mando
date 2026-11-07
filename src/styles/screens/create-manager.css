@@ -38,13 +38,6 @@
 .step-track .done {
   color: var(--lime);
 }
-.demo-chip {
-  font: 800 12px var(--display);
-  letter-spacing: 1.5px;
-  background: var(--yellow);
-  color: #2b1d00;
-  padding: 4px 10px;
-}
 .creation-grid {
   flex: 1;
   min-height: 0;

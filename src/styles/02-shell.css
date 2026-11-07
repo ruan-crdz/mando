@@ -296,14 +296,3 @@ kbd {
 .save-status.error {
   color: var(--red);
 }
-.demo-strip {
-  flex-shrink: 0;
-  align-self: flex-start;
-  font: 800 12px var(--display);
-  letter-spacing: 1.5px;
-  padding: 3px 10px;
-  margin-bottom: 6px;
-  background: var(--yellow);
-  color: #2b1d00;
-  border-radius: 2px;
-}

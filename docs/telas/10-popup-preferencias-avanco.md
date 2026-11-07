@@ -56,11 +56,11 @@ Modal `wide`, até 980 px. Em desktop, três colunas com cards de pelo menos 190
 | 2   | event | Parar em eventos | Avança sozinho e para em qualquer mensagem, decisão ou dia de jogo.         |
 | 3   | auto  | Nunca parar      | Simula os jogos, responde decisões com apoio e só para no fim da temporada. |
 
-- **day**: `advanceDay`, com validações existentes de dia de jogo, decisões, demissão e fim de temporada.
-- **event**: avanço contínuo até jogo, decisão pendente, mensagem nova, fim de temporada ou demissão.
-- **auto**: simula jogos pelo auxiliar, responde decisões com apoio; para no fim de temporada, demissão ou comando manual.
+- **day**: `advanceDay`, avançando exatamente um dia por comando.
+- **event**: avanço contínuo até jogo, decisão pendente, mensagem nova ou fim de temporada.
+- **auto**: simula os jogos e responde decisões com apoio; para no fim de temporada ou por comando manual.
 
-A explicação curta do terceiro card é preservada; a demissão continua sendo uma parada obrigatória do motor.
+A explicação curta do terceiro card é preservada.
 
 ## Interações
 

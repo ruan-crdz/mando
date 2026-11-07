@@ -10,9 +10,6 @@
   .central-grid {
     gap: 10px;
   }
-  .news-ticker {
-    display: none;
-  }
   .section-title h1 {
     font-size: 26px;
   }
@@ -98,9 +95,8 @@
     grid-auto-rows: minmax(150px, auto);
     grid-template-areas:
       'fix fix'
-      'adv man'
-      'inb inb'
-      'sq tab';
+      'adv adv'
+      'missions missions';
   }
   .menu-row {
     height: 320px;

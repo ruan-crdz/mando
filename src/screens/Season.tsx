@@ -1,15 +1,11 @@
-import { useEffect, useMemo, useState } from 'react';
-import { TrophyArt } from '../components/TrophyArt';
+import { useMemo, useState } from 'react';
 import { PlayerFace } from '../components/PlayerFace';
 import { LegacyPanel } from '../components/LivingPanels';
-import { NationalPanel } from '../components/NationalPanel';
 import {
   ArrowLeft,
-  Award,
   CalendarDays,
   ChevronLeft,
   ChevronRight,
-  Flag,
   Medal,
   Trophy,
 } from 'lucide-react';
@@ -17,8 +13,7 @@ import { Badge, dateLabel, SectionTitle } from '../components/ui';
 import { standings } from '../game/engine';
 import { competitionName, fixtureCompetition, fixtureLabel, milestones } from '../game/calendar';
 import { cupGroups, cupTies } from '../game/competitions';
-import { BRAZIL_NATIONAL_ID, clubById } from '../game/npc';
-import { nextNationalFixture } from '../game/national';
+import { clubById } from '../game/npc';
 import { type Career, type Fixture, type TableRow, type World } from '../game/types';
 import { useGamepad, useStickX } from '../controller/GamepadProvider';
 
@@ -110,22 +105,17 @@ const shiftMonth = (month: string, delta: number) => {
   return d.toISOString().slice(0, 7);
 };
 
-export type SeasonView =
-  'table' | 'calendar' | 'stats' | 'trophies' | 'awards' | 'legacy' | 'national';
+export type SeasonView = 'table' | 'calendar' | 'stats' | 'legacy';
 
 export function Season({
   career: c,
   world,
-  onChange,
-  onError,
   initialView,
   officeMode = false,
   onBack,
 }: {
   career: Career;
   world: World;
-  onChange: (career: Career) => void;
-  onError: (message: string) => void;
   initialView?: SeasonView;
   officeMode?: boolean;
   onBack?: () => void;
@@ -134,11 +124,6 @@ export function Season({
   const { input, hints } = useGamepad();
   const [comp, setComp] = useState<string>(c.leagues[c.clubId] || club.league);
   const [view, setView] = useState<SeasonView>(initialView || 'table');
-  const international = nextNationalFixture(c);
-  const internationalDate = international?.date;
-  useEffect(() => {
-    if (internationalDate && internationalDate <= c.date) setView('national');
-  }, [internationalDate, c.date]);
   const [month, setMonth] = useState(c.date.slice(0, 7));
   const [day, setDay] = useState(c.date);
   const available = ['A', 'B', `EST-${club.state}`, 'CDB', 'SUP', 'LIB', 'SUL'].filter(
@@ -163,20 +148,11 @@ export function Season({
       cycleComp(dir);
       return;
     }
-    const selector =
-      view === 'stats'
-        ? '.stats-grid'
-        : view === 'trophies'
-          ? '.trophy-shelf'
-          : view === 'awards'
-            ? '.awards-list'
-            : view === 'national'
-              ? '.national-layout'
-              : '.legacy-layout';
+    const selector = view === 'stats' ? '.stats-grid' : '.legacy-layout';
     const viewTarget = document.querySelector<HTMLElement>(`.season-screen ${selector}`);
     const target =
       viewTarget &&
-      (view === 'awards' || view === 'legacy' || view === 'national'
+      (view === 'legacy'
         ? viewTarget.scrollHeight > viewTarget.clientHeight
         : view === 'stats' && window.innerWidth <= 700
           ? viewTarget.scrollHeight > viewTarget.clientHeight
@@ -185,9 +161,7 @@ export function Season({
         : document.querySelector<HTMLElement>('main.stage');
     if (!target) return;
     const vertical =
-      view === 'awards' ||
       view === 'legacy' ||
-      view === 'national' ||
       (view === 'stats' && window.innerWidth <= 700);
     target.scrollBy(
       vertical
@@ -207,10 +181,6 @@ export function Season({
     for (const f of ownFixtures) map.set(f.date, f);
     return map;
   }, [ownFixtures]);
-  const nationalByDate = useMemo(
-    () => new Map((c.national?.fixtures || []).map((fixture) => [fixture.date, fixture])),
-    [c.national?.fixtures],
-  );
   const compFixtures = c.fixtures.filter((f) => (isLeague ? f.league === comp : f.cup === comp));
   const last = compFixtures.filter((f) => f.result).slice(-10);
   const stats = world.players.filter(
@@ -218,7 +188,6 @@ export function Season({
   );
   const champion = (id: string, season = c.season) =>
     c.honours.find((h) => h.season === season && h.competition === id)?.clubId;
-  const ownTitles = c.honours.filter((h) => h.clubId === c.clubId);
   const family = comp.startsWith('EST-') ? 'EST' : comp;
   const ties = isLeague ? [] : cupTies(c, comp);
   const stages = [...new Set(ties.map((t) => t.stage))];
@@ -254,13 +223,11 @@ export function Season({
     const n = i - lead + 1;
     return n >= 1 && n <= daysInMonth ? `${month}-${String(n).padStart(2, '0')}` : null;
   });
-  const dayFixture = byDate.get(day) || nationalByDate.get(day);
-  const secondDayFixture = byDate.has(day) ? nationalByDate.get(day) : undefined;
+  const dayFixture = byDate.get(day);
   const dayMilestones = milestones(c.season).filter((m) =>
     m.end ? m.date <= day && day <= m.end : m.date === day,
   );
 
-  const shelf = ['A', 'B', `EST-${club.state}`, 'CDB', 'SUP', 'LIB', 'SUL'];
   return (
     <div className="screen-enter season-screen">
       <SectionTitle
@@ -279,10 +246,7 @@ export function Season({
             ['table', isLeague ? 'Classificação' : 'Chaves e grupos', Trophy],
             ['calendar', 'Calendário', CalendarDays],
             ['stats', 'Estatísticas', Medal],
-            ['trophies', 'Troféus', Trophy],
-            ['awards', 'Prêmios', Award],
-            ['legacy', 'Legado', Medal],
-            ['national', 'Seleção', Flag],
+            ['legacy', 'Carreira', Medal],
           ] as const
         ).map(([id, name, Icon]) => (
           <button
@@ -438,9 +402,7 @@ export function Season({
                 () => cycleMonth(1),
               )}
               <span className="pill">
-                {ownFixtures.filter((f) => f.date.startsWith(month)).length +
-                  (c.national?.fixtures.filter((f) => f.date.startsWith(month)).length || 0)}{' '}
-                jogos
+                {ownFixtures.filter((f) => f.date.startsWith(month)).length} jogos
               </span>
             </div>
             <div className="month-grid">
@@ -451,10 +413,9 @@ export function Season({
               ))}
               {cells.map((date, i) => {
                 if (!date) return <span key={`x${i}`} className="day-cell blank" />;
-                const f = byDate.get(date) || nationalByDate.get(date);
-                const side = f?.cup === 'SEL' ? BRAZIL_NATIONAL_ID : c.clubId;
-                const opponent = f && clubById(world, f.homeId === side ? f.awayId : f.homeId);
-                const home = f?.homeId === side;
+                const f = byDate.get(date);
+                const opponent = f && clubById(world, f.homeId === c.clubId ? f.awayId : f.homeId);
+                const home = f?.homeId === c.clubId;
                 const won =
                   f?.result &&
                   (home
@@ -479,9 +440,6 @@ export function Season({
                             ? `${f.result.homeGoals}–${f.result.awayGoals}`
                             : shortCompetition(fixtureCompetition(f))}
                         </small>
-                        {byDate.has(date) && nationalByDate.has(date) && (
-                          <small className="day-comp">+ Seleção</small>
-                        )}
                       </>
                     )}
                   </button>
@@ -515,23 +473,7 @@ export function Season({
             ) : (
               <h3>Dia sem jogo · treino e recuperação.</h3>
             )}
-            {secondDayFixture && (
-              <p className="muted">
-                Também: Seleção Brasileira ×{' '}
-                {
-                  clubById(
-                    world,
-                    secondDayFixture.homeId === BRAZIL_NATIONAL_ID
-                      ? secondDayFixture.awayId
-                      : secondDayFixture.homeId,
-                  ).name
-                }
-                {secondDayFixture.result
-                  ? ` · ${secondDayFixture.result.homeGoals} × ${secondDayFixture.result.awayGoals}`
-                  : ''}
-              </p>
-            )}
-            <p className="eyebrow">AGENDA NACIONAL</p>
+            <p className="eyebrow">CALENDÁRIO DA TEMPORADA</p>
             {(dayMilestones.length
               ? dayMilestones
               : milestones(c.season).filter((m) => m.date.startsWith(month))
@@ -594,101 +536,7 @@ export function Season({
           })}
         </div>
       )}
-      {view === 'trophies' && (
-        <div className="trophy-hall">
-          <div className="trophy-shelf carousel">
-            {shelf.map((id) => {
-              const titles = ownTitles.filter((h) => h.competition === id);
-              return (
-                <button
-                  type="button"
-                  key={id}
-                  className={`trophy-stand ${titles.length ? 'won' : ''}`}
-                  aria-label={`${competitionName(id)}: ${titles.length} títulos`}
-                >
-                  <span className="trophy-light" />
-                  <TrophyArt id={id} />
-
-                  <span className="trophy-plate">
-                    <strong>{titles.length}</strong>
-                    <small>{titles.length === 1 ? 'TÍTULO' : 'TÍTULOS'}</small>
-                  </span>
-                  <span className="trophy-name">{shortCompetition(id)}</span>
-                  <small className="trophy-years">
-                    {titles.length
-                      ? titles.map((t) => t.season).join(' · ')
-                      : champion(id)
-                        ? `${c.season}: ${clubById(world, champion(id)!).short}`
-                        : 'Em disputa'}
-                  </small>
-                </button>
-              );
-            })}
-          </div>
-          <div className="trophy-footer">
-            <span>
-              <strong>{ownTitles.length}</strong> {ownTitles.length === 1 ? 'título' : 'títulos'} do
-              clube atual no save
-            </span>
-            {c.history.slice(-3).map((h) => (
-              <span key={h.season}>
-                {h.season} — {h.position}º na Série {h.league}
-              </span>
-            ))}
-            {c.seasonEnded && (
-              <span>Acesso — {c.promoted.map((id) => clubById(world, id).short).join(', ')}</span>
-            )}
-          </div>
-        </div>
-      )}
       {view === 'legacy' && <LegacyPanel career={c} world={world} />}
-      {view === 'national' && (
-        <NationalPanel career={c} world={world} onChange={onChange} onError={onError} />
-      )}
-      {view === 'awards' && (
-        <div className="awards-list">
-          {c.awards.length === 0 ? (
-            <section className="panel">
-              <h2>Prêmios da temporada</h2>
-              <p className="muted">Os destaques mensais e os prêmios do ano aparecem aqui.</p>
-            </section>
-          ) : (
-            [...c.awards].reverse().map((award, index) => {
-              const athlete = award.playerId
-                ? world.players.find((p) => p.id === award.playerId)
-                : undefined;
-              const team = award.clubId
-                ? world.clubs.find((item) => item.id === award.clubId)
-                : undefined;
-              const monthName = award.month
-                ? new Intl.DateTimeFormat('pt-BR', { month: 'long' }).format(
-                    new Date(Date.UTC(award.season, award.month - 1, 1)),
-                  )
-                : 'Temporada';
-              return (
-                <article
-                  className="panel award-row"
-                  key={`${award.season}-${award.month}-${award.category}-${index}`}
-                  tabIndex={0}
-                  aria-label={`${award.season}, ${monthName}, ${award.category}: ${athlete?.name || team?.name || 'Sem vencedor definido'}`}
-                >
-                  {athlete && <PlayerFace player={athlete} size="lg" className="award-face" />}
-                  <div>
-                    <p className="eyebrow">
-                      {award.season} · {monthName}
-                    </p>
-                    <h2>
-                      <Award size={20} /> {award.category}
-                    </h2>
-                    <strong>{athlete?.name || team?.name || 'Sem vencedor definido'}</strong>
-                    {team && athlete && <p className="muted">{team.name}</p>}
-                  </div>
-                </article>
-              );
-            })
-          )}
-        </div>
-      )}
     </div>
   );
 }

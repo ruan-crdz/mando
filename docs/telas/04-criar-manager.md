@@ -4,7 +4,7 @@
 Fluxo de criação da carreira em **3 passos** — **MANAGER** (identidade e retrato), **CLUBE** (escolha do time na Série A ou B) e **DESAFIO** (modificador de carreira + dificuldade) — exibido em `screen === 'create'` depois de escolher o mundo. Ao final, "Assumir o clube" cria a carreira e abre a CENTRAL.
 
 ## Como se chega / como se sai
-**Entrada**: modal Nova carreira › "Brasileirão 2026" ou "Experimentar a demonstração" (`setWorld(...)`, `setScreen('create')`). Sempre começa no passo 0 com valores padrão (o estado não é guardado entre visitas).
+**Entrada**: modal Nova carreira › "Brasileirão 2026" (`setWorld(...)`, `setScreen('create')`). Sempre começa no passo 0 com valores padrão (o estado não é guardado entre visitas).
 
 **Saída**
 - "Voltar" no passo 0 (ou ○/B / L1 no passo 0) → `onBack()` → `setScreen('menu')` (o mundo carregado é mantido em memória, sem efeito visível).
@@ -25,7 +25,7 @@ Fluxo de criação da carreira em **3 passos** — **MANAGER** (identidade e ret
 ### Passo 0 — MANAGER
 ```
 ┌ header: [logo] MANDO ............................................ (🎮) ┐
-│ [①MANAGER]>[2 CLUBE]>[3 DESAFIO]   QUEM ASSUME O MANDO?   [DEMONSTRAÇÃO]│ .creation-top
+│ [①MANAGER]>[2 CLUBE]>[3 DESAFIO]   QUEM ASSUME O MANDO?                │ .creation-top
 │ ┌──────────── .panel.manager-form (borda lima) ─────┐ ┌─ .portrait-card ─┐│
 │ │ NOME                 SOBRENOME                    │ │   (gradiente     ││
 │ │ [Seu nome        ]   [Seu sobrenome     ]         │ │   azul→roxo)     ││
@@ -81,7 +81,6 @@ Fluxo de criação da carreira em **3 passos** — **MANAGER** (identidade e ret
 |---|---|
 | `.step-track` | 3 chips em seta (`clip-path`): **MANAGER**, **CLUBE**, **DESAFIO**. Cada um com bolinha `b` (número 1/2/3 ou `Check` 14px se concluído). Ativo: gradiente ciano→azul, texto branco; concluído: texto lima; futuro: cinza `--ink-3`. Não é clicável |
 | `h1.screen-title` | Por passo: **"Quem assume o Mando?"** / **"Escolha o seu clube"** / **"Toda história tem um desafio"** (itálico 800 caixa alta `clamp(26px,3vw,44px)`) |
-| `.demo-chip` | "DEMONSTRAÇÃO" amarelo, só se `world.mode === 'demo'` |
 
 ### Passo 0 — Manager (`.creation-grid`: formulário 1.5fr + retrato ≥280px)
 **Formulário** (`section.panel.manager-form`, borda superior lima; `.form-grid` 2 colunas):
@@ -133,7 +132,6 @@ Aberto pelo botão de retrato ou △/Y — **só se Nome e Sobrenome estiverem p
 | **Crise financeira** | Dívida 60% maior e metade do caixa inicial. |
 | **Só a base** | Contrate apenas atletas até 23 anos. Três jovens devem começar cada partida. |
 | **Venda necessária** | Venda R$ 10 milhões em atletas antes de contratar. |
-| **Pressão máxima** | Confiança inicial menor. Derrotas pesam duas vezes mais. |
 | **Reconstrução** | Veteranos começam com menor condição física e orçamento 40% menor. |
 Selecionado: `.selected` (contorno branco, opacidade 1) + `Check`.
 
@@ -160,7 +158,6 @@ Valores padrão: nenhum clube selecionado, série A, desafio Realista, dificulda
 - **Retrato**: sem avatar (silhueta), gerando (overlay + botão desabilitado "Gerando…"), com avatar (foto + "Gerar outro retrato"), erro (toast; mantém o anterior).
 - **Câmera**: carregando, ao vivo (guia oval), negada/indisponível (mensagem + só "Gerar pela descrição"), foto capturada (prévia + gerar/tirar outra).
 - **Sem IA / Supabase não configurado / offline**: o botão de retrato continua ativo; ao gerar, toast de erro (ex.: "Supabase não configurado. Consulte a conexão no menu." ou "Não foi possível gerar o retrato…"). O manager segue com a silhueta — o retrato é opcional.
-- **Mundo demo**: chip DEMONSTRAÇÃO; clubes com nomes/escudos reais e atletas fictícios.
 - **Troca de série**: troca a lista e limpa a escolha anterior; exige confirmar um clube da série visível.
 - Data no rodapé é fixa "01 JAN 2026" (não vem do mundo).
 
@@ -189,7 +186,7 @@ Teclado: `Esc` = ○; `[`/`]` = L1/R1; `q`/`e` = L2/R2 (troca série); setas nav
 Vibração: `confirm` quando o retrato fica pronto; `error` nos toasts de erro (via `fail`).
 
 ## Classes CSS e visual atual
-- `.screen.creation`, `.creation-top`, `.step-track` (`span.active/.done`, `b`), `.screen-title`, `.demo-chip`.
+- `.screen.creation`, `.creation-top`, `.step-track` (`span.active/.done`, `b`), `.screen-title`.
 - `.creation-grid` (grid 1.5fr / ≥280px, gap 18px), `.panel.manager-form` (borda superior lima), `.form-grid` (2 colunas; `.full` ocupa a linha), `label`, `input`, `textarea`, `.option-cycler`, `.number-stepper`, `.chip-group`.
 - `.portrait-card(.generating)`, `.portrait-frame`, `.portrait-loading`, `.portrait-caption`, `.ai-portrait-button`, `.manager-portrait(.large)`.
 - `.portrait-camera` (grid vídeo | lado), `.camera-frame(.loading/.live/.denied)`, `.face-guide`, `.camera-side`, `.camera-actions`.
@@ -205,7 +202,7 @@ Vibração: `confirm` quando o retrato fica pronto; `error` nos toasts de erro (
 4. Pré-visualização ao vivo do manager (nome, nacionalidade, idade, roupa refletida na silhueta).
 5. Retrato por IA opcional: com foto da webcam (guia de rosto, tirar/tirar outra/gerar) ou só pela descrição; estado "Produzindo seu retrato…"; aviso de privacidade; exige nome e sobrenome.
 6. Escolha explícita de clube por série (A/B), botão Aleatório, cartões com escudo, nome, estrelas de reputação, orçamento, nº de atletas e estado. Foco e seleção são estados separados; não pré-selecionar um clube.
-7. Sete desafios e três dificuldades com descrições completas e padrões Realista/Amador.
+7. Seis desafios e três dificuldades com descrições completas e padrões Realista/Amador.
 8. Resumo persistente do clube escolhido e botões Voltar / Continuar / Assumir o clube.
 9. Atalhos: ○/L1 voltar passo, R1 avançar (passos 0–1), △ câmera.
 

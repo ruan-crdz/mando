@@ -13,7 +13,6 @@ import {
   type Tactic,
   type World,
 } from './types';
-import { matchConditions } from './context';
 
 /** Retrato coletivo de uma escalação, usado no confronto tático. */
 export type Profile = {
@@ -573,14 +572,7 @@ export function winProbability(career: Career, world: World, fixture: Fixture) {
     base: strength(career, world, plan.lineup, plan.tactic.formation),
   };
   const r = expectedBalance(ours, theirs, home);
-  const cond = matchConditions(
-    career,
-    world,
-    fixture,
-    home ? career.lineup : plan.lineup,
-    home ? plan.lineup : career.lineup,
-  );
-  const ratio = home ? cond.home / cond.away : cond.away / cond.home;
+  const ratio = home ? 1.02 : 1 / 1.02;
   const gf = r.goalsFor * Math.pow(ratio, 2.2);
   const ga = r.goalsAgainst / Math.pow(ratio, 2.2);
   let win = 0,

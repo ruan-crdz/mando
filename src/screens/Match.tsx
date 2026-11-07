@@ -5,7 +5,6 @@ import {
   ArrowLeftRight,
   Check,
   Megaphone,
-  MessageCircle,
   Pause,
   Play,
   Shield,
@@ -19,8 +18,6 @@ import {
   shoutFromSideline,
   sideFormation,
   stepMatch,
-  swapTarget,
-  type MomentAction,
 } from '../game/matches';
 import { manOfTheMatch, matchRatings, ratingTone } from '../game/matchRatings';
 import { fixtureLabel } from '../game/calendar';
@@ -30,7 +27,6 @@ import {
   formations,
   type Career,
   type Formation,
-  type MatchMoment,
   type Player,
   type World,
 } from '../game/types';
@@ -40,7 +36,6 @@ import { LivePitch, type PitchTeam } from '../components/LivePitch';
 import { byPosition, PlayerCard, PlayerPicker, roleFits } from '../components/PlayerCard';
 import { PlayerFace } from '../components/PlayerFace';
 import { useGamepad } from '../controller/GamepadProvider';
-import { crowdChance, crowdGoal, crowdWhistle } from '../audio/crowd';
 
 const fits = (p: Player, role: string) => (roleFits[role] || [role]).includes(p.position);
 const matchNumber = new Intl.NumberFormat('pt-BR', {
@@ -54,7 +49,6 @@ export function MatchScreen({
   onChange,
   onFinish,
   onSubstitute,
-  onMoment,
   onError,
   paused,
 }: {
@@ -63,7 +57,6 @@ export function MatchScreen({
   onChange: (c: Career) => void;
   onFinish: () => void;
   onSubstitute: (outgoing: string, incoming: string) => void;
-  onMoment: (id: string, action: MomentAction) => void;
   onError: (message: string) => void;
   paused: boolean;
 }) {
@@ -79,11 +72,6 @@ export function MatchScreen({
   const finishButton = useRef<HTMLButtonElement>(null);
   latest.current = c;
   const match = c.activeMatch!;
-  const moment = match.moments?.find((m) => m.status === 'open');
-  const momentKey = moment?.id;
-  useEffect(() => {
-    if (momentKey) rumble('moment');
-  }, [momentKey, rumble]);
   const scoreRef = useRef({ home: match.homeGoals, away: match.awayGoals, minute: match.minute });
   const fixture = c.fixtures.find((f) => f.id === match.fixtureId)!;
   const home = clubById(world, fixture.homeId);
@@ -138,12 +126,12 @@ export function MatchScreen({
       ? 'FIM DE JOGO'
       : match.minute === 45
         ? 'INTERVALO'
-        : playing && !sub && !tactic && !shout && !paused && !momentKey
+        : playing && !sub && !tactic && !shout && !paused
           ? 'AO VIVO'
           : 'PAUSADO';
-  const isLive = playing && !sub && !tactic && !shout && !paused && !momentKey && match.minute < 90;
+  const isLive = playing && !sub && !tactic && !shout && !paused && match.minute < 90;
   const timelineEvents = match.events.filter((event) =>
-    ['goal', 'yellow', 'red', 'var', 'injury', 'sub', 'tactic', 'moment'].includes(event.type),
+    ['goal', 'yellow', 'red', 'injury', 'sub', 'tactic'].includes(event.type),
   );
   useEffect(() => {
     if (match.minute !== 90) return;
@@ -157,16 +145,8 @@ export function MatchScreen({
     const awayScored = match.awayGoals > before.away;
     if (homeScored) rumble(ownHome ? 'goal' : 'concede');
     if (awayScored) rumble(ownHome ? 'concede' : 'goal');
-    if (homeScored || awayScored) crowdGoal(homeScored === ownHome);
-    else if (match.minute !== before.minute) {
-      const fresh = match.events.filter(
-        (e) => e.minute > before.minute && ['chance', 'save', 'miss'].includes(e.type),
-      );
-      if (fresh.length) crowdChance();
-    }
     if (match.minute !== before.minute && (match.minute === 45 || match.minute === 90)) {
       rumble('whistle');
-      crowdWhistle(match.minute === 45 ? 2 : 3);
     }
     scoreRef.current = { home: match.homeGoals, away: match.awayGoals, minute: match.minute };
   }, [
@@ -179,7 +159,7 @@ export function MatchScreen({
     rumble,
   ]);
   useEffect(() => {
-    if (!playing || sub || tactic || shout || paused || momentKey) return;
+    if (!playing || sub || tactic || shout || paused) return;
     const timer = setInterval(() => {
       try {
         const current = latest.current;
@@ -187,7 +167,7 @@ export function MatchScreen({
           setPlaying(false);
           return;
         }
-        const result = stepMatch(current, world, current.activeMatch, true);
+        const result = stepMatch(current, world, current.activeMatch);
         onChange({ ...current, activeMatch: result });
         if (result.minute === 45 || result.minute === 90) setPlaying(false);
       } catch (error) {
@@ -196,7 +176,7 @@ export function MatchScreen({
       }
     }, 1400 / speed);
     return () => clearInterval(timer);
-  }, [playing, speed, sub, tactic, shout, paused, momentKey, world, onChange, onError]);
+  }, [playing, speed, sub, tactic, shout, paused, world, onChange, onError]);
   return (
     <div className="screen match-screen">
       <div className="match-strip">
@@ -205,11 +185,6 @@ export function MatchScreen({
         </span>
         <span>
           {home.stadium}
-          {match.conditions?.weather ? ` · ${match.conditions.weather}` : ''}
-          {match.conditions?.pitch ? ` · gramado ${match.conditions.pitch.toLowerCase()}` : ''}
-          {match.conditions?.referee
-            ? ` · ${match.conditions.referee.name} (árbitro simulado, rigor ${match.conditions.referee.strictness}/5)${match.conditions.referee.varEnabled ? ' · VAR' : ''}`
-            : ''}
         </span>
       </div>
       <section
@@ -263,9 +238,7 @@ export function MatchScreen({
                     ? '⚽'
                     : e.type === 'yellow' || e.type === 'red'
                       ? '▰'
-                      : e.type === 'var'
-                        ? 'VAR'
-                        : e.type === 'injury'
+                      : e.type === 'injury'
                           ? '+'
                           : e.type === 'sub'
                             ? '↔'
@@ -360,7 +333,7 @@ export function MatchScreen({
               <meter min={0} max={match.home[key] + match.away[key] || 1} value={match.home[key]} />
             </div>
           ))}
-          <p className="muted small">Seed {match.seed} · A engine decide. A narração descreve.</p>
+          <p className="muted small">Seed {match.seed} · Simulação determinística.</p>
           {match.minute === 90 && (
             <MatchAnalysis match={match} fixture={fixture} clubId={c.clubId} />
           )}
@@ -438,7 +411,7 @@ export function MatchScreen({
                 .map((e, i) => (
                   <div
                     key={`${e.minute}-${i}`}
-                    className={e.type === 'goal' ? 'goal' : e.type === 'moment' ? 'moment' : ''}
+                    className={e.type === 'goal' ? 'goal' : ''}
                   >
                     <time>{e.minute}'</time>
                     <span>
@@ -448,13 +421,9 @@ export function MatchScreen({
                           ? '🟨 '
                           : e.type === 'red'
                             ? '🟥 '
-                            : e.type === 'var'
-                              ? '📺 '
-                              : e.type === 'injury'
-                                ? '🚑 '
-                                : e.type === 'moment'
-                                  ? '💬 '
-                                  : ''}
+                            : e.type === 'injury'
+                              ? '🚑 '
+                              : ''}
                       {e.text}
                     </span>
                   </div>
@@ -590,24 +559,6 @@ export function MatchScreen({
           </div>
         </Modal>
       )}
-      {moment && !sub && !tactic && !shout && (
-        <MomentDialog
-          key={moment.id}
-          career={c}
-          world={world}
-          moment={moment}
-          number={ownNumbers[moment.playerId]}
-          role={formations[c.tactic.formation][ownLineup.indexOf(moment.playerId)]}
-          spent={match.energySpent[moment.playerId] || 0}
-          canSub={match.usedSubs < 5}
-          onAction={(action) => onMoment(moment.id, action)}
-          onSub={() => {
-            if (moment.kind === 'bench') setIn(moment.playerId);
-            else setOut(moment.playerId);
-            setSub(true);
-          }}
-        />
-      )}
       {tactic && (
         <Modal
           title="Ajustar o plano de jogo"
@@ -674,179 +625,5 @@ export function MatchScreen({
         </Modal>
       )}
     </div>
-  );
-}
-const momentMeta: Record<MatchMoment['kind'], { tag: string; tone: string }> = {
-  tired: { tag: 'Pede substituição', tone: 'warn' },
-  injury: { tag: 'Lesão em campo', tone: 'danger' },
-  position: { tag: 'Pede outra posição', tone: 'info' },
-  subbed: { tag: 'Reclamou da substituição', tone: 'danger' },
-  bench: { tag: 'Quer entrar no jogo', tone: 'good' },
-  badday: { tag: 'Dia ruim', tone: 'warn' },
-};
-
-function MomentDialog({
-  career,
-  world,
-  moment,
-  number,
-  role,
-  spent,
-  canSub,
-  onAction,
-  onSub,
-}: {
-  career: Career;
-  world: World;
-  moment: MatchMoment;
-  number?: number;
-  role?: string;
-  spent: number;
-  canSub: boolean;
-  onAction: (action: MomentAction) => void;
-  onSub: () => void;
-}) {
-  const player = findPlayer(world, moment.playerId)!;
-  const s = career.players[player.id];
-  const meta = momentMeta[moment.kind];
-  const swap = moment.kind === 'position' ? swapTarget(career, world, player.id) : -1;
-  const actions: {
-    label: string;
-    hint: string;
-    run: () => void;
-    primary?: boolean;
-    off?: boolean;
-  }[] =
-    moment.kind === 'tired'
-      ? [
-          {
-            label: 'Substituir',
-            hint: 'Escolher quem entra',
-            run: onSub,
-            primary: true,
-            off: !canSub,
-          },
-          { label: 'Mais um esforço', hint: 'Risco de lesão sobe', run: () => onAction('insist') },
-        ]
-      : moment.kind === 'injury'
-        ? [
-            {
-              label: 'Substituir',
-              hint: 'Preservar o atleta',
-              run: onSub,
-              primary: true,
-              off: !canSub,
-            },
-            {
-              label: 'Manter no sacrifício',
-              hint: 'Rende menos e agrava a lesão',
-              run: () => onAction('insist'),
-            },
-          ]
-        : moment.kind === 'position'
-          ? [
-              {
-                label: `Jogar de ${moment.role}`,
-                hint:
-                  swap >= 0 ? 'Troca de função com um companheiro' : 'Sem vaga compatível agora',
-                run: () => onAction('swap'),
-                primary: true,
-                off: swap < 0,
-              },
-              { label: 'Tirar do jogo', hint: 'Substituir o atleta', run: onSub, off: !canSub },
-              {
-                label: 'Manter onde está',
-                hint: 'Moral e relação caem',
-                run: () => onAction('ignore'),
-              },
-            ]
-          : moment.kind === 'subbed'
-            ? [
-                {
-                  label: 'Explicar a decisão',
-                  hint: 'Conversa rápida à beira do campo',
-                  run: () => onAction('talk'),
-                  primary: true,
-                },
-                { label: 'Ignorar', hint: 'Moral e relação caem', run: () => onAction('ignore') },
-              ]
-            : moment.kind === 'bench'
-              ? [
-                  {
-                    label: 'Colocar em campo',
-                    hint: 'Escolher quem sai',
-                    run: onSub,
-                    primary: true,
-                    off: !canSub,
-                  },
-                  { label: 'Ainda não', hint: 'Ele fica frustrado', run: () => onAction('ignore') },
-                ]
-              : [
-                  {
-                    label: 'Dar confiança',
-                    hint: 'Pode destravar o jogo dele',
-                    run: () => onAction('support'),
-                    primary: true,
-                  },
-                  { label: 'Substituir', hint: 'Tirar a pressão dele', run: onSub, off: !canSub },
-                  {
-                    label: 'Seguir assim',
-                    hint: 'Ele continua sem confiança',
-                    run: () => onAction('ignore'),
-                  },
-                ];
-  const first = actions.findIndex((a) => !a.off);
-  return (
-    <Modal
-      title={`Momento do jogo · ${moment.minute}'`}
-      onClose={() =>
-        onAction(moment.kind === 'injury' || moment.kind === 'tired' ? 'insist' : 'ignore')
-      }
-      className="match-moment-modal"
-      wide
-    >
-      <div className={`moment-dialog tone-${meta.tone}`}>
-        <div className="moment-player">
-          <PlayerCard player={player} career={career} role={role} number={number} />
-          <dl>
-            <div>
-              <dt>Fôlego</dt>
-              <dd>{Math.max(0, Math.round((s?.fitness || 0) - spent))}%</dd>
-            </div>
-            <div>
-              <dt>Moral</dt>
-              <dd>{s?.morale ?? '-'}</dd>
-            </div>
-            <div>
-              <dt>Relação</dt>
-              <dd>{s?.relationship ?? '-'}</dd>
-            </div>
-          </dl>
-        </div>
-        <div className="moment-talk">
-          <span className="moment-tag">{meta.tag}</span>
-          <blockquote>
-            <MessageCircle size={22} />
-            <p>“{moment.text}”</p>
-            <cite>— {player.name}</cite>
-          </blockquote>
-          <div className="moment-actions">
-            {actions.map((a, i) => (
-              <button
-                key={a.label}
-                type="button"
-                className={a.primary ? 'primary' : ''}
-                disabled={a.off}
-                data-autofocus={i === first ? '' : undefined}
-                onClick={a.run}
-              >
-                <strong>{a.label}</strong>
-                <small>{a.hint}</small>
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
-    </Modal>
   );
 }

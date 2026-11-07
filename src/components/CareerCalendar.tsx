@@ -1,8 +1,7 @@
 import { AlertCircle, CalendarClock, MessageSquare, Square, Trophy } from 'lucide-react';
 import { ControllerButtonHint } from '../controller/ControllerButtonHint';
 import { fixtureLabel, nextFixture } from '../game/calendar';
-import { nextNationalFixture } from '../game/national';
-import { BRAZIL_NATIONAL_ID, clubById } from '../game/npc';
+import { clubById } from '../game/npc';
 import { addDays } from '../game/random';
 import { type Career, type World } from '../game/types';
 import { dateLabel, Modal } from './ui';
@@ -28,13 +27,6 @@ export function CareerCalendar({
         const opponent =
           fixture &&
           clubById(world, fixture.homeId === career.clubId ? fixture.awayId : fixture.homeId);
-        const national = career.national?.fixtures.find((item) => item.date === date);
-        const nationalOpponent =
-          national &&
-          clubById(
-            world,
-            national.homeId === BRAZIL_NATIONAL_ID ? national.awayId : national.homeId,
-          );
         const messages = career.messages.filter((message) => message.date === date);
         const decisions = messages.filter((message) => message.important && !message.resolved);
         const parsed = new Date(`${date}T12:00:00Z`);
@@ -65,11 +57,6 @@ export function CareerCalendar({
               {opponent && fixture && (
                 <span className="calendar-match" title={fixtureLabel(fixture).name}>
                   <Trophy size={12} aria-hidden="true" /> {opponent.short}
-                </span>
-              )}
-              {nationalOpponent && (
-                <span className="calendar-match" title="Amistoso da Seleção Brasileira">
-                  <Trophy size={12} aria-hidden="true" /> BRA × {nationalOpponent.short}
                 </span>
               )}
               {decisions.length ? (
@@ -112,10 +99,7 @@ export function AdvanceOverlay({
     0,
     Math.round((Date.parse(career.date) - Date.parse(startedAt)) / 86400000),
   );
-  const clubFixture = nextFixture(career);
-  const national = nextNationalFixture(career);
-  const fixture =
-    national && (!clubFixture || national.date <= clubFixture.date) ? national : clubFixture;
+  const fixture = nextFixture(career);
   const pending = career.messages.find((message) => message.important && !message.resolved);
   return (
     <Modal

@@ -17,7 +17,6 @@ import {
   UserMinus,
 } from 'lucide-react';
 import { available, bestLineup, squad } from '../game/matches';
-import { internationalCountry } from '../game/international';
 import { useGamepad } from '../controller/GamepadProvider';
 import { ControllerButtonHint } from '../controller/ControllerButtonHint';
 import { clubById } from '../game/npc';
@@ -33,17 +32,6 @@ import {
   renewalTerms,
   type LoanRequest,
 } from '../game/transfers';
-import {
-  MENTOR_MIN_AGE,
-  MENTOR_SLOTS,
-  PUPIL_MAX_AGE,
-  canBeMentored,
-  canMentor,
-  goodMentor,
-  mentorGrowth,
-  mentorOf,
-  pupilOf,
-} from '../game/dressing';
 import { useStickX } from '../controller/GamepadProvider';
 import {
   LEARNED,
@@ -168,8 +156,6 @@ export function Squad({
   onRenew,
   onConversation,
   onDevelopment,
-  onMentor,
-  onEndMentor,
   onRole,
   onSetClause,
   onLoanOut,
@@ -186,8 +172,6 @@ export function Squad({
   onRenew: (id: string, months: number) => void;
   onConversation: (id: string, choice: 'praise' | 'challenge' | 'promise') => void;
   onDevelopment: (id: string, plan: NonNullable<Career['players'][string]['development']>) => void;
-  onMentor: (mentorId: string, pupilId: string) => void;
-  onEndMentor: (pupilId: string) => void;
   onRole: (id: string, role: Career['players'][string]['role']) => void;
   onSetClause: (id: string, amount: number) => void;
   onLoanOut: (id: string, clubId: string, terms: LoanRequest) => void;
@@ -238,8 +222,6 @@ export function Squad({
     const state = c.players[p.id];
     if (state.injuryDays) return `Lesão · ${state.injuryDays}d`;
     if (state.suspension) return `Suspenso · ${state.suspension}j`;
-    const country = internationalCountry(c, p.id);
-    if (country) return `Convocado · ${country}`;
     if (state.fitness < 30) return 'Condição insuficiente';
     return 'Disponível';
   };
@@ -1048,75 +1030,6 @@ export function Squad({
             >
               <Dumbbell size={16} /> Posições e treino de posição
             </button>
-            {(() => {
-              const age = ageAt(d.birthDate, c.date);
-              const asPupil = mentorOf(c, d.id);
-              const asMentor = pupilOf(c, d.id);
-              const full = c.living.mentors.length >= MENTOR_SLOTS;
-              const name = (id: string) => world.players.find((p) => p.id === id)?.name ?? '—';
-              if (asPupil || asMentor) {
-                const pair = (asPupil ?? asMentor)!;
-                const mentorState = c.players[pair.mentor];
-                return (
-                  <div className="mentor-box">
-                    <p className="eyebrow">MENTORIA</p>
-                    <p className="small">
-                      <strong>{name(pair.mentor)}</strong> orienta{' '}
-                      <strong>{name(pair.pupil)}</strong> desde {dateLabel(pair.since)}. Crescimento
-                      do jovem ×{mentorState ? mentorGrowth(mentorState).toFixed(1) : '1.2'}, +2 de
-                      moral mensal para ambos e chance de herdar a personalidade{' '}
-                      {mentorState?.personality ?? ''}.
-                    </p>
-                    <button onClick={() => onEndMentor(pair.pupil)}>Encerrar mentoria</button>
-                  </div>
-                );
-              }
-              if (age <= PUPIL_MAX_AGE && canBeMentored(c, d)) {
-                const candidates = players
-                  .filter((p) => canMentor(c, p))
-                  .sort(
-                    (a, b) =>
-                      Number(goodMentor(c.players[b.id])) - Number(goodMentor(c.players[a.id])) ||
-                      Number(b.position === d.position) - Number(a.position === d.position) ||
-                      overall(b) - overall(a),
-                  )
-                  .slice(0, 4);
-                return (
-                  <div className="mentor-box">
-                    <p className="eyebrow">
-                      MENTORIA · {c.living.mentors.length}/{MENTOR_SLOTS} DUPLAS
-                    </p>
-                    {full ? (
-                      <p className="muted small">
-                        Todas as vagas estão ocupadas. Encerre uma dupla no Clube vivo → Vestiário.
-                      </p>
-                    ) : candidates.length ? (
-                      <div className="hub-list">
-                        {candidates.map((m) => (
-                          <button key={m.id} onClick={() => onMentor(m.id, d.id)}>
-                            <strong>{m.name}</strong> {ageAt(m.birthDate, c.date)} anos ·{' '}
-                            {c.players[m.id].personality} · crescimento ×
-                            {mentorGrowth(c.players[m.id]).toFixed(1)}
-                          </button>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="muted small">
-                        Nenhum veterano livre com {MENTOR_MIN_AGE}+ anos no elenco.
-                      </p>
-                    )}
-                  </div>
-                );
-              }
-              if (age >= MENTOR_MIN_AGE)
-                return (
-                  <p className="muted small">
-                    Veterano apto a ser mentor. Escolha um jovem de até {PUPIL_MAX_AGE} anos na
-                    ficha dele ou no Clube vivo → Vestiário.
-                  </p>
-                );
-              return null;
-            })()}
           </>
         )}
         {action === 'release' && (

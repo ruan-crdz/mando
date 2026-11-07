@@ -1,4 +1,4 @@
-import { clamp, hash } from './random';
+import { hash } from './random';
 import { clubById, findPlayer, isForeign } from './npc';
 import { type Career, type Living, type Message, type World } from './types';
 
@@ -24,7 +24,7 @@ export function remember(c: Career, kind: Living['timeline'][number]['kind'], te
 const money = (n: number) =>
   n >= 1e6 ? `R$ ${(n / 1e6).toFixed(1).replace('.', ',')} mi` : `R$ ${Math.round(n / 1000)} mil`;
 
-/** Registra uma movimentação de mercado e aplica as consequências humanas. */
+/** Registra uma movimentação de mercado e o histórico da carreira. */
 export function recordMove(
   c: Career,
   world: World,
@@ -58,31 +58,4 @@ export function recordMove(
     'venda',
     `Vendeu ${player.name} ao ${clubById(world, to).name}${isForeign(to) ? ' (exterior)' : ''} por ${money(fee)}`,
   );
-  // O vestiário reage: amigos sentem, e a saída do líder abala o grupo.
-  const friends = c.living.relations.filter(
-    (r) => r.kind === 'amizade' && (r.a === playerId || r.b === playerId),
-  );
-  for (const r of friends) {
-    const other = c.players[r.a === playerId ? r.b : r.a];
-    if (other) other.morale = clamp(other.morale - 6);
-  }
-  c.living.relations = c.living.relations.filter((r) => r.a !== playerId && r.b !== playerId);
-  const leader =
-    c.players[playerId]?.personality === 'Líder' || c.roles['Capitão'] === playerId;
-  if (leader) {
-    for (const s of Object.values(c.players))
-      if (s.clubId === c.clubId) s.morale = clamp(s.morale - 5);
-    notify(c, {
-      kind: 'staff',
-      from: 'Auxiliar técnico',
-      title: 'O vestiário sentiu a saída',
-      body: `${player.name} era uma liderança do grupo. O ambiente ficou mais pesado e a moral do elenco caiu.`,
-    });
-  } else if (friends.length)
-    notify(c, {
-      kind: 'staff',
-      from: 'Auxiliar técnico',
-      title: `Amigos de ${player.name} abalados`,
-      body: `${friends.length} atleta(s) próximos de ${player.name} ficaram chateados com a venda.`,
-    });
 }

@@ -32,7 +32,7 @@ A tela tem **4 subvistas** (botões segmentados, alternáveis com LT/RT) e **1 m
 - **Mobile somente landscape:** até 1100px, três colunas compactas; até 700px, filtros à esquerda e lista à direita (o relatório do Mercado é ocultado; a mesa mostra os mesmos dados) e a mesa passa a duas colunas com o resumo abaixo.
 - CSS em `src/styles/legacy/09-transfers.css`, escopado em `.transfers-screen`/`.deal-desk` (`.market-row` também é usado no elenco do Time).
 
-**Não existem nesta tela** (descrito para evitar suposições do redesign): lista de venda dos próprios atletas (fica na ficha do jogador da aba TIME — "Atleta à venda. As propostas chegam em Transferências › Negociações."), histórico de transferências concluídas (só aparece como conversas com status "Concluída"), aviso visual de *transfer ban* (só aparece como toast de erro ao enviar proposta), busca de agentes livres e de jogadores de clubes do exterior.
+**Não existem nesta tela** (descrito para evitar suposições do redesign): lista de venda dos próprios atletas (fica na ficha do jogador da aba TIME — "Atleta à venda. As propostas chegam em Transferências › Negociações."), busca de agentes livres e de jogadores de clubes do exterior.
 
 ## Como se chega / como se sai
 
@@ -855,7 +855,7 @@ Faixa fixa no topo central (`div.toast`), **some sozinha** (sucesso 2,6 s / erro
 
 ## Problemas atuais e oportunidades
 - Ações sem toast (aceitar venda, recusar) poderiam ter feedback curto ("Venda concluída: +R$ 38 mi").
-- Validar antes de mostrar o botão (transfer ban, desafio, proposta pendente) evitaria toasts de erro.
+- Validar antes de mostrar o botão (desafio, proposta pendente e janela aberta) evitaria toasts de erro.
 
 ---
 
@@ -868,16 +868,14 @@ Faixa fixa no topo central (`div.toast`), **some sozinha** (sucesso 2,6 s / erro
 | Pré-contrato | só nos últimos 6 meses de contrato do atleta; não depende da janela |
 | Resposta da IA | no dia seguinte para compras e pedidos de empréstimo; vendas expiram em 7 dias, contraproposta do comprador dá +5 dias |
 | Paciência | Iniciante 5 / Normal 4 / Profissional 3 rodadas; proposta < 60% do mínimo gasta 2 |
-| Trava | 30 dias após o clube/agente encerrar |
 | Preço pedido (oculto) | 1,08 + 0,1/ano de contrato (máx. 4) + diferença de reputação − moral; limitado a 0,8–1,9× o valor |
 | Troca | vale 80% do valor de mercado |
 | Elenco mínimo | 18 atletas e 2 goleiros (vendedor); 11 disponíveis se sair titular |
-| Transfer ban | `career.living.transferBan`: impede contratar até a data (só mensagem de erro) |
 | Exterior | só propõe por atletas do usuário; paga 1,2–1,8× valor; recusar pode frustrar o atleta |
 
 ## Fase 3: mercado brasileiro
 
-- **Empréstimo recebido:** a proposta fica pendente até o dia seguinte e aparece em Negociações. O clube dono pode recusar ou contrapor taxa, duração, salário e cláusula; após acordo, o atleta e seu empresário também decidem. O jogador só muda de clube após os dois aceites. A janela, a disponibilidade, o contrato e o transfer ban são conferidos novamente ao concluir.
+- **Empréstimo recebido:** a proposta fica pendente até o dia seguinte e aparece em Negociações. O clube dono pode recusar ou contrapor taxa, duração, salário e cláusula; após acordo, o atleta e seu empresário também decidem. O jogador só muda de clube após os dois aceites. A janela, a disponibilidade e o contrato são conferidos novamente ao concluir.
 - **Termos:** 3, 6 ou 12 meses na interface; divisão salarial, taxa, opção de compra ou obrigação sujeita a jogos. A folha mensal de cada clube considera sua parcela. Opções podem ser exercidas durante o empréstimo ou até dez dias após seu fim, em Contas.
 - **Direitos econômicos:** o comprador escolhe 50% a 100% e pode oferecer até 30% de futura venda. Na revenda, o valor é distribuído proporcionalmente entre os titulares e a cláusula incide sobre a parte do clube vendedor após a solidariedade. O saldo dos direitos permanece com os titulares anteriores.
 - **Solidariedade:** o modelo simplificado repassa 5% ao clube formador quando ele não é comprador nem vendedor. Para atletas do snapshot, o formador é uma estimativa simulada, não um dado histórico verificado; jovens gerados usam seu clube de origem.

@@ -605,10 +605,6 @@ Editor "Posições e treino" (dentro da linha expandida no painel direito):
 - A ficha do jogador (`.player-stats`) tem `data-stick-scroll`: o **RS rola apenas a ficha**, enquanto LS/D-pad continuam percorrendo a lista de jogadores à direita. Com controle conectado aparece a dica "RS Rolar ficha".
 - O `GamepadProvider` passou a priorizar qualquer área visível e rolável marcada com `data-stick-scroll` no rolar vertical do RS.
 
-## Fase 2: staff e vestiário
-
-- Na ficha do jogador, ação **Evolução e função**, aparece o bloco **Mentoria**: jovens até 21 anos sem mentor listam até 4 veteranos livres (28+, priorizando Líder/Profissional/Disciplinado e mesma posição) com o multiplicador de crescimento; jogadores em dupla mostram o parceiro, os efeitos e o botão "Encerrar mentoria". O contador respeita o limite de 3 duplas. Regras completas em `07-escritorio.md`.
-
 ## Fase 3: auxiliares por setor
 
 - A quinta sub-aba, **Comissão**, mostra quatro vagas: **Ataque**, **Meio-campo**, **Defesa** e **Goleiros**. Cada vaga permite contratar ou demitir um auxiliar; o cabeçalho informa vagas ocupadas e livres.

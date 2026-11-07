@@ -24,7 +24,7 @@ jobs:
       - uses: denoland/setup-deno@v2
         with:
           deno-version: v2.x
-      - run: deno check supabase/functions/ai-message/index.ts supabase/functions/ai-news/index.ts supabase/functions/ai-staff/index.ts supabase/functions/ai-manager-avatar/index.ts supabase/functions/ai-voice/index.ts
+      - run: deno check supabase/functions/ai-message/index.ts supabase/functions/ai-news/index.ts supabase/functions/ai-staff/index.ts supabase/functions/ai-manager-avatar/index.ts
       - run: deno test --allow-env supabase/functions/_shared/handler.test.ts
       - run: npm run build
         env:

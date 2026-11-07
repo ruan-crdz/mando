@@ -3,48 +3,26 @@
 **Seu clube. Suas decisões.** Simulador de carreira de manager de futebol brasileiro,
 2D, com interface original de console, React, TypeScript, Supabase e OpenAI.
 
-## Estado real da implementação
+## Escopo do jogo
 
-Esta versão é uma **carreira jogável de várias temporadas a partir de 01/01/2026**,
-com todas as competições de clubes do calendário brasileiro, mas não a implementação
-de todo o roadmap. Não exige conta para experimentar.
+Uma carreira de manager de futebol brasileiro, jogável por várias temporadas a
+partir de 01/01/2026. A interface cobre menu e criação do manager, Central,
+Escritório, notificações, Time, Transferências, Academia, Temporada e partidas.
+Não exige conta para experimentar.
 
-| Sistema        | Implementado                                                                                               |
-| -------------- | ---------------------------------------------------------------------------------------------------------- |
-| Carreira       | Manager, escolha entre 40 clubes, dificuldades e sete desafios                                             |
-| Brasileirão 26 | 40 clubes A/B, **1.758 atletas com nomes reais** (data/), 40 escudos locais, snapshot imutável             |
-| Mundo demo     | 1.120 atletas **sintéticos**, atributos e finanças demonstrativos                                          |
-| Mundo oficial  | Importação de CSV autorizado, validação e snapshot imutável                                                |
-| Série A/B      | 38 rodadas, ida/volta, classificação, playoffs de acesso da B                                              |
-| Copas          | Estaduais, Supercopa, Copa do Brasil (64 clubes), Libertadores e Sul-Americana (grupos + mata-mata)        |
-| Clubes NPC     | Nível B: clubes brasileiros por estado; nível C: clubes sul-americanos — força, reputação e elenco simples |
-| Temporadas     | Campeões, acesso/rebaixamento, prêmios mensais e anuais, potencial dinâmico, aposentadorias e calendário    |
-| Seleção        | Convite, convocação de até 23 atletas, amistosos e desfalques internacionais simulados                     |
-| Partidas       | Engine determinística por seed, minuto a minuto, pausas, 1×/2×/4×, cinco substituições, ajustes táticos    |
-| Elenco         | Campo com troca por controle ou arrastar, planos de evolução, ritmo de jogo, personalidades e conversas     |
-| Mercado        | Propostas, empréstimos, multas rescisórias, pré-contratos, salário, renovações e negociações com NPCs       |
-| Clube          | Olheiros, peneira anual com escolhas, eventos, coletivas, mensagens, confiança e propostas de emprego     |
-| Legado         | Trajetória do manager, resultados e títulos registrados, linha do tempo, hall da fama e temporadas         |
-| Save           | IndexedDB, exportação/importação JSON e sincronização manual autenticada com conflito de revisão           |
-| IA             | Quatro Edge Functions, Responses API com JSON Schema, retrato, cache e limites de uso                      |
-| Plataforma     | Gamepad centralizado, teclado virtual, teclado/mouse, PWA e workflow GitHub Pages                          |
+| Área | Conteúdo |
+|---|---|
+| Carreira | Manager, escolha de clube e dificuldade, calendário e save local |
+| Mundo 2026 | 40 clubes das Séries A/B, **1.758 atletas** (data/) e escudos locais |
+| Competições | Brasileirões A/B, estaduais, Supercopa, Copa do Brasil, Libertadores e Sul-Americana |
+| Time | Escalação, tática, responsabilidades, jogadores, comissão e academia |
+| Transferências | Mercado de atletas, observados e negociações |
+| Escritório e temporada | Mensagens, calendário, classificação, estatísticas e histórico |
+| Partidas | Simulação determinística, controles de ritmo, substituições e ajustes táticos |
+| Plataforma e saves | Controle, teclado/mouse, PWA, save local, exportação/importação e sincronização opcional |
 
-**Ainda não implementado:** Série C (por isso ninguém cai da Série B);
-fases preliminares da Libertadores e playoffs entre Libertadores/Sul-Americana;
-elencos detalhados dos clubes NPC; campeonatos de base completos; motor específico
-de bola parada; memória vetorial; realtime/fila de geração de histórias. A visão 2D exibe posições
-ilustrativas, não trajetórias físicas da bola/jogadores. Responsabilidades são
-persistidas, mas ainda não afetam cobranças específicas da engine.
-
-**Seleção e base.** As cinco datas internacionais anuais e os amistosos são
-fictícios; não há eliminatórias ou Copa do Mundo. As convocações usam somente
-atletas disponíveis no mundo da carreira, cujas nacionalidades podem ser
-estimadas, e seleções adversárias têm elencos NPC. Para não agravar a falta de
-atletas, a convocação preserva ao menos onze jogadores e um goleiro disponíveis
-nos clubes principais. Em 1º de maio, a peneira apresenta jovens que podem ser
-promovidos ou dispensados; não há disputa de campeonatos sub-20. Saves anteriores
-continuam válidos, mas resultados e títulos não registrados antes da atualização
-não podem ser reconstruídos integralmente.
+O foco desta versão é o fluxo de carreira de clube descrito acima. Recursos e
+telas fora desse fluxo não fazem parte do jogo.
 
 **Elencos 2026.** Os nomes vêm da base [data/](data/) (oGol, GuiaGol e sites dos clubes;
 veja [data/README.md](data/README.md)): elencos da temporada 2026, não uma fotografia
@@ -52,7 +30,7 @@ validada de 01/01/2026. Overall, potencial, atributos, valores e salários são 
 do Mando. Idade, pé, nacionalidade e contrato sem fonte foram estimados de forma
 determinística; a posição específica (lateral, volante, ponta…) foi definida à mão para
 os principais atletas e distribuída para os demais.
-pm run build:world regenera
+npm run build:world regenera
 `public/data/world-2026.json` a partir dos CSVs. Escudos: `npm run sync:club-logos`
 baixa uma vez (ge.globo via `campeonato-brasileiro-api`, reserva ESPN) para
 `public/assets/escudos/`; o jogo publicado não depende de chamadas externas. Escudos
@@ -68,9 +46,7 @@ npm.cmd ci
 npm.cmd run dev
 ```
 
-Abra `http://127.0.0.1:5173`, escolha **Nova carreira → Brasileirão 2026**.
-Som não é iniciado automaticamente. Ative-o no cabeçalho; a primeira interação
-real do usuário libera o áudio conforme as regras do navegador.
+Abra `http://127.0.0.1:5173` e escolha **Nova carreira → Brasileirão 2026**.
 
 ### Validação
 
@@ -96,7 +72,7 @@ integração contra seu projeto Supabase hospedado.
 As funções também têm testes HTTP sem consumir OpenAI:
 
 ```powershell
-npx.cmd deno check supabase\functions\ai-message\index.ts supabase\functions\ai-news\index.ts supabase\functions\ai-staff\index.ts supabase\functions\ai-manager-avatar\index.ts supabase\functions\ai-voice\index.ts
+npx.cmd deno check supabase\functions\ai-message\index.ts supabase\functions\ai-news\index.ts supabase\functions\ai-staff\index.ts supabase\functions\ai-manager-avatar\index.ts
 npx.cmd deno test --allow-env supabase\functions\_shared\handler.test.ts
 ```
 
@@ -241,12 +217,7 @@ npx.cmd supabase functions deploy ai-message
 npx.cmd supabase functions deploy ai-news
 npx.cmd supabase functions deploy ai-staff
 npx.cmd supabase functions deploy ai-manager-avatar
-npx.cmd supabase functions deploy ai-voice
 ```
-
-`ai-voice` gera a voz dos recados, da caixa postal e da coletiva com a OpenAI
-(`OPENAI_TTS_MODEL`, padrão `gpt-4o-mini-tts`). O jogo guarda cada áudio no
-cache do navegador, então o mesmo recado nunca é gerado duas vezes.
 
 As configurações de JWT estão em [supabase/config.toml](supabase/config.toml).
 Cada função verifica explicitamente o bearer token com `auth.getUser()` antes

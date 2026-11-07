@@ -17,17 +17,14 @@ Mando é um jogo web (React + TypeScript + Vite, PWA) de carreira de técnico no
 | `src/components/PlayerFace.tsx` | `PlayerFace`, `playerFaceUrl` |
 | `src/components/cardTier.ts` | `cardTier(ovr)` → classe de nível do card |
 | `src/components/HeatMap.tsx` | Mapa de calor SVG |
-| `src/components/TrophyArt.tsx` | Troféus SVG por competição |
 | `src/components/LivePitch.tsx` | Campinho 2D animado da partida |
 | `src/components/PortraitCamera.tsx` | Modal de webcam para o retrato do manager |
-| `src/components/voice.ts` | Leitor de voz global (caixa postal / recados / coletiva) |
-| `src/components/LivingPanels.tsx` | Painéis do "mundo vivo" (`MarketFeed`, `ClubPanel`, `MatchOdds`, `LegacyPanel`, `MatchAnalysis`) |
+| `src/components/LivingPanels.tsx` | Histórico da carreira e análise pós-jogo |
 | `src/controller/GamepadProvider.tsx` | Leitura do gamepad, ações, teclado virtual, vibração, sons |
 | `src/controller/FocusManager.ts` | Navegação espacial (foco por direção) |
 | `src/controller/xboxMapping.ts`, `dualsenseMapping.ts` | Rótulos dos botões e índices do mapeamento padrão |
 | `src/controller/ControllerButtonHint.tsx` | Dica de botão (`<kbd>` colorido + rótulo) |
 | `src/controller/dualsenseHid.ts` | DualSense via WebHID (vibração real no Chrome/Edge, Bluetooth) |
-| `src/audio/music.ts`, `src/audio/crowd.ts` | Trilha house sintetizada de menu e torcida sintetizada da partida |
 
 ---
 
@@ -55,9 +52,9 @@ Há **um único tema** (escuro, `color-scheme: dark`). Não existe troca de tema
 | `--green` | `#5ed11c` | Verde |
 | `--lime` | `#c6ff00` | **Cor de destaque/foco** (sublinhado, valores, "SALVO") |
 | `--orange` | `#ff8a00` | Alertas, `.nav-dot`, `.count`, `.status-pill` |
-| `--pink` | `#ff2e88` | Botão de retrato IA, barra de voz |
-| `--purple` | `#8b45ff` | Barra de voz, tile roxo |
-| `--yellow` | `#ffd400` | Faixa DEMONSTRAÇÃO, estrelas, aviso PWA |
+| `--pink` | `#ff2e88` | Acento de destaque e tile rosa |
+| `--purple` | `#8b45ff` | Tile roxo |
+| `--yellow` | `#ffd400` | Estrelas, aviso PWA |
 | `--red` | `#ff3b4e` | Erro, excluir |
 | `--focus` | `#c6ff00` | Contorno de foco |
 
@@ -91,9 +88,7 @@ Padrões recorrentes: títulos `italic 800`, `text-transform: uppercase`, `lette
 | `pulse` | opacidade 0.35 no meio | `.live-dot`, retrato gerando |
 | `spin` | rotação 0.9s | ícones `LoaderCircle` (`.spin`) |
 | `card-shine` | faixa de brilho diagonal atravessando o card (3.2s, infinito) | `.card-rare::after` |
-| `achievement-in` | entra da direita, fica, sai (4.2s) | `.achievement-toast` |
-| `mailbox-glow` | brilho pulsante | `.voice-bar .pulse`, botão caixa postal |
-| `voice-bar`, `typing`, `swap-pulse`, `roster-open`, `caret-blink` | barra de voz, digitação, troca de jogador, expandir linha, cursor do teclado virtual | diversos |
+| `typing`, `swap-pulse`, `roster-open`, `caret-blink` | digitação, troca de jogador, expandir linha, cursor do teclado virtual | diversos |
 
 `@media (prefers-reduced-motion: reduce)` zera todas as animações/transições.
 
@@ -135,7 +130,6 @@ Padrões recorrentes: títulos `italic 800`, `text-transform: uppercase`, `lette
 | `.button-row` | Linha de botões com `gap 10px`, wrap |
 | `.live-dot` | Bolinha lima pulsando (`.paused` laranja) |
 | `.carousel` | Faixa horizontal com `scroll-snap` (proximity), sem scrollbar, filhos `flex: 0 0 auto`; o foco centraliza o item (`scrollIntoView inline:center`) |
-| `.demo-strip` / `.demo-chip` | Faixa amarela "DEMONSTRAÇÃO" |
 | `.muted`, `.small` | Texto `--ink-3`; 13px |
 
 ### Tiles (`.tile`)
@@ -237,26 +231,11 @@ Cada nível também define `--card-name` (cor escura translúcida da faixa do no
 ### `HeatMap({ player, position, state, compact })`
 SVG 100×140 de meio-campo vertical (grama `#0d6b34`, linhas brancas 55%), 9 manchas radiais (vermelho → amarelo → lima → ciano) com blur e `mix-blend-mode: screen`. Concentradas na função se o atleta conhece a posição; espalhadas e puxadas para a posição de origem se improvisado. Ponto branco marca a função. Legenda: "**{ROLE}** · {familiarityLabel} · {fam}%" com tom `good` (≥85, lima), `mid` (≥60, âmbar), `bad` (vermelho). Máx. 200px (compact 130px). Usado no Elenco.
 
-### `TrophyArt({ id })`
-Troféus SVG com gradientes metálicos (ouro/prata) e base de madeira. Formas por competição: `A` bandeira (prata + ouro), `B` alta (prata), `CDB` clássica (ouro), `SUP` bola, `LIB` globo, `SUL` alta (ouro); padrão clássico prata. Usado na Temporada (sala de troféus).
-
 ### `LivePitch({ home, away, playing, speed, homePossession, goal })` (resumo)
 Campo 2D horizontal em CSS (`.live-field` com meio-campo, círculo, áreas, gols) e bolinhas `.field-dot.home/.away` (`.keeper` para goleiro) com a cor de cada time, mais `.ball-dot`. Simulação visual contínua com inércia, passes, chutes e reposição; após gol leva a bola à rede. É ilustrativa — o placar oficial vem da engine. Usado na tela de Partida.
 
 ### `PortraitCamera({ style, onCapture, onClose })`
 Modal "Retrato do manager" (wide). Detalhado em `04-criar-manager.md`.
-
-### `voice.ts` — voz e caixa postal
-- Fala via `speechSynthesis` do navegador (voz pt-BR, preferindo vozes masculinas "natural/online"), `pitch .85`. Antes de cada recado toca um "clique de telefone" e um chiado de linha (WebAudio).
-- `playVoice(items, asMailbox)`, `stopVoice()`, `skipVoice()`, `useVoice()` → `{ current, position, total, mailbox, loading }`.
-- `speakable()` converte "2 x 1" → "2 a 1", "R$ 3 mi" → "3 milhões de reais", "OVR" → "overall", remove emojis.
-- A música de menu abaixa para 30% enquanto há voz.
-- UI: barra `.voice-bar` (ver `01-casca-do-app.md`).
-
-### Áudio
-- `music.ts`: trilha house 124 BPM sintetizada em tempo real (sem faixas licenciadas). Liga no primeiro gesto (pointer/tecla/toque) ou ao detectar controle; liga/desliga persistido em `localStorage`. Suspensa durante a partida.
-- `crowd.ts`: torcida sintetizada na partida (murmúrio, bumbo, "uuuh", gol, apito).
-- Sons de menu ("beep" 580 Hz de 35ms a cada navegação/ação): **desligados por padrão**, liga na Pausa (não persistido).
 
 ---
 
@@ -307,16 +286,14 @@ Aberto com ✕/A sobre campo de texto. Modal `.virtual-keyboard.dialog` (780px; 
 `<span class="control-hint">` com `<kbd class="pad-{action}">` **só quando a entrada é controle**; com mouse/teclado aparece apenas o texto. Cores dos `kbd`: confirm verde `#27b14a`, back vermelho `#e3283f`, secondary azul `#1f7cff`, info amarelo `#f1b400`; ombros/gatilhos/menu = retângulo branco 85% com texto azul (34px). Rótulos vêm do mapeamento ativo (✕ ○ □ △ L1 R1 L2 R2 Options ou A B X Y LB RB LT RT ☰).
 
 ### Vibração (`rumble(kind)`)
-Padrões `[duração ms, forte, fraco]`: `move` 42ms leve; `confirm` 70ms; `back` 55ms; `tab` 55ms; `error` 2×90ms; `whistle` 260ms; `moment` 2 pulsos; `goal` 3 pulsos (180/140/420ms, máximo); `concede` 380ms forte. Usa WebHID (DualSense) se conectado; senão `vibrationActuator.playEffect('dual-rumble')` ou `hapticActuators.pulse`. Liga/desliga persistido em `localStorage['mando-vibration']` (padrão ligado). Diagnóstico `haptics()` → `ok | unsupported | nopad`.
+Padrões `[duração ms, forte, fraco]`: `move` 42ms leve; `confirm` 70ms; `back` 55ms; `tab` 55ms; `error` 2×90ms; `whistle` 260ms; `goal` 3 pulsos (180/140/420ms, máximo); `concede` 380ms forte. Usa WebHID (DualSense) se conectado; senão `vibrationActuator.playEffect('dual-rumble')` ou `hapticActuators.pulse`. Liga/desliga persistido em `localStorage['mando-vibration']` (padrão ligado). Diagnóstico `haptics()` → `ok | unsupported | nopad`.
 
 ---
 
 ## 8. Avisos (toasts) e notificações
 - `.toast` (`success` verde / `error` vermelho): topo central (`top: 76px`), máx. 640px, entra com `toast-in`. **Fecha sozinho**: notice em **2,6s**, erro em **4s**. **Sem botão X** (decisão de design: no controle não faz sentido navegar até um X). Erros também vibram (`error`).
-- `.achievement-toast`: canto inferior direito, entra/sai sozinho em 4,2s, cor pelo tier (bronze `#e0904a`, prata `#d8e3f0`, ouro `#ffd400`), `pointer-events: none`.
 - `.busy-indicator`: "Processando…" com spinner no canto inferior direito durante operações assíncronas.
 - `.compatibility-note` / `.pwa-update`: barra inferior central com borda amarela (o PWA tem botões e **não** some sozinho).
-- `.voice-bar`: barra roxo→rosa no rodapé à direita enquanto um recado é lido.
 
 Detalhes de quando cada um aparece estão em `01-casca-do-app.md`.
 
@@ -350,16 +327,15 @@ O alvo principal é **tela grande 16:9 (TV/monitor) sem rolagem da página**: ca
 10. Respeito a `prefers-reduced-motion`.
 
 ## Problemas atuais e oportunidades
-- **CSS monolítico** (~6.300 linhas, regras sobrepostas): por exemplo `.player-card` é redefinido 3 vezes e a seção "Mundo vivo" usa estilos fora do padrão (raio 8px, cor `#b45309` pensada para fundo claro). Sugestão: tokens formais (espaçamento, raio, elevação, z-index) e componentes isolados.
+- **CSS monolítico** (~6.300 linhas, regras sobrepostas): por exemplo `.player-card` é redefinido 3 vezes. Sugestão: tokens formais (espaçamento, raio, elevação, z-index) e componentes isolados.
 - Raios inconsistentes (3/4/6/14/16/20px). O FIFA 14 usa cantos retos/levemente chanfrados; padronizar.
-- Não há escala de z-index documentada (50 modal, 60 overlays, 68 voz, 70 toast, 80 conquista) — formalizar.
+- Não há escala de z-index documentada para modais, overlays e avisos — formalizar.
 - Cores por setor (gk/def/mid/att) ficam ocultas pelo tier; dá para mostrar o setor numa faixa/ícone discreto.
 - `ManagerPortrait` sem avatar ainda mostra **iniciais** sobre o rosto — inconsistente com a regra "silhueta sem sigla" dos jogadores.
 - Dicas de controle somem com mouse/teclado (só texto). Poderia mostrar teclas (`Esc`, `[ ]`, `Q/E`) no modo teclado.
-- Foco com mouse não aparece; hover é só `brightness`. Um estado hover/foco unificado e mais "FIFA" (moldura branca + leve escala + som) deixaria o hub mais vivo.
+- Foco com mouse não aparece; hover é só `brightness`. Um estado hover/foco unificado e mais "FIFA" (moldura branca + leve escala) deixaria o hub mais vivo.
 - Faltam transições entre abas no estilo FIFA (deslizar na direção da aba escolhida); hoje sempre entra da direita.
 - Toasts no topo podem cobrir as abas; considerar posição fixa estilo "notificação do FIFA" no canto com barra de progresso do tempo restante.
-- Sons de menu desligados por padrão e não persistidos.
 
 ## Mapa do antigo styles.css
 
@@ -395,12 +371,10 @@ As outras docs citam linhas do antigo `src/styles.css`. O arquivo foi dividido e
 | 4554-4574 | `src/styles/components/brand.css` |
 | 4575-4886 | `src/styles/screens/transfers-negotiations.css` |
 | 4887-4946 | `src/styles/components/tactic-slider.css` |
-| 4947-5074 | `src/styles/screens/match-moments.css` |
 | 5075-5105 | `src/styles/components/active-states.css` |
 | 5106-5125 | `src/styles/components/edit-mode.css` |
 | 5126-5301 | `src/styles/screens/squad-shirts-positions.css` |
 | 5302-5345 | `src/styles/components/heatmap.css` |
-| 5346-5528 | `src/styles/components/voice-achievements.css` |
 | 5529-5751 | `src/styles/components/portrait-camera.css` |
 | 5752-5803 | `src/styles/screens/squad-mini-cards.css` |
 | 5804-5848 | `src/styles/screens/squad-player-list.css` |

@@ -19,7 +19,6 @@ const challengeDescriptions: Record<Career['challenge'], string> = {
   'Crise financeira': 'Dívida 60% maior e metade do caixa inicial.',
   'Só a base': 'Contrate apenas atletas até 23 anos. Três jovens devem começar cada partida.',
   'Venda necessária': 'Venda R$ 10 milhões em atletas antes de contratar.',
-  'Pressão máxima': 'Confiança inicial menor. Derrotas pesam duas vezes mais.',
   Reconstrução: 'Veteranos começam com menor condição física e orçamento 40% menor.',
 };
 const difficultyDescriptions: Record<Career['difficulty'], string> = {
@@ -177,7 +176,6 @@ export function CreateManager({
         <h1 className="screen-title">
           {['Quem assume o Mando?', 'Escolha o seu clube', 'Toda história tem um desafio'][step]}
         </h1>
-        {world.mode === 'demo' && <span className="demo-chip">DEMONSTRAÇÃO</span>}
       </div>
       {step === 0 && (
         <div className="creation-grid">

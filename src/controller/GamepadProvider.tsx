@@ -24,7 +24,7 @@ type Action = keyof typeof xboxMapping;
 type Input = 'mouse' | 'keyboard' | 'xbox' | 'playstation';
 type Actions = Partial<Record<Action, () => void>>;
 export type RumbleKind =
-  'move' | 'confirm' | 'back' | 'tab' | 'goal' | 'concede' | 'whistle' | 'moment' | 'error';
+  'move' | 'confirm' | 'back' | 'tab' | 'goal' | 'concede' | 'whistle' | 'error';
 const rumblePatterns: Record<RumbleKind, [number, number, number][]> = {
   move: [[42, 0.28, 0.55]],
   confirm: [[70, 0.55, 0.85]],
@@ -35,10 +35,6 @@ const rumblePatterns: Record<RumbleKind, [number, number, number][]> = {
     [90, 0.75, 0.2],
   ],
   whistle: [[260, 0.45, 0.6]],
-  moment: [
-    [70, 0.55, 0.3],
-    [110, 0.15, 0.6],
-  ],
   goal: [
     [180, 1, 1],
     [140, 0.4, 0.8],
@@ -64,8 +60,6 @@ type ControllerContext = {
   input: Input;
   connected: string | null;
   unsupported: boolean;
-  sound: boolean;
-  toggleSound: () => void;
   vibration: boolean;
   toggleVibration: () => void;
   rumble: (kind: RumbleKind) => void;
@@ -154,16 +148,12 @@ export function GamepadProvider({ children }: { children: ReactNode }) {
   const [input, setInput] = useState<Input>('mouse');
   const [connected, setConnected] = useState<string | null>(null);
   const [unsupported, setUnsupported] = useState(false);
-  const [sound, setSound] = useState(false);
   const [editing, setEditing] = useState<Editing | null>(null);
   const [caps, setCaps] = useState(false);
   const [specials, setSpecials] = useState(false);
   const actions = useRef<Actions>({});
-  const audio = useRef<AudioContext | null>(null);
   const editRef = useRef(editing);
   editRef.current = editing;
-  const soundRef = useRef(sound);
-  soundRef.current = sound;
   const [vibration, setVibration] = useState(
     () => localStorage.getItem('mando-vibration') !== 'off',
   );
@@ -209,18 +199,6 @@ export function GamepadProvider({ children }: { children: ReactNode }) {
       if (actions.current === value) actions.current = {};
     };
   }, []);
-  const beep = useCallback(() => {
-    if (!soundRef.current) return;
-    if (!audio.current || audio.current.state !== 'running') return;
-    const osc = audio.current.createOscillator();
-    const volume = audio.current.createGain();
-    osc.frequency.value = 580;
-    volume.gain.value = 0.025;
-    osc.connect(volume);
-    volume.connect(audio.current.destination);
-    osc.start();
-    osc.stop(audio.current.currentTime + 0.035);
-  }, []);
   const type = useCallback((text: string) => {
     setEditing((e) => {
       if (!e) return e;
@@ -265,11 +243,6 @@ export function GamepadProvider({ children }: { children: ReactNode }) {
     let held = new Set<number>();
     let activeIndex: number | null = null;
     let priorId: string | null = null;
-    function unlock() {
-      if (!soundRef.current) return;
-      audio.current ??= new AudioContext();
-      if (audio.current.state === 'suspended') void audio.current.resume();
-    }
     /** Botões do controle enquanto o teclado virtual está aberto. */
     const keyboardAction = (action: Action | 'r3') => {
       const edit = editRef.current;
@@ -285,7 +258,6 @@ export function GamepadProvider({ children }: { children: ReactNode }) {
         (document.activeElement as HTMLElement | null)?.click();
       } else return true;
       rumble(action === 'back' ? 'back' : 'confirm');
-      beep();
       return true;
     };
     const activate = (action: Action) => {
@@ -295,7 +267,6 @@ export function GamepadProvider({ children }: { children: ReactNode }) {
       if (stopRun && ['secondary', 'confirm', 'back', 'menu'].includes(action)) {
         stopRun.click();
         rumble('back');
-        beep();
         return;
       }
       const active = document.activeElement;
@@ -314,7 +285,6 @@ export function GamepadProvider({ children }: { children: ReactNode }) {
           active.dispatchEvent(new CustomEvent(TOGGLE_EVENT));
         else active.click();
         rumble(action === 'back' ? 'back' : 'confirm');
-        beep();
         return;
       }
       if (action === 'back') {
@@ -331,7 +301,6 @@ export function GamepadProvider({ children }: { children: ReactNode }) {
         if (screenBack) {
           screenBack.click();
           rumble('back');
-          beep();
           return;
         }
       }
@@ -339,7 +308,6 @@ export function GamepadProvider({ children }: { children: ReactNode }) {
         if (actions.current[action]) actions.current[action]!();
         else cycleView(action === 'nextView' ? 1 : -1);
         rumble('tab');
-        beep();
         return;
       }
       if (action === 'confirm') {
@@ -355,7 +323,6 @@ export function GamepadProvider({ children }: { children: ReactNode }) {
         actions.current[action]?.();
         rumble(action === 'back' ? 'back' : 'tab');
       }
-      beep();
     };
     const move = (dx: number, dy: number) => {
       const el = document.activeElement;
@@ -374,7 +341,6 @@ export function GamepadProvider({ children }: { children: ReactNode }) {
         el.dispatchEvent(new Event('change', { bubbles: true }));
       } else focus.move(dx, dy);
       if (padIndex.current !== null) rumble('move');
-      beep();
     };
     /** Analógico direito: vertical rola a tela; horizontal é entregue à tela ou rola carrosséis. */
     const rightStick = (pad: Gamepad, now: number) => {
@@ -397,7 +363,6 @@ export function GamepadProvider({ children }: { children: ReactNode }) {
           target?.scrollBy({ left: dir * target.clientWidth * 0.6, behavior: 'smooth' });
         }
         rumble('tab');
-        beep();
       } else if (Math.abs(sx) < 0.3) lastStickX = 0;
     };
     const tick = (now: number) => {
@@ -452,7 +417,6 @@ export function GamepadProvider({ children }: { children: ReactNode }) {
       frame = requestAnimationFrame(tick);
     };
     const keydown = (e: KeyboardEvent) => {
-      unlock();
       setInput('keyboard');
       if (editRef.current) {
         // Teclado físico também funciona com o teclado virtual aberto.
@@ -508,7 +472,6 @@ export function GamepadProvider({ children }: { children: ReactNode }) {
     };
     const pointer = () => {
       setInput('mouse');
-      unlock();
     };
     const observer = new MutationObserver(() => {
       if (
@@ -530,7 +493,7 @@ export function GamepadProvider({ children }: { children: ReactNode }) {
       window.removeEventListener('pointermove', pointer);
       window.removeEventListener('pointerdown', pointer);
     };
-  }, [applyEdit, beep, erase, openKeyboard, rumble, type]);
+  }, [applyEdit, erase, openKeyboard, rumble, type]);
   useEffect(() => {
     if (editing) requestAnimationFrame(() => focus.ensure());
   }, [editing, specials]);
@@ -544,8 +507,6 @@ export function GamepadProvider({ children }: { children: ReactNode }) {
         input,
         connected,
         unsupported,
-        sound,
-        toggleSound: () => setSound((s) => !s),
         vibration,
         toggleVibration: () =>
           setVibration((v) => {

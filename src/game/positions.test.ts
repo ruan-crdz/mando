@@ -11,7 +11,6 @@ import {
   setMainPosition,
   setTraining,
 } from './positions';
-import { achievements, unlockAchievements } from './achievements';
 import { type Manager } from './types';
 
 const world = createDemoWorld();
@@ -66,18 +65,5 @@ describe('posições e familiaridade', () => {
     const live = careerWorld(world, career).players.find((x) => x.id === p.id)!;
     expect(live.position).toBe('CB');
     expect(live.secondary).toContain('ST');
-  });
-});
-
-describe('conquistas', () => {
-  it('desbloqueia uma única vez e registra a data', () => {
-    const c = start();
-    const first = unlockAchievements(c);
-    expect(first.unlocked.map((a) => a.id)).toContain('contrato');
-    expect(first.career.achievements.contrato).toBe(c.date);
-    const again = unlockAchievements(first.career);
-    expect(again.unlocked).toHaveLength(0);
-    expect(again.career).toBe(first.career);
-    expect(new Set(achievements.map((a) => a.id)).size).toBe(achievements.length);
   });
 });

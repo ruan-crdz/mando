@@ -6,7 +6,7 @@ Primeira tela do jogo (`screen === 'menu'`). Apresenta a marca e o slogan e ofer
 ## Como se chega / como se sai
 **Entrada**
 - Ao abrir o jogo (estado inicial de `screen`).
-- Pela Pausa da carreira › "Salvar e sair para o menu" (`menu()`: espera a fila de save, salva, recarrega a lista `listLocal()`, para a voz, fecha popups e o detalhe de jogador).
+- Pela Pausa da carreira › "Salvar e sair para o menu" (`menu()`: espera a fila de save, salva, recarrega a lista `listLocal()`, fecha popups e o detalhe de jogador).
 
 **Saída**
 - Tile "CONTINUAR CARREIRA" ou um tile "CARREGAR" → `continueCareer(record)`: valida (`validateCareerForWorld`), carrega `career` e `world`, `screen='career'`, aba 0 (CENTRAL).
@@ -108,9 +108,7 @@ Ao focar um tile com controle/teclado: escala 1.025, contorno branco 4px e halo 
 - **O save mais recente não pode ser excluído** (só os "outros" têm lixeira) — inconsistente. Oferecer excluir para todos (ex.: botão △/Y "Excluir" no item focado, com dica no footer).
 - A lixeira é um alvo pequeno separado do tile; no controle exige navegar ↑ até ela. Melhor: ação de botão (△ ou □) sobre o tile focado, com dica no rodapé.
 - **Logo duplicado** (header + menu-logo) e título enorme ocupam metade da tela; no FIFA 14 o menu inicial é dominado pelos tiles.
-- Slots de save não mostram retrato, temporada, divisão, posição na tabela, modo (oficial/demo), dificuldade/desafio ou "salvo há X" — dados existem em `career`/`savedAt`.
-- Nenhuma indicação de save demo vs. oficial.
-- Faltam tiles secundários típicos de menu FIFA (Configurações/Áudio/Controle, Conquistas, Créditos/Como jogar); hoje essas opções só existem dentro da Pausa da carreira.
+- Slots de save não mostram temporada, divisão, posição na tabela, dificuldade/desafio ou "salvo há X" — dados existem em `career`/`savedAt`.
 - Footer mostra só "Selecionar/Voltar"; "Voltar" não faz nada no menu.
 - Sem estado "carregando saves"; a tela pode piscar de 1 para 2+ tiles.
 - Sem indicação de backup em nuvem (sessão anônima existe, mas o jogador não sabe se está salvo na nuvem).

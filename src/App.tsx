@@ -1,27 +1,19 @@
-import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowLeft,
   ArrowRight,
-  Award,
   CalendarDays,
   CheckCircle2,
   Gamepad2,
   HeartPulse,
   LoaderCircle,
   CalendarClock,
-  Lock,
   MapPin,
-  Music,
-  Radio,
   ShieldAlert,
-  SkipForward,
   Smartphone,
-  Square,
   Trophy,
   Vibrate,
   VibrateOff,
-  Volume2,
-  VolumeX,
   WifiOff,
   X,
 } from 'lucide-react';
@@ -40,7 +32,6 @@ import { Office } from './screens/Office';
 import { Season } from './screens/Season';
 import { PRIMARY_TABS, TAB } from './navigation';
 import { MatchScreen } from './screens/Match';
-import { createDemoWorld } from './game/world';
 import { loadWorld2026 } from './game/realWorld';
 import {
   advanceDay,
@@ -56,23 +47,15 @@ import {
   fireScout,
   reassignScout,
   signProspect,
-  reviewAcademyCandidate,
   playerConversation,
   setDevelopmentPlan,
   setReleaseClause,
   setPlayerRole,
   blocks,
 } from './game/engine';
-import { available, bestLineup, beginMatch, resolveMoment, substitute } from './game/matches';
+import { available, bestLineup, beginMatch, substitute } from './game/matches';
 import { careerWorld } from './game/live';
 import { fixtureLabel, nextFixture } from './game/calendar';
-import { internationalCountry } from './game/international';
-import {
-  finishNationalMatch,
-  mergeNationalMatch,
-  nationalMatchCareer,
-  nextNationalFixture,
-} from './game/national';
 import { clubById } from './game/npc';
 import {
   answerIncoming,
@@ -92,27 +75,11 @@ import { type Career, type Player, type World } from './game/types';
 import { listLocal, removeLocal, saveLocal, type SavedCareer } from './services/storage';
 import { ensureSession, requestPortrait, saveCloud, supabase } from './services/supabase';
 import { registerSW } from 'virtual:pwa-register';
-import {
-  musicEnabled,
-  setMusicSuspended,
-  startMusic,
-  subscribeMusic,
-  toggleMusic,
-} from './audio/music';
-import { startCrowd, stopCrowd } from './audio/crowd';
-import { applyPress, buildPress, buildPreMatchPress, type PressSession } from './game/press';
-import { upgradeAnalyst } from './game/living';
-import { hireStaff, staffLevel, staffName, staffTitles } from './game/staff';
-import { assignMentor, endMentorship } from './game/dressing';
-import { chooseSponsor, setPrices, startWork } from './game/economy';
-import { MatchOdds } from './components/LivingPanels';
 import { AdvanceOverlay } from './components/CareerCalendar';
-import { playVoice, skipVoice, stopVoice, useVoice } from './components/voice';
-import { achievements, unlockAchievements, type Achievement } from './game/achievements';
 
-type OfficeSeasonView = 'table' | 'calendar' | 'stats' | 'legacy' | 'national';
+type OfficeSeasonView = 'table' | 'calendar' | 'stats' | 'legacy';
 type Popup =
-  'world' | 'contract' | 'tutorial' | 'pause' | 'prematch' | 'achievements' | 'prefs' | null;
+  'world' | 'contract' | 'tutorial' | 'pause' | 'prematch' | 'prefs' | null;
 const onboardingTour = [
   {
     title: 'Central',
@@ -141,7 +108,6 @@ const contractChallengeObjectives: Record<Career['challenge'], string> = {
   'Crise financeira': 'Conduzir o clube com atenção redobrada às contas.',
   'Só a base': 'Dar protagonismo aos atletas de até 23 anos.',
   'Venda necessária': 'Concluir R$ 10 milhões em vendas antes de contratar.',
-  'Pressão máxima': 'Manter o desempenho sob uma cobrança mais intensa.',
   Reconstrução: 'Renovar o elenco e controlar o orçamento disponível.',
 };
 type AdvanceMode = Career['prefs']['advance'];
@@ -164,11 +130,9 @@ const advanceModes: { id: AdvanceMode; title: string; text: string }[] = [
 ];
 const stopNotes: Record<string, string> = {
   match: 'Dia de jogo! O avanço parou.',
-  national: 'A Seleção joga hoje. Abra a convocação e prepare a partida.',
   decision: 'Uma decisão espera por você no escritório.',
   message: 'Nova mensagem em Notificações.',
   season: 'Temporada encerrada.',
-  sacked: 'Você foi demitido. Escolha um novo clube na Diretoria.',
 };
 
 function Game() {
@@ -181,28 +145,11 @@ function Game() {
     () => (world && career ? careerWorld(world, career) : world),
     [world, career],
   );
-  const playingNational = Boolean(career?.national?.activeMatch);
-  const inMatch = Boolean(career?.activeMatch || playingNational);
-  const nationalCareer = useMemo(
-    () => (career && playingNational ? nationalMatchCareer(career) : null),
-    [career, playingNational],
-  );
+  const inMatch = Boolean(career?.activeMatch);
   const matchdayFixture = career ? nextFixture(career) : null;
   const matchdayHome = matchdayFixture && live ? clubById(live, matchdayFixture.homeId) : null;
   const matchdayAway = matchdayFixture && live ? clubById(live, matchdayFixture.awayId) : null;
   const matchdayLabel = matchdayFixture ? fixtureLabel(matchdayFixture) : null;
-  const matchdayLineupComplete = Boolean(
-    career &&
-    live &&
-    career.lineup.length === 11 &&
-    new Set(career.lineup).size === 11 &&
-    live.players.some((player) => player.id === career.lineup[0] && player.position === 'GK') &&
-    career.lineup.every((id) => {
-      const state = career.players[id];
-      if (!state || state.clubId !== career.clubId) return false;
-      return Boolean(available(career, id));
-    }),
-  );
   const matchdayUnavailable =
     career && live
       ? live.players.filter((player) => {
@@ -223,9 +170,6 @@ function Game() {
   const [advanceStartedAt, setAdvanceStartedAt] = useState<string | null>(null);
   const prefsFromPause = useRef(false);
   const [hapticNote, setHapticNote] = useState('');
-  const [press, setPress] = useState<PressSession | null>(null);
-  const [pressStep, setPressStep] = useState(0);
-  const [pressAnswers, setPressAnswers] = useState<Record<string, number>>({});
   const [detail, setDetail] = useState<Player | null>(null);
   const [deleting, setDeleting] = useState<SavedCareer | null>(null);
   const [error, setError] = useState('');
@@ -242,46 +186,6 @@ function Game() {
   const lastSaved = useRef<Career | null>(null);
   const lock = useRef(false);
   const { rumble } = controller;
-  const music = useSyncExternalStore(subscribeMusic, musicEnabled, musicEnabled);
-  const voice = useVoice();
-  const [unlocked, setUnlocked] = useState<Achievement[]>([]);
-  useEffect(() => {
-    if (controller.input === 'xbox' || controller.input === 'playstation') startMusic();
-  }, [controller.input]);
-  // Em jogo: a trilha some e entra o som do estádio.
-  const matchOn = screen === 'career' && inMatch;
-  useEffect(() => {
-    if (!matchOn) return;
-    setMusicSuspended(true);
-    if (music) startCrowd();
-    return () => {
-      stopCrowd();
-      setMusicSuspended(false);
-    };
-  }, [matchOn, music]);
-  useEffect(() => {
-    if (!career) return;
-    const result = unlockAchievements(career);
-    if (!result.unlocked.length) return;
-    setCareer(result.career);
-    setUnlocked((list) => [...list, ...result.unlocked]);
-    rumble('goal');
-  }, [career, rumble]);
-  useEffect(() => {
-    if (!unlocked.length) return;
-    const timer = window.setTimeout(() => setUnlocked((list) => list.slice(1)), 4200);
-    return () => window.clearTimeout(timer);
-  }, [unlocked]);
-  // Recado ouvido na caixa postal conta como lido, mesmo fora do Escritório.
-  const heard = voice.current?.id;
-  useEffect(() => {
-    if (!heard) return;
-    setCareer((c) =>
-      c && c.messages.some((m) => m.id === heard && !m.read)
-        ? { ...c, messages: c.messages.map((m) => (m.id === heard ? { ...m, read: true } : m)) }
-        : c,
-    );
-  }, [heard]);
   const fail = useCallback(
     (message: string) => {
       setError(message);
@@ -447,7 +351,6 @@ function Game() {
         await queue.current;
         if (career && world) await saveLocal(career, world, revisions.current.get(career.id) || 0);
         setSaves(await listLocal());
-        stopVoice();
         setScreen('menu');
         setPopup(null);
         setDetail(null);
@@ -488,22 +391,6 @@ function Game() {
   const advance = useCallback(() => {
     if (!career || !live || running || busy || inMatch) return;
     const mode = career.prefs?.advance || 'day';
-    if (career.sacked) {
-      setOfficeSeasonView(null);
-      return setTab(TAB.OFFICE);
-    }
-    const nationalFixture = nextNationalFixture(career);
-    if (
-      mode !== 'auto' &&
-      !career.messages.some((message) => blocks(career, message)) &&
-      nationalFixture &&
-      nationalFixture.date <= career.date
-    ) {
-      setOfficeSeasonView('national');
-      setTab(TAB.OFFICE);
-      setNotice(stopNotes.national);
-      return;
-    }
     if (mode === 'day') return act(() => setCareer(advanceDay(career, live)));
     setPlayed(0);
     setAdvanceStartedAt(career.date);
@@ -527,20 +414,9 @@ function Game() {
           setNotice(stopNotes[result.stop]);
           rumble('whistle');
           if (result.stop === 'match') setPopup('prematch');
-          else if (result.stop === 'national') {
-            setOfficeSeasonView('national');
-            setTab(TAB.OFFICE);
-          } else if (
-            result.stop === 'decision' ||
-            result.stop === 'message' ||
-            result.stop === 'sacked'
-          ) {
+          else if (result.stop === 'decision' || result.stop === 'message') {
             setOfficeSeasonView(null);
-            setTab(
-              result.stop === 'sacked' || result.stop === 'decision'
-                ? TAB.OFFICE
-                : TAB.NOTIFICATIONS,
-            );
+            setTab(TAB.NOTIFICATIONS);
           }
         }
       } catch (e) {
@@ -668,7 +544,7 @@ function Game() {
       <main
         key={`${screen}-${screen === 'career' ? (inMatch ? 'match' : tab) : ''}`}
         className="stage"
-        inert={popup || press || deleting || busy || running ? true : undefined}
+        inert={popup || deleting || busy || running ? true : undefined}
       >
         {screen === 'menu' && (
           <MainMenu
@@ -701,59 +577,25 @@ function Game() {
           world &&
           (inMatch ? (
             <MatchScreen
-              career={nationalCareer || career}
+              career={career}
               world={live!}
-              onChange={
-                nationalCareer
-                  ? (updated) =>
-                      setCareer((current) =>
-                        current ? mergeNationalMatch(current, updated) : current,
-                      )
-                  : setCareer
-              }
+              onChange={setCareer}
               onError={fail}
               paused={Boolean(popup) || busy}
               onFinish={() =>
                 act(() => {
-                  if (nationalCareer) {
-                    setCareer(finishNationalMatch(career, live!));
-                    setOfficeSeasonView('national');
-                    setTab(TAB.OFFICE);
-                    return;
-                  }
-                  let session: PressSession | null;
-                  try {
-                    session = buildPress(career, live!);
-                  } catch {
-                    session = null;
-                  }
                   setCareer(finishMatch(career, live!));
                   setTab(TAB.CENTRAL);
-                  if (session) {
-                    setPress(session);
-                    setPressStep(0);
-                    setPressAnswers({});
-                  }
                 })
               }
               onSubstitute={(outId, inId) =>
                 act(() => {
-                  const updated = substitute(nationalCareer || career, live!, outId, inId);
-                  setCareer(nationalCareer ? mergeNationalMatch(career, updated) : updated);
-                })
-              }
-              onMoment={(id, action) =>
-                act(() => {
-                  const updated = resolveMoment(nationalCareer || career, live!, id, action);
-                  setCareer(nationalCareer ? mergeNationalMatch(career, updated) : updated);
+                  setCareer(substitute(career, live!, outId, inId));
                 })
               }
             />
           ) : (
             <>
-              {career.mode === 'demo' && (
-                <p className="demo-strip">DEMONSTRAÇÃO · Atletas e finanças sintéticos</p>
-              )}
               {tab === TAB.CENTRAL && (
                 <CareerCentral
                   career={career}
@@ -809,18 +651,6 @@ function Game() {
                     })
                   }
                   onDevelopment={(id, plan) => setCareer(setDevelopmentPlan(career, id, plan))}
-                  onMentor={(mentorId, pupilId) =>
-                    act(() => {
-                      setCareer(assignMentor(career, live!, mentorId, pupilId));
-                      setNotice('Dupla de mentoria formada.');
-                    })
-                  }
-                  onEndMentor={(pupilId) =>
-                    act(() => {
-                      setCareer(endMentorship(career, pupilId));
-                      setNotice('Mentoria encerrada. A vaga está livre.');
-                    })
-                  }
                   onRole={(id, role) => setCareer(setPlayerRole(career, id, role))}
                   onSetClause={(id, amount) =>
                     act(() => {
@@ -947,7 +777,6 @@ function Game() {
                   busy={busy}
                   aiAvailable={Boolean(supabase) && !offline}
                   onOpenSeason={(view) => setOfficeSeasonView(view)}
-                  onOpenAcademy={() => setTab(TAB.ACADEMY)}
                   onConversation={(id, choice) =>
                     act(() => {
                       setCareer(playerConversation(career, id, choice));
@@ -997,65 +826,10 @@ function Game() {
                       setNotice('Jovem talento integrado às categorias de base.');
                     })
                   }
-                  onReviewAcademy={(id, decision) =>
-                    act(() => {
-                      setCareer(reviewAcademyCandidate(career, id, decision));
-                      setNotice(
-                        decision === 'promote'
-                          ? 'Candidato integrado ao elenco profissional.'
-                          : 'Candidato dispensado da peneira.',
-                      );
-                    })
-                  }
                   onAcceptJob={(id) =>
                     act(() => {
                       setCareer(acceptJobOffer(career, live!, id));
                       setNotice('Novo clube aceito. A carreira continua em um novo desafio.');
-                    })
-                  }
-                  onLiving={(patch) =>
-                    setCareer({ ...career, living: { ...career.living, ...patch } })
-                  }
-                  onUpgradeAnalyst={() =>
-                    act(() => {
-                      setCareer(upgradeAnalyst(career));
-                      setNotice('Novo analista de desempenho contratado.');
-                    })
-                  }
-                  onHireStaff={(role, level) =>
-                    act(() => {
-                      const up = level > staffLevel(career, role);
-                      const updated = hireStaff(career, role, level);
-                      setCareer(updated);
-                      setNotice(
-                        `${staffTitles[role]}: ${staffName(updated, role)} (nível ${level}) ${up ? 'contratado' : 'assumiu o cargo; a folha ficou mais leve'}.`,
-                      );
-                    })
-                  }
-                  onMentor={(mentorId, pupilId) =>
-                    act(() => {
-                      setCareer(assignMentor(career, live!, mentorId, pupilId));
-                      setNotice('Dupla de mentoria formada.');
-                    })
-                  }
-                  onEndMentor={(pupilId) =>
-                    act(() => {
-                      setCareer(endMentorship(career, pupilId));
-                      setNotice('Mentoria encerrada. A vaga está livre.');
-                    })
-                  }
-                  onPrices={(patch) => act(() => setCareer(setPrices(career, live!, patch)))}
-                  onSponsor={(index) =>
-                    act(() => {
-                      const offer = career.living.economy?.offers[index];
-                      setCareer(chooseSponsor(career, live!, index));
-                      setNotice(`Contrato assinado com ${offer?.name || 'o novo patrocinador'}.`);
-                    })
-                  }
-                  onWork={(kind) =>
-                    act(() => {
-                      setCareer(startWork(career, live!, kind));
-                      setNotice('Obra iniciada. Acompanhe o prazo em Finanças → Instalações.');
                     })
                   }
                   onDeclineJob={(id) =>
@@ -1078,8 +852,6 @@ function Game() {
                   key={officeSeasonView}
                   career={career}
                   world={live!}
-                  onChange={setCareer}
-                  onError={fail}
                   initialView={officeSeasonView}
                   officeMode
                   onBack={() => setOfficeSeasonView(null)}
@@ -1123,35 +895,6 @@ function Game() {
           <span>{error || notice}</span>
         </div>
       )}
-      {voice.current && (
-        <div className="voice-bar" role="status">
-          <Radio size={18} className="pulse" />
-          <span>
-            <small>
-              {voice.mailbox ? `Caixa postal · ${voice.position}/${voice.total}` : 'Recado'}
-            </small>
-            <b>{voice.current.title}</b>
-          </span>
-          {voice.total > 1 && (
-            <button aria-label="Pular recado" onClick={skipVoice}>
-              <SkipForward size={16} />
-            </button>
-          )}
-          <button aria-label="Parar caixa postal" onClick={stopVoice}>
-            <Square size={14} /> Parar
-          </button>
-        </div>
-      )}
-      {unlocked[0] && (
-        <div className={`achievement-toast tier-${unlocked[0].tier}`} role="status">
-          <Award size={30} />
-          <span>
-            <small>Conquista desbloqueada</small>
-            <b>{unlocked[0].title}</b>
-            <em>{unlocked[0].description}</em>
-          </span>
-        </div>
-      )}
       {busy && (
         <div className="busy-indicator" role="status">
           <LoaderCircle className="spin" size={17} /> Processando…
@@ -1185,24 +928,6 @@ function Game() {
                     JOGAR <ArrowRight size={18} />
                   </>
                 )}
-              </span>
-            </button>
-            <button
-              className="world-option demo"
-              onClick={() =>
-                act(() => {
-                  setWorld(createDemoWorld());
-                  setCareer(null);
-                  setScreen('create');
-                  setPopup(null);
-                })
-              }
-            >
-              <Gamepad2 size={44} />
-              <h2>Experimentar a demonstração</h2>
-              <p>40 clubes e atletas fictícios para testar o jogo.</p>
-              <span>
-                JOGAR <ArrowRight size={18} />
               </span>
             </button>
           </div>
@@ -1390,19 +1115,6 @@ function Game() {
               </button>
             )}
             {hapticNote && <p className="muted small haptic-note">{hapticNote}</p>}
-            <button onClick={controller.toggleSound}>
-              {controller.sound ? <Volume2 size={18} /> : <VolumeX size={18} />}
-              Sons do menu: {controller.sound ? 'Ligados' : 'Desligados'}
-            </button>
-            <button onClick={toggleMusic}>
-              {music ? <Music size={18} /> : <VolumeX size={18} />}
-              Música: {music ? 'Ligada' : 'Desligada'}
-            </button>
-            {voice.current && (
-              <button onClick={stopVoice}>
-                <Square size={16} /> Parar caixa postal
-              </button>
-            )}
             {!inMatch && (
               <button
                 onClick={() => {
@@ -1414,10 +1126,6 @@ function Game() {
                 {advanceModes.find((m) => m.id === (career.prefs?.advance || 'day'))?.title}
               </button>
             )}
-            <button onClick={() => setPopup('achievements')}>
-              <Award size={18} /> Conquistas ({Object.keys(career.achievements || {}).length}/
-              {achievements.length})
-            </button>
             {installPrompt && (
               <button
                 onClick={() =>
@@ -1433,40 +1141,6 @@ function Game() {
             <button onClick={menu}>Salvar e sair para o menu</button>
           </div>
         </Modal>
-      )}
-      {press && career && live && (
-        <PressConference
-          session={press}
-          world={live}
-          step={pressStep}
-          answers={pressAnswers}
-          onAnswer={(questionId, index) => {
-            rumble('confirm');
-            const answers = { ...pressAnswers, [questionId]: index };
-            setPressAnswers(answers);
-            if (pressStep + 1 < press.questions.length) setPressStep(pressStep + 1);
-            else {
-              stopVoice();
-              act(() => setCareer(applyPress(career, live, press, answers)));
-              setPress(null);
-              if (press.mode === 'pre') setPopup('prematch');
-              else setNotice('Coletiva encerrada. A repercussão está no Escritório.');
-            }
-          }}
-          onSkip={() => {
-            stopVoice();
-            const answered = Object.keys(pressAnswers).length > 0;
-            if (answered) act(() => setCareer(applyPress(career, live, press, pressAnswers)));
-            setPress(null);
-            if (press.mode === 'pre') setPopup('prematch');
-            else
-              setNotice(
-                answered
-                  ? 'Coletiva encerrada. A repercussão está no Escritório.'
-                  : 'Coletiva encerrada sem respostas.',
-              );
-          }}
-        />
       )}
       {popup === 'prefs' && career && (
         <Modal
@@ -1511,50 +1185,6 @@ function Game() {
           played={played}
           onStop={stopRunning}
         />
-      )}
-      {popup === 'achievements' && career && (
-        <Modal
-          title="Conquistas"
-          onClose={() => setPopup('pause')}
-          className="hub-modal achievements-modal"
-          wide
-        >
-          <div className="achievement-summary">
-            <Award size={32} />
-            <div>
-              <p className="eyebrow">SEU LEGADO NO FUTEBOL</p>
-              <strong>
-                {Object.keys(career.achievements).length} / {achievements.length} conquistas
-              </strong>
-            </div>
-            <meter
-              aria-label="Conquistas desbloqueadas"
-              min={0}
-              max={achievements.length}
-              value={Object.keys(career.achievements).length}
-            />
-          </div>
-          <div className="achievement-grid">
-            {achievements.map((a) => {
-              const date = career.achievements?.[a.id];
-              return (
-                <button
-                  key={a.id}
-                  className={`achievement-card tier-${a.tier}${date ? ' unlocked' : ''}`}
-                  aria-label={`${a.title}: ${a.description}. ${date ? `Desbloqueada em ${dateLabel(date)}` : 'Bloqueada'}`}
-                >
-                  {date ? <Award size={30} /> : <Lock size={26} />}
-                  <span className="achievement-tier">
-                    {{ bronze: 'BRONZE', silver: 'PRATA', gold: 'OURO' }[a.tier]}
-                  </span>
-                  <b>{a.title}</b>
-                  <span>{a.description}</span>
-                  <small>{date ? dateLabel(date) : 'Bloqueada'}</small>
-                </button>
-              );
-            })}
-          </div>
-        </Modal>
       )}
       {popup === 'prematch' && career && world && (
         <Modal title="Dia de jogo" onClose={() => setPopup(null)} className="prematch-modal" wide>
@@ -1628,9 +1258,7 @@ function Game() {
                                 ? `Lesão · ${state.injuryDays} dia${state.injuryDays === 1 ? '' : 's'}`
                                 : state.suspension
                                   ? `Suspensão · ${state.suspension} jogo${state.suspension === 1 ? '' : 's'}`
-                                  : internationalCountry(career, player.id)
-                                    ? `Convocado · ${internationalCountry(career, player.id)}`
-                                    : 'Condição insuficiente'}
+                                  : 'Condição insuficiente'}
                             </small>
                           </span>
                         </li>
@@ -1650,30 +1278,7 @@ function Game() {
               </section>
             </div>
           </div>
-          <div className="matchday-forecast">
-            {matchdayFixture && matchdayLineupComplete && (
-              <MatchOdds career={career} world={live!} fixture={matchdayFixture} />
-            )}
-            {!matchdayLineupComplete && (
-              <p className="matchday-lineup-warning">
-                A previsão depende de uma escalação completa. Revise o Time para liberar as
-                probabilidades.
-              </p>
-            )}
-          </div>
           <div className="button-row matchday-actions">
-            <button
-              onClick={() => {
-                const session = buildPreMatchPress(career, live!);
-                if (!session) return fail('Não foi possível iniciar a coletiva pré-jogo.');
-                setPress(session);
-                setPressStep(0);
-                setPressAnswers({});
-                setPopup(null);
-              }}
-            >
-              Coletiva pré-jogo
-            </button>
             <button
               onClick={() => {
                 setPopup(null);
@@ -1757,121 +1362,5 @@ export default function App() {
     <GamepadProvider>
       <Game />
     </GamepadProvider>
-  );
-}
-
-function PressConference({
-  session,
-  world,
-  step,
-  answers,
-  onAnswer,
-  onSkip,
-}: {
-  session: PressSession;
-  world: World;
-  step: number;
-  answers: Record<string, number>;
-  onAnswer: (questionId: string, index: number) => void;
-  onSkip: () => void;
-}) {
-  const q = session.questions[step];
-  const firstAnswer = useRef<HTMLButtonElement>(null);
-  const player = q.playerId ? world.players.find((item) => item.id === q.playerId) : undefined;
-  const initials = q.reporter
-    .split(/\s+/)
-    .slice(0, 2)
-    .map((part) => part[0])
-    .join('')
-    .toUpperCase();
-  const readQuestion = useCallback(
-    () =>
-      playVoice([
-        {
-          id: `press-${session.fixtureId}-${q.id}`,
-          title: q.reporter,
-          text: q.text,
-          voice: 'reporter',
-        },
-      ]),
-    [session.fixtureId, q],
-  );
-  useEffect(() => {
-    firstAnswer.current?.focus();
-    readQuestion();
-  }, [readQuestion]);
-  return (
-    <Modal title="Sala de imprensa" onClose={onSkip} className="press-modal" wide>
-      <div className="press-room">
-        <p className="eyebrow">{session.headline}</p>
-        <div
-          className="press-progress"
-          role="group"
-          aria-label={`Pergunta ${step + 1} de ${session.questions.length}`}
-        >
-          {session.questions.map((item, i) => (
-            <i
-              key={item.id}
-              className={i < step ? 'done' : i === step ? 'active' : ''}
-              aria-current={i === step ? 'step' : undefined}
-            />
-          ))}
-          <strong>
-            Pergunta {step + 1} <span>de {session.questions.length}</span>
-          </strong>
-        </div>
-        <div className="press-stage">
-          <div className="press-question">
-            <span className="press-reporter-mark" aria-hidden="true">
-              {initials}
-            </span>
-            <div className="press-question-copy">
-              <strong>{q.reporter}</strong>
-              <small>{q.outlet}</small>
-              <p>{q.text}</p>
-              <button type="button" className="press-replay" onClick={readQuestion}>
-                <Volume2 size={15} /> Ouvir pergunta
-              </button>
-            </div>
-          </div>
-          {player && (
-            <aside className="press-athlete-card" aria-label={`Atleta citado: ${player.name}`}>
-              <PlayerFace player={player} size="md" />
-              <span>
-                <small>ATLETA EM FOCO</small>
-                <strong>{player.name}</strong>
-                <em>{player.position}</em>
-              </span>
-            </aside>
-          )}
-        </div>
-        <div className="press-answers">
-          {q.answers.map((a, i) => (
-            <button
-              key={`${q.id}-${i}`}
-              className={`press-answer${answers[q.id] === i ? ' active' : ''}`}
-              data-autofocus={i === 0 || undefined}
-              ref={i === 0 ? firstAnswer : undefined}
-              onClick={() => onAnswer(q.id, i)}
-            >
-              <b>{a.tone}</b>
-              <span>{a.text}</span>
-            </button>
-          ))}
-        </div>
-        <div className="press-footer">
-          <p className="muted small">
-            Suas respostas influenciam a diretoria, o elenco e a repercussão na imprensa.
-          </p>
-          <div className="press-controller-hints">
-            <ControllerButtonHint action="confirm" label="Responder" />
-            <ControllerButtonHint action="back" label="Pular" />
-          </div>
-          <button type="button" className="press-skip" onClick={onSkip}>
-            <SkipForward size={15} /> Pular coletiva
-          </button>
-        </div>
-      </div>
-    </Modal>
   );
 }

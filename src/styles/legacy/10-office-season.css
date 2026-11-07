@@ -128,20 +128,6 @@
   color: var(--mando-text-secondary);
 }
 
-.office-screen .mailbox-button,
-.office-screen .voice-button {
-  background: var(--os-raised);
-  border: 1px solid var(--mando-border);
-  color: var(--mando-text);
-  box-shadow: none;
-}
-
-.office-screen .mailbox-button.speaking,
-.office-screen .voice-button.speaking {
-  border-color: var(--mando-coral);
-  background: rgba(255, 149, 110, 0.13);
-}
-
 .office-screen .memory-list {
   border: 1px solid var(--mando-border);
   border-radius: 3px;
@@ -238,11 +224,6 @@
 .office-screen .staff-layout {
   min-height: 0;
   gap: 8px;
-}
-
-.office-screen .confidence-panel {
-  background: var(--os-slate);
-  border-top-color: var(--mando-cyan);
 }
 
 .office-screen .huge-number {
@@ -403,337 +384,6 @@
 
 .office-screen .scout-destinations > div.assigned strong {
   color: var(--mando-cyan);
-}
-
-/* Clube vivo: indicadores no topo, sub-abas e explicações com os números da engine. */
-.office-screen .club-living {
-  display: flex;
-  min-height: 0;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.office-screen .club-kpis {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 6px;
-}
-
-.office-screen .club-kpi {
-  display: grid;
-  justify-content: stretch;
-  justify-items: start;
-  gap: 2px;
-  padding: 10px 12px;
-  border: 1px solid var(--mando-border);
-  border-left: 3px solid var(--mando-cyan);
-  border-radius: var(--mando-radius-panel);
-  background: var(--os-slate);
-  color: var(--mando-text);
-  text-align: left;
-}
-
-.office-screen .club-kpi span {
-  color: var(--mando-text-muted);
-  font: 700 10px var(--display);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.office-screen .club-kpi strong {
-  font: 700 clamp(18px, 1.8vw, 24px) var(--display);
-}
-
-.office-screen .club-kpi small {
-  color: var(--mando-text-secondary);
-}
-
-.office-screen .club-tabs > button {
-  min-height: 32px;
-}
-
-.office-screen .club-grid {
-  display: grid;
-  min-height: 0;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
-}
-
-.office-screen .club-living .panel {
-  border-top-color: var(--mando-violet);
-}
-
-.office-screen .club-living h3 {
-  margin: 14px 0 4px;
-}
-
-/* Fase 2: comissão técnica, hierarquia do vestiário e mentoria. */
-.office-screen .club-living > .club-grid {
-  overflow-y: auto;
-}
-
-.office-screen .staff-grid {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  align-content: start;
-}
-
-.office-screen .staff-summary {
-  grid-column: 1 / -1;
-}
-
-.office-screen .staff-card {
-  display: grid;
-  align-content: start;
-  gap: 6px;
-}
-
-.office-screen .staff-role {
-  color: var(--mando-cyan);
-  font: 700 10px var(--display);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.office-screen .staff-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-}
-
-.office-screen .staff-step {
-  margin: 4px 0 0;
-  color: var(--mando-text-muted);
-  font: 700 10px var(--display);
-  letter-spacing: 0.08em;
-}
-
-.office-screen .staff-step.next {
-  color: var(--mando-cyan);
-}
-
-.office-screen .locker-grid {
-  align-content: start;
-}
-
-.office-screen .locker-tier {
-  margin-bottom: 8px;
-  padding-left: 8px;
-  border-left: 3px solid var(--mando-border);
-}
-
-.office-screen .locker-tier.tier-lead {
-  border-left-color: var(--mando-cyan);
-}
-
-.office-screen .locker-tier.tier-influent {
-  border-left-color: var(--mando-violet);
-}
-
-.office-screen .locker-tier.tier-fringe {
-  opacity: 0.8;
-}
-
-.office-screen .locker-row {
-  display: flex;
-  justify-content: space-between;
-  gap: 8px;
-  margin: 2px 0;
-  font-size: 13px;
-}
-
-.office-screen .mentor-pair {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 6px;
-  padding: 6px 0;
-  border-bottom: 1px solid var(--mando-border);
-}
-
-.squad-screen .mentor-box,
-.mentor-box {
-  display: grid;
-  gap: 6px;
-  margin-top: 10px;
-  padding-top: 8px;
-  border-top: 1px solid var(--mando-border);
-}
-
-.office-screen .club-axis {
-  display: grid;
-  gap: 1px;
-  margin-bottom: 6px;
-}
-
-.office-screen .club-axis small {
-  color: var(--mando-text-muted);
-}
-
-.office-screen .club-rules {
-  display: grid;
-  gap: 4px;
-  margin: 8px 0 12px;
-  padding-left: 18px;
-  color: var(--mando-text-secondary);
-}
-
-.office-screen .club-rules .good::marker {
-  color: var(--mando-positive);
-}
-
-.office-screen .club-rules .bad::marker {
-  color: var(--mando-danger);
-}
-
-.office-screen .club-demand {
-  padding: 6px 8px;
-  border-left: 2px solid var(--mando-warning);
-  background: rgba(248, 193, 107, 0.07);
-}
-
-.office-screen .training-options {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
-  gap: 6px;
-  margin-top: 8px;
-}
-
-.office-screen .training-options > button {
-  display: grid;
-  justify-content: stretch;
-  justify-items: start;
-  gap: 3px;
-  padding: 10px;
-  border: 1px solid var(--mando-border);
-  background: var(--os-raised);
-  color: var(--mando-text);
-  text-align: left;
-}
-
-.office-screen .training-options > button small {
-  color: var(--mando-text-secondary);
-  letter-spacing: normal;
-  text-transform: none;
-}
-
-.office-screen .training-options > button.active {
-  border-color: var(--mando-cyan);
-  background: rgba(54, 214, 231, 0.12);
-  box-shadow: inset 3px 0 0 var(--mando-cyan);
-}
-
-.office-screen .analyst-ladder {
-  display: grid;
-  align-content: start;
-  gap: 4px;
-}
-
-.office-screen .analyst-step {
-  display: grid;
-  grid-template-columns: 30px minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 10px;
-  min-height: 46px;
-  padding: 6px 10px;
-  border: 1px solid var(--mando-border);
-  background: var(--os-raised);
-  color: var(--mando-text-secondary);
-}
-
-.office-screen .analyst-step b {
-  display: grid;
-  width: 30px;
-  height: 30px;
-  place-items: center;
-  border-radius: 50%;
-  background: var(--os-coal);
-  font: 700 15px var(--display);
-}
-
-.office-screen .analyst-step.past {
-  opacity: 0.55;
-}
-
-.office-screen .analyst-step.current {
-  border-color: var(--mando-cyan);
-  color: var(--mando-text);
-}
-
-.office-screen .analyst-step.current b {
-  background: var(--mando-cyan);
-  color: var(--mando-bg);
-}
-
-.office-screen .analyst-step.current em {
-  color: var(--mando-cyan);
-  font: 700 11px var(--display);
-  font-style: normal;
-  letter-spacing: 0.08em;
-}
-
-.office-screen .analyst-step.next {
-  border-color: rgba(140, 108, 255, 0.6);
-  color: var(--mando-text);
-}
-
-.office-screen .analyst-step.locked {
-  opacity: 0.7;
-}
-
-.office-screen .analyst-step small {
-  color: var(--mando-text-muted);
-}
-
-.office-screen .club-relation {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.office-screen .club-relation span {
-  padding: 2px 6px;
-  font: 700 10px var(--display);
-  letter-spacing: 0.06em;
-}
-
-.office-screen .club-relation.amizade span {
-  background: rgba(85, 201, 155, 0.16);
-  color: var(--mando-positive);
-}
-
-.office-screen .club-relation.rixa span {
-  background: rgba(255, 111, 131, 0.16);
-  color: var(--mando-danger);
-}
-
-.office-screen .rival-table {
-  display: grid;
-  margin-top: 8px;
-}
-
-.office-screen .rival-table > div {
-  display: grid;
-  grid-template-columns: 1.2fr 1.2fr 1fr 0.5fr 0.9fr;
-  gap: 8px;
-  padding: 7px 4px;
-  border-bottom: 1px solid var(--mando-border);
-}
-
-.office-screen .rival-table .rival-head {
-  color: var(--mando-text-muted);
-  font: 700 10px var(--display);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.office-screen .rival-table .pressure {
-  background: rgba(255, 111, 131, 0.07);
-}
-
-.office-screen .rival-table .pressure > span:last-child {
-  color: var(--mando-danger);
 }
 
 /* Rede de olheiros: um card por profissional e a vaga livre como card de contratação. */
@@ -1049,94 +699,7 @@
   background: var(--mando-cyan);
 }
 
-.season-screen .trophy-hall {
-  min-height: 0;
-  border: 1px solid var(--mando-border);
-  border-radius: var(--mando-radius-panel);
-  background: linear-gradient(180deg, rgba(34, 51, 80, 0.82), rgba(11, 16, 32, 0.96));
-}
-
-.season-screen .trophy-stand {
-  border: 1px solid var(--mando-border);
-  border-radius: 3px;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.055), rgba(8, 12, 24, 0.44));
-}
-
-.season-screen .trophy-stand:not(.won) .trophy-art {
-  filter: grayscale(1) brightness(0.58);
-}
-
-.season-screen .trophy-stand.won {
-  border-color: rgba(249, 201, 104, 0.62);
-  box-shadow: inset 0 2px 0 var(--mando-gold);
-}
-
-.season-screen .trophy-stand.won .trophy-art {
-  filter: saturate(0.82) drop-shadow(0 8px 14px rgba(0, 0, 0, 0.48));
-}
-
-.season-screen .trophy-plate {
-  background: var(--mando-gold);
-}
-
-.season-screen .trophy-years {
-  color: var(--mando-text-muted);
-}
-
-.season-screen .trophy-footer {
-  border-top: 1px solid var(--mando-border);
-  padding-top: 8px;
-}
-
-.season-screen .trophy-footer strong {
-  color: var(--mando-gold);
-}
-
-.season-screen .awards-list {
-  display: flex;
-  max-height: calc(100dvh - 190px);
-  min-height: 0;
-  flex-direction: column;
-  gap: 6px;
-  overflow-y: auto;
-  padding: 2px;
-}
-
-.season-screen .award-row {
-  display: grid;
-  grid-template-columns: 82px minmax(0, 1fr);
-  align-items: center;
-  gap: 14px;
-  background: var(--os-slate);
-}
-
-.season-screen .award-row:focus {
-  border-color: var(--mando-cyan);
-  background: var(--mando-petrol);
-}
-
-.season-screen .award-row:nth-child(even) {
-  background: var(--os-coal);
-}
-
-.season-screen .award-row h2 {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin: 3px 0;
-}
-
-.season-screen .award-row h2 svg {
-  color: var(--mando-gold);
-}
-
-.season-screen .award-row .award-face {
-  width: 76px;
-  height: 76px;
-  margin: 0;
-}
-
-.season-screen > .staff-layout:not(.club-living-layout) {
+.season-screen > .staff-layout {
   min-height: 0;
   gap: 8px;
 }
@@ -1183,7 +746,7 @@
   background: var(--mando-petrol);
 }
 
-.season-screen > .staff-layout:not(.club-living-layout) > .panel {
+.season-screen > .staff-layout > .panel {
   border-top-color: var(--mando-cyan);
 }
 
@@ -1193,7 +756,7 @@
     grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
   }
 
-  .office-screen .staff-layout:not(.scout-layout):not(.club-living-layout) {
+  .office-screen .staff-layout:not(.scout-layout) {
     grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
   }
 
@@ -1227,9 +790,6 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .season-screen .awards-list {
-    max-height: calc(100dvh - 145px);
-  }
 }
 
 @media (max-width: 700px) and (orientation: landscape) {
@@ -1239,15 +799,12 @@
   .office-screen .board-layout,
   .office-screen .staff-layout,
   .office-screen .scout-layout,
-  .office-screen .club-grid,
-  .office-screen .staff-grid,
   .season-screen .season-layout,
   .season-screen .calendar-layout {
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .office-screen .metrics-strip,
-  .office-screen .club-kpis {
+  .office-screen .metrics-strip {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
@@ -1267,10 +824,6 @@
 
   .season-screen .stats-grid > .panel {
     flex: 0 0 auto;
-  }
-
-  .season-screen .awards-list {
-    max-height: calc(100dvh - 145px);
   }
 
   .season-screen .legacy-layout {
@@ -1382,116 +935,5 @@
 
   .office-screen .price-options {
     grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-}
-
-.season-screen .national-intro {
-  max-width: 760px;
-}
-
-.season-screen .national-layout {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  align-content: start;
-  gap: 8px;
-  max-height: calc(100dvh - 190px);
-  overflow: auto;
-  scrollbar-width: thin;
-}
-
-.season-screen .national-summary {
-  grid-column: 1 / -1;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 14px;
-  border-top-color: var(--mando-gold);
-}
-
-.national-actions,
-.national-pagination {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px;
-}
-
-.national-starters,
-.national-reserves,
-.national-player-list {
-  display: grid;
-  gap: 5px;
-}
-
-.national-starters,
-.national-reserves {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-.national-starters button,
-.national-reserves button {
-  display: grid;
-  gap: 3px;
-  justify-content: stretch;
-  text-align: left;
-  text-transform: none;
-}
-
-.national-starters button.active {
-  border-color: var(--mando-cyan);
-  background: var(--mando-petrol);
-}
-
-.national-starters small,
-.national-reserves small,
-.national-player-row small {
-  display: block;
-  color: var(--mando-text-secondary);
-}
-
-.national-player-list {
-  max-height: 360px;
-  overflow-y: auto;
-  scrollbar-width: thin;
-}
-
-.national-player-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 6px;
-  background: var(--os-slate);
-}
-
-.national-search label {
-  display: grid;
-  gap: 5px;
-  margin-bottom: 8px;
-}
-
-.national-pagination {
-  justify-content: space-between;
-  margin-top: 8px;
-}
-
-.national-central-notice {
-  border-color: var(--mando-gold);
-  color: var(--mando-text);
-}
-
-@media (max-width: 1000px) and (orientation: landscape) {
-  .season-screen .national-layout {
-    max-height: calc(100dvh - 145px);
-  }
-}
-
-@media (max-width: 700px) and (orientation: landscape) {
-  .season-screen .national-layout {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .season-screen .national-summary {
-    flex-wrap: wrap;
   }
 }

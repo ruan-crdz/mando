@@ -149,7 +149,6 @@ export const challenges = [
   'Crise financeira',
   'Só a base',
   'Venda necessária',
-  'Pressão máxima',
   'Reconstrução',
 ] as const;
 export const difficulties = ['Iniciante', 'Amador', 'Profissional'] as const;
@@ -277,13 +276,11 @@ const eventSchema = z.object({
     'miss',
     'yellow',
     'red',
-    'var',
     'injury',
     'sub',
     'tactic',
     'half',
     'full',
-    'moment',
   ]),
   clubId: z.string(),
   playerId: z.string().optional(),
@@ -295,20 +292,6 @@ const eventSchema = z.object({
   text: z.string(),
 });
 export type MatchEvent = z.infer<typeof eventSchema>;
-export const momentKinds = ['tired', 'injury', 'position', 'subbed', 'bench', 'badday'] as const;
-export const momentSchema = z.object({
-  id: z.string(),
-  minute: z.number().int().min(0).max(90),
-  kind: z.enum(momentKinds),
-  playerId: z.string(),
-  text: z.string(),
-  status: z.enum(['open', 'done']),
-  outcome: z.string().optional(),
-  action: z.string().optional(),
-  /** Posição que o atleta pede (momentos de troca de posição). */
-  role: z.string().optional(),
-});
-export type MatchMoment = z.infer<typeof momentSchema>;
 const sideStatsSchema = z.object({
   shots: z.number().int().nonnegative(),
   xg: z.number().nonnegative(),
@@ -335,8 +318,6 @@ export const matchSchema = z.object({
   injured: z.array(z.string()).default([]),
   /** Atletas expulsos, mantidos na escalação para preservar as posições dos demais. */
   dismissed: z.array(z.string()).default([]),
-  /** Momentos humanos do jogo que pedem uma decisão do técnico. */
-  moments: z.array(momentSchema).default([]),
   /** Plano de jogo dos clubes da engine nesta partida. */
   homeTactic: tacticSchema.optional(),
   awayTactic: tacticSchema.optional(),
@@ -344,26 +325,6 @@ export const matchSchema = z.object({
   bonus: z.record(z.string(), z.number()).optional(),
   /** Craque do jogo, definido no apito final. */
   mvp: z.string().optional(),
-  /** Fatores externos: viagem, clima, altitude, clássico, torcida, química e treino. */
-  conditions: z
-    .object({
-      home: z.number(),
-      away: z.number(),
-      homeTire: z.number(),
-      awayTire: z.number(),
-      derby: z.string().optional(),
-      notes: z.array(z.string()),
-      weather: z.enum(['Ensolarado', 'Nublado', 'Chuva', 'Calor', 'Frio']).optional(),
-      pitch: z.enum(['Bom', 'Molhado', 'Pesado', 'Irregular']).optional(),
-      referee: z
-        .object({
-          name: z.string(),
-          strictness: z.number().int().min(1).max(5),
-          varEnabled: z.boolean(),
-        })
-        .optional(),
-    })
-    .optional(),
   /** Atleta adversário com marcação individual. */
   marked: z.string().optional(),
   /** O técnico rival estudou o padrão do usuário. */
@@ -402,16 +363,6 @@ export const fixtureSchema = z.object({
   result: matchSchema.optional(),
 });
 export type Fixture = z.infer<typeof fixtureSchema>;
-export const nationalSchema = z.object({
-  callups: z.array(z.string()).max(23),
-  lineup: z.array(z.string()).max(11),
-  roles: z.record(z.string(), z.string()),
-  tactic: tacticSchema,
-  fixtures: z.array(fixtureSchema),
-  activeMatch: matchSchema.optional(),
-  suspensions: z.record(z.string(), z.number().int().nonnegative()).default({}),
-});
-export type NationalCareer = z.infer<typeof nationalSchema>;
 export const messageSchema = z.object({
   id: z.string(),
   date: isoDate,
@@ -503,70 +454,6 @@ export const coachStyles = [
   'Posse',
   'Contra-ataque',
 ] as const;
-export const clubPhilosophies = [
-  'Revela e vende',
-  'Veteranos',
-  'Sul-americanos',
-  'Equilibrado',
-] as const;
-export const trainingFocus = [
-  'Equilibrado',
-  'Físico',
-  'Tático',
-  'Finalização',
-  'Recuperação',
-] as const;
-const axis = percent.default(60);
-export const facilityKinds = ['stadium', 'training', 'youth'] as const;
-export type FacilityKind = (typeof facilityKinds)[number];
-const facilityLevel = z.number().int().min(1).max(5);
-export const sponsorDealSchema = z.object({
-  name: z.string(),
-  style: z.enum(['Fixo', 'Equilibrado', 'Desempenho']).default('Equilibrado'),
-  monthly: z.number().nonnegative(),
-  months: z.number().int().min(1).max(48),
-  /** Bônus únicos pagos na virada da temporada. */
-  title: z.number().nonnegative().default(0),
-  access: z.number().nonnegative().default(0),
-  g4: z.number().nonnegative().default(0),
-});
-export type SponsorDeal = z.infer<typeof sponsorDealSchema>;
-/** Economia do clube do usuário: estádio, sócios, patrocínio master e instalações. */
-export const economySchema = z.object({
-  clubId: z.string(),
-  ticket: z.number().int().min(5).max(1000),
-  fee: z.number().int().min(5).max(1000),
-  members: z.number().int().nonnegative(),
-  facilities: z.object({ stadium: facilityLevel, training: facilityLevel, youth: facilityLevel }),
-  works: z
-    .array(
-      z.object({
-        kind: z.enum(facilityKinds),
-        level: facilityLevel,
-        start: isoDate,
-        done: isoDate,
-        cost: z.number().nonnegative(),
-      }),
-    )
-    .default([]),
-  sponsor: sponsorDealSchema.extend({ since: isoDate, until: isoDate }).optional(),
-  offers: z.array(sponsorDealSchema).default([]),
-  offersMessage: z.string().optional(),
-  offersExpire: isoDate.optional(),
-  /** Últimos jogos em casa (público e bilheteria). */
-  games: z
-    .array(
-      z.object({
-        date: isoDate,
-        crowd: z.number().int().nonnegative(),
-        capacity: z.number().int().nonnegative(),
-        members: z.number().int().nonnegative(),
-        income: z.number().nonnegative(),
-      }),
-    )
-    .default([]),
-});
-export type Economy = z.infer<typeof economySchema>;
 const staffLevelSchema = z.number().int().min(1).max(5).default(2);
 export const livingSchema = z.object({
   /** Técnicos dos clubes da IA. */
@@ -583,7 +470,7 @@ export const livingSchema = z.object({
       }),
     )
     .default({}),
-  /** Movimentações do mercado (inclusive entre clubes da IA e para o exterior). */
+  /** Movimentações do mercado da carreira. */
   transfers: z
     .array(
       z.object({
@@ -592,35 +479,10 @@ export const livingSchema = z.object({
         from: z.string(),
         to: z.string(),
         fee: z.number().nonnegative(),
-        kind: z.enum(['compra', 'exterior', 'retorno', 'livre']),
+        kind: z.enum(['compra', 'exterior']),
       }),
     )
     .default([]),
-  /** Humor da torcida. */
-  fans: axis,
-  /** Confiança da diretoria por eixo. */
-  board: z
-    .object({ results: axis, finances: axis, youth: axis, style: axis, derbies: axis })
-    .prefault({}),
-  /** Exigências concretas da diretoria, com prazo. */
-  demands: z
-    .array(
-      z.object({
-        id: z.string(),
-        kind: z.enum(['venda', 'base', 'classico', 'folha']),
-        text: z.string(),
-        deadline: isoDate,
-        baseline: z.number(),
-        done: z.boolean().default(false),
-      }),
-    )
-    .default([]),
-  /** Relações dentro do vestiário. */
-  relations: z
-    .array(z.object({ a: z.string(), b: z.string(), kind: z.enum(['amizade', 'rixa']) }))
-    .default([]),
-  /** Últimos planos usados pelo técnico (os rivais estudam). */
-  recentTactics: z.array(tacticSchema).default([]),
   /** Linha do tempo da carreira. */
   timeline: z
     .array(
@@ -687,41 +549,6 @@ export const livingSchema = z.object({
         .default([]),
     })
     .optional(),
-  academy: z
-    .object({
-      clubId: z.string(),
-      season: z.number().int().min(2026),
-      candidates: z.array(playerSchema),
-    })
-    .optional(),
-  /** Simpatia de cada jornalista (0–100). */
-  media: z.record(z.string(), percent).default({}),
-  headline: z.object({ text: z.string(), until: isoDate }).optional(),
-  training: z.enum(trainingFocus).default('Equilibrado'),
-  /** Nível do analista de desempenho (precisão do relatório do adversário). */
-  analyst: z.number().int().min(1).max(5).default(2),
-  /** Marcação individual no principal jogador adversário. */
-  marking: z.boolean().default(false),
-  election: z.object({ date: isoDate, rival: z.string(), threat: percent }).optional(),
-  owner: z.enum(['Associação', 'SAF']).default('Associação'),
-  transferBan: isoDate.optional(),
-  wagesLate: z.boolean().default(false),
-  nationalInvite: z.boolean().default(false),
-  /** Início do trabalho no clube atual (período de carência contra demissão). */
-  hiredAt: isoDate.optional(),
-  /** Ultimato da diretoria: somar `target` pontos em `games` jogos ou ser demitido. */
-  ultimatum: z
-    .object({
-      issued: isoDate,
-      games: z.number().int().positive(),
-      target: z.number().int().nonnegative(),
-      played: z.number().int().nonnegative().default(0),
-      points: z.number().int().nonnegative().default(0),
-    })
-    .optional(),
-  /** Última vez que a diretoria deu ultimato (evita ultimatos em sequência). */
-  lastUltimatum: isoDate.optional(),
-  economy: economySchema.optional(),
   /** Comissão técnica contratada (nível 1–5 de cada cargo). */
   staff: z
     .object({
@@ -732,8 +559,6 @@ export const livingSchema = z.object({
       youth: staffLevelSchema,
     })
     .prefault({}),
-  /** Duplas de mentoria: veterano → jovem. */
-  mentors: z.array(z.object({ mentor: z.string(), pupil: z.string(), since: isoDate })).default([]),
   /** % sobre a próxima venda do atleta devida ao clube credor. */
   sellOns: z
     .array(
@@ -815,7 +640,6 @@ export const careerSchema = z.object({
   tactic: tacticSchema,
   messages: z.array(messageSchema),
   offers: z.array(offerSchema),
-  confidence: percent,
   sales: z.number().nonnegative(),
   activeMatch: matchSchema.optional(),
   memories: z.array(z.object({ playerId: z.string(), date: isoDate, text: z.string() })),
@@ -832,8 +656,6 @@ export const careerSchema = z.object({
     .default([]),
   /** Números de camisa definidos na carreira (sobrepõem o snapshot). */
   numbers: z.record(z.string(), z.number().int().min(1).max(99)).default({}),
-  /** Conquistas desbloqueadas (id → data). */
-  achievements: z.record(z.string(), isoDate).default({}),
   /** Preferências da carreira. */
   prefs: z
     .object({ advance: z.enum(['day', 'event', 'auto']).default('day') })
@@ -852,24 +674,6 @@ export const careerSchema = z.object({
     )
     .default([]),
   prospects: z.array(playerSchema).default([]),
-  awards: z
-    .array(
-      z.object({
-        season: z.number().int(),
-        month: z.number().int().min(0).max(12),
-        category: z.enum([
-          'Jogador do mês',
-          'Time do mês',
-          'Melhor jogador',
-          'Artilheiro',
-          'Revelação',
-          'Goleiro',
-        ]),
-        playerId: z.string().optional(),
-        clubId: z.string().optional(),
-      }),
-    )
-    .default([]),
   jobOffers: z
     .array(
       z.object({
@@ -890,7 +694,6 @@ export const careerSchema = z.object({
       }),
     )
     .default([]),
-  sacked: z.boolean().default(false),
   history: z
     .array(
       z.object({
@@ -898,23 +701,12 @@ export const careerSchema = z.object({
         clubId: z.string().optional(),
         league: z.enum(['A', 'B']),
         position: z.number().int(),
-        confidence: z.number(),
         trophies: z.array(z.string()),
       }),
     )
     .default([]),
   /** Mundo vivo: técnicos da IA, mercado, vestiário, diretoria, torcida e legado. */
   living: livingSchema.prefault({}),
-  /** Trabalho na Seleção, separado do clube e preservado no mesmo save. */
-  national: nationalSchema.optional(),
-  /** Atletas cedidos às seleções durante uma janela internacional simulada. */
-  international: z
-    .object({
-      from: isoDate,
-      until: isoDate,
-      players: z.record(z.string(), z.string()),
-    })
-    .optional(),
 });
 export type Career = z.infer<typeof careerSchema>;
 export type TableRow = {

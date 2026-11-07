@@ -70,9 +70,6 @@
 .world-option.official {
   background: linear-gradient(135deg, #8be22a, #34b51f 55%, #138a2c);
 }
-.world-option.demo {
-  background: linear-gradient(135deg, #ffb32a, #ff7a00 55%, #e64a00);
-}
 .world-option > svg:first-child {
   position: absolute;
   top: 20px;

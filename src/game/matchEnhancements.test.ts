@@ -1,5 +1,4 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { matchConditions } from './context';
 import { createCareer } from './engine';
 import { beginMatch, shoutFromSideline, stepMatch, substitute } from './matches';
 import { careerSchema, type Career, type Fixture, type Manager } from './types';
@@ -25,16 +24,7 @@ beforeEach(() => {
   career.activeMatch = beginMatch(career, world, fixture);
 });
 
-describe('ambiente e decisões durante a partida', () => {
-  it('gera clima, gramado e arbitragem determinísticos para a mesma partida', () => {
-    const first = matchConditions(career, world, fixture);
-    expect(matchConditions(career, world, fixture)).toEqual(first);
-    expect(first.weather).toBeTruthy();
-    expect(first.pitch).toBeTruthy();
-    expect(first.referee?.strictness).toBeGreaterThanOrEqual(1);
-    expect(first.referee?.strictness).toBeLessThanOrEqual(5);
-  });
-
+describe('decisões durante a partida', () => {
   it('aplica a instrução de pressão e respeita o intervalo entre comandos', () => {
     const original = career;
     career = shoutFromSideline(career, 'pressionar');

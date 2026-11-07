@@ -36,12 +36,10 @@
 @import './components/brand.css';
 @import './screens/transfers-negotiations.css';
 @import './components/tactic-slider.css';
-@import './screens/match-moments.css';
 @import './components/active-states.css';
 @import './components/edit-mode.css';
 @import './screens/squad-shirts-positions.css';
 @import './components/heatmap.css';
-@import './components/voice-achievements.css';
 @import './components/portrait-camera.css';
 @import './screens/squad-mini-cards.css';
 @import './screens/squad-player-list.css';

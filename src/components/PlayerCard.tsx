@@ -1,6 +1,5 @@
 import { type ReactNode } from 'react';
 import { stateOf } from '../game/matches';
-import { internationalCountry } from '../game/international';
 import { overall } from '../game/ratings';
 import { type Career, type Player, type Position } from '../game/types';
 import { cardTier } from './cardTier';
@@ -59,14 +58,11 @@ export function PlayerCard({
 }) {
   const s = stateOf(career, player.id)!;
   const ovr = overall(player, role || player.position, s);
-  const country = internationalCountry(career, player.id);
   const status = s.injuryDays
     ? `Lesão ${s.injuryDays}d`
     : s.suspension
       ? `Suspenso ${s.suspension}`
-      : country
-        ? `Seleção ${country}`
-        : null;
+      : null;
   return (
     <button
       type="button"

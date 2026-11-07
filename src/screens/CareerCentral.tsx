@@ -1,24 +1,11 @@
-import {
-  ArrowRight,
-  CalendarClock,
-  CircleArrowRight,
-  MessageSquare,
-  Radio,
-  Trophy,
-  Users,
-} from 'lucide-react';
-import { Badge, dateLabel, ManagerPortrait, money } from '../components/ui';
-import { CareerCalendar } from '../components/CareerCalendar';
+import { ArrowRight, CalendarClock, CircleArrowRight, Radio, Trophy } from 'lucide-react';
+import { Badge, dateLabel } from '../components/ui';
 import { ControllerButtonHint } from '../controller/ControllerButtonHint';
 import { fixtureLabel, nextFixture } from '../game/calendar';
 import { clubById } from '../game/npc';
-import { nextNationalFixture } from '../game/national';
 import { addDays } from '../game/random';
-import { squad } from '../game/matches';
 import { standings } from '../game/engine';
-import { overall } from '../game/ratings';
 import { type Career, type World } from '../game/types';
-import { MarketFeed } from '../components/LivingPanels';
 import { TAB } from '../navigation';
 
 export function CareerCentral({
@@ -37,41 +24,34 @@ export function CareerCentral({
   onAdvance: () => void;
   onMatch: () => void;
   onTab: (tab: (typeof TAB)[keyof typeof TAB]) => void;
-  onOpenSeason: (view: 'table' | 'national') => void;
+  onOpenSeason: (view: 'table') => void;
   onNewSeason: () => void;
   onPreferences: () => void;
   busy: boolean;
 }) {
-  const club = world.clubs.find((club) => club.id === c.clubId)!;
+  const club = world.clubs.find((item) => item.id === c.clubId)!;
   const fixture = nextFixture(c);
   const home = fixture && clubById(world, fixture.homeId);
   const away = fixture && clubById(world, fixture.awayId);
   const label = fixture && fixtureLabel(fixture);
-  const position = standings(c, world, club.league).findIndex((r) => r.clubId === c.clubId) + 1;
-  const players = squad(c, world);
-  const average = Math.round(
-    players.reduce((n, p) => n + overall(p, p.position, c.players[p.id]), 0) / players.length,
-  );
-  const unread = c.messages.filter((m) => !m.read);
-  const pending = c.messages.filter((m) => m.important && !m.resolved);
+  const position =
+    standings(c, world, club.league).findIndex((row) => row.clubId === c.clubId) + 1;
+  const targetPosition = 6;
+  const target = club.league === 'A' ? 'Classificar para a Libertadores (G6)' : 'Disputar o acesso';
+  const pending = c.messages.filter((message) => message.important && !message.resolved);
   const isMatchDay = Boolean(fixture && fixture.date <= c.date);
-  const national = nextNationalFixture(c);
-  const nationalToday = Boolean(national && national.date <= c.date);
   const mode = c.prefs?.advance || 'day';
-  const auto = mode === 'auto' && !c.seasonEnded && !c.sacked;
-  const advanceAction = c.sacked
-    ? () => onTab(TAB.NOTIFICATIONS)
-    : auto
-      ? onAdvance
-      : pending.length
-        ? () => onTab(TAB.NOTIFICATIONS)
-        : c.seasonEnded
-          ? onNewSeason
-          : nationalToday
-            ? () => onOpenSeason('national')
-            : isMatchDay
-              ? onMatch
-              : onAdvance;
+  const auto = mode === 'auto' && !c.seasonEnded;
+  const advanceAction = auto
+    ? onAdvance
+    : pending.length
+      ? () => onTab(TAB.NOTIFICATIONS)
+      : c.seasonEnded
+        ? onNewSeason
+        : isMatchDay
+          ? onMatch
+          : onAdvance;
+
   return (
     <div className="screen central">
       <div className="central-strip">
@@ -99,12 +79,6 @@ export function CareerCentral({
           </button>
         </div>
       </div>
-      {nationalToday && (
-        <button className="national-central-notice" onClick={() => onOpenSeason('national')}>
-          A Seleção joga hoje. Abrir convocação e partida.
-        </button>
-      )}
-      <CareerCalendar career={c} world={world} />
       <div className="central-grid">
         <button
           className="tile tile-primary fixture-tile"
@@ -140,41 +114,33 @@ export function CareerCentral({
           )}
         </button>
         <button
-          className={`tile ${c.sacked || (!auto && (pending.length || isMatchDay || nationalToday)) ? 'tile-event' : 'tile-primary'} advance-tile`}
+          className={`tile ${!auto && (pending.length || isMatchDay) ? 'tile-event' : 'tile-primary'} advance-tile`}
           disabled={busy}
           onClick={advanceAction}
         >
           <span className="tile-label">
-            {c.sacked
-              ? 'CARGO ENCERRADO'
-              : auto
-                ? 'MODO AUTOMÁTICO'
-                : pending.length
-                  ? 'UMA DECISÃO ESPERA POR VOCÊ'
-                  : c.seasonEnded
-                    ? 'FÉRIAS ACABARAM'
-                    : nationalToday
-                      ? 'A SELEÇÃO ENTRA EM CAMPO'
-                      : isMatchDay
-                        ? 'O ESTÁDIO ESTÁ PRONTO'
-                        : 'O CLUBE NÃO PARA'}
+            {auto
+              ? 'MODO AUTOMÁTICO'
+              : pending.length
+                ? 'UMA DECISÃO ESPERA POR VOCÊ'
+                : c.seasonEnded
+                  ? 'FÉRIAS ACABARAM'
+                  : isMatchDay
+                    ? 'O ESTÁDIO ESTÁ PRONTO'
+                    : 'O CLUBE NÃO PARA'}
           </span>
           <h2>
-            {c.sacked
-              ? 'Escolher novo clube'
-              : auto
-                ? 'Simular temporada'
-                : pending.length
-                  ? 'Abrir escritório'
-                  : c.seasonEnded
-                    ? `Iniciar ${c.season + 1}`
-                    : nationalToday
-                      ? 'Jogo da Seleção'
-                      : isMatchDay
-                        ? 'Dia de jogo'
-                        : mode === 'event'
-                          ? 'Avançar até o evento'
-                          : 'Avançar dia'}
+            {auto
+              ? 'Simular temporada'
+              : pending.length
+                ? 'Abrir notificações'
+                : c.seasonEnded
+                  ? `Iniciar ${c.season + 1}`
+                  : isMatchDay
+                    ? 'Dia de jogo'
+                    : mode === 'event'
+                      ? 'Avançar até o evento'
+                      : 'Avançar dia'}
           </h2>
           <span className="advance-dates">
             <span>
@@ -198,93 +164,43 @@ export function CareerCentral({
           <span className="tile-cta">
             {busy
               ? 'Processando…'
-              : c.sacked
-                ? `${c.jobOffers.length} propostas na Diretoria`
-                : pending.length
-                  ? `${pending.length} ação necessária`
-                  : c.seasonEnded
-                    ? 'Nova temporada'
-                    : 'Continuar'}
+              : pending.length
+                ? `${pending.length} decisão${pending.length === 1 ? '' : 'ões'} pendente${pending.length === 1 ? '' : 's'}`
+                : c.seasonEnded
+                  ? 'Nova temporada'
+                  : 'Continuar'}
           </span>
           <ControllerButtonHint action="menu" label="Mudar modo de avanço" />
         </button>
-        <MarketFeed career={c} world={world} onOpen={() => onTab(TAB.TRANSFERS)} />
-        <button className="tile tile-raised manager-tile" onClick={() => onTab(TAB.OFFICE)}>
-          <span className="tile-label">MANAGER · {club.short}</span>
-          <ManagerPortrait manager={c.manager} />
-          <span className="manager-title">
+        <section className="tile tile-raised central-missions">
+          <span className="tile-label">MISSÕES DA TEMPORADA</span>
+          <article className="central-mission">
+            <span className="eyebrow">OBJETIVO DO CLUBE</span>
+            <strong>{target}</strong>
+            <p>
+              {position > 0
+                ? `Posição atual: ${position}º${position <= targetPosition ? ' · objetivo em alcance' : ' · aproxime-se da zona de classificação'}`
+                : 'A temporada ainda não começou.'}
+            </p>
+            <button onClick={() => onTab(TAB.OFFICE)}>
+              Acompanhar objetivo <ArrowRight size={15} />
+            </button>
+          </article>
+          <article className="central-mission">
+            <span className="eyebrow">DECISÕES IMPORTANTES</span>
             <strong>
-              {c.manager.firstName}
-              <br />
-              {c.manager.lastName}
+              {pending.length
+                ? `${pending.length} decisão${pending.length === 1 ? '' : 'ões'} pendente${pending.length === 1 ? '' : 's'}`
+                : 'Nenhuma decisão pendente'}
             </strong>
-            <em>CONFIANÇA {Math.round(c.confidence)}%</em>
-            <meter aria-label="Confiança da diretoria" min={0} max={100} value={c.confidence} />
-          </span>
-        </button>
-        <section className="tile tile-glass inbox-preview">
-          <span className="tile-label">
-            <MessageSquare size={14} /> MENSAGENS <b className="count">{unread.length}</b>
-          </span>
-          <div className="inbox-rows">
-            {c.messages.slice(0, 4).map((m) => (
-              <button
-                className={`inbox-row ${m.read ? 'read' : 'unread'}`}
-                key={m.id}
-                onClick={() => onTab(TAB.NOTIFICATIONS)}
-              >
-                <span
-                  className={`message-indicator ${m.important && !m.resolved ? 'important' : ''}`}
-                />
-                <span>
-                  <small>
-                    {m.from} · {dateLabel(m.date)}
-                  </small>
-                  <strong>{m.title}</strong>
-                  {m.important && !m.resolved && (
-                    <em className="inbox-decision">DECISÃO PENDENTE</em>
-                  )}
-                </span>
-              </button>
-            ))}
-            {!c.messages.length && <p className="inbox-empty">Sua caixa de entrada está em dia.</p>}
-          </div>
+            <p>
+              {pending[0]?.title || 'Novas mensagens e conversas com atletas aparecem em Notificações.'}
+            </p>
+            <button onClick={() => onTab(TAB.NOTIFICATIONS)}>
+              Abrir notificações <ArrowRight size={15} />
+            </button>
+          </article>
         </section>
-        <button className="tile tile-surface squad-preview" onClick={() => onTab(TAB.SQUAD)}>
-          <span className="tile-label">
-            <Users size={14} /> SEU TIME <em>{c.tactic.formation}</em>
-          </span>
-          <span className="big-stat">
-            {average}
-            <small>OVR MÉDIO</small>
-          </span>
-          <span className="tile-sub">
-            {players.length} atletas ·{' '}
-            {players.filter((p) => c.players[p.id].injuryDays > 0).length} lesionados
-          </span>
-          <span className="tile-cta">
-            GERENCIAR <ArrowRight size={16} />
-          </span>
-        </button>
-        <button className="tile tile-data table-preview" onClick={() => onOpenSeason('table')}>
-          <span className="tile-label">
-            <Trophy size={14} /> SÉRIE {club.league}
-          </span>
-          <span className="big-stat">
-            {position}º<small>NA TABELA</small>
-          </span>
-          <span className="tile-sub">Caixa {money(c.finances[c.clubId].cash)}</span>
-          <span className="tile-cta">
-            TEMPORADA <ArrowRight size={16} />
-          </span>
-        </button>
-      </div>
-      <div className="news-ticker">
-        <span>MANDO NEWS</span>
-        <p>
-          {c.messages.find((m) => m.kind === 'news')?.title ||
-            `${club.name} inicia um novo projeto. A primeira decisão é sua.`}
-        </p>
       </div>
     </div>
   );

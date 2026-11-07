@@ -12,11 +12,9 @@ import {
 import {
   available,
   beginMatch,
-  resolveMoment,
   simulateMatch,
   stepMatch,
   substitute,
-  swapTarget,
 } from './matches';
 import {
   createOffer,
@@ -436,102 +434,6 @@ describe('mercado e relações', () => {
   });
 });
 
-describe('momentos humanos da partida', () => {
-  const start = () => {
-    const f = career.fixtures.find((f) => f.homeId === career.clubId)!;
-    career.activeMatch = beginMatch(career, world, f);
-  };
-  const run = (minutes: number, interactive = true) => {
-    for (let i = 0; i < minutes; i++) {
-      if (career.activeMatch!.moments.some((m) => m.status === 'open')) break;
-      career.activeMatch = stepMatch(career, world, career.activeMatch!, interactive);
-    }
-  };
-  it('só acontecem na partida jogada ao vivo', () => {
-    career.players[career.lineup[5]].fitness = 35;
-    const f = career.fixtures.find((f) => f.homeId === career.clubId)!;
-    expect(simulateMatch(career, world, f).moments).toEqual([]);
-  });
-  it('atleta exausto pede para sair e a substituição resolve o pedido sem reclamação', () => {
-    const tired = career.lineup[5];
-    career.players[tired].fitness = 40;
-    start();
-    run(60);
-    const moment = career.activeMatch!.moments.find((m) => m.playerId === tired)!;
-    expect(moment).toMatchObject({ kind: 'tired', status: 'open' });
-    expect(career.activeMatch!.events.at(-1)?.type).toBe('moment');
-    const reserve = world.players.find(
-      (p) => p.clubId === career.clubId && p.position !== 'GK' && !career.lineup.includes(p.id),
-    )!;
-    career = substitute(career, world, tired, reserve.id);
-    const moments = career.activeMatch!.moments;
-    expect(moments.find((m) => m.id === moment.id)).toMatchObject({
-      status: 'done',
-      action: 'sub',
-    });
-    expect(moments.some((m) => m.kind === 'subbed')).toBe(false);
-  });
-  it('ignorar quem pede para entrar derruba moral, relação e fica na memória', () => {
-    start();
-    const bench = world.players.find(
-      (p) => p.clubId === career.clubId && p.position !== 'GK' && !career.lineup.includes(p.id),
-    )!;
-    const before = { ...career.players[bench.id] };
-    career.activeMatch!.moments.push({
-      id: 'm1',
-      minute: 60,
-      kind: 'bench',
-      playerId: bench.id,
-      text: 'Me coloca!',
-      status: 'open',
-    });
-    const c = resolveMoment(career, world, 'm1', 'ignore');
-    expect(c.players[bench.id].morale).toBeLessThan(before.morale);
-    expect(c.players[bench.id].relationship).toBeLessThan(before.relationship);
-    expect(c.memories.at(-1)?.playerId).toBe(bench.id);
-    expect(() => resolveMoment(c, world, 'm1', 'ignore')).toThrow('resolvido');
-  });
-  it('troca a posição de quem joga improvisado para a função de origem', () => {
-    const roles = formations[career.tactic.formation];
-    const st = career.lineup.findIndex(
-      (id, i) => i > 0 && world.players.find((p) => p.id === id)?.position === 'ST',
-    );
-    const cb = roles.indexOf('CB');
-    const striker = career.lineup[st];
-    const defender = career.lineup[cb];
-    [career.lineup[st], career.lineup[cb]] = [defender, striker];
-    start();
-    const target = swapTarget(career, world, striker);
-    const position = world.players.find((p) => p.id === striker)!.position;
-    expect(target).toBeGreaterThan(0);
-    expect(roles[target]).toBe(position);
-    const mate = career.lineup[target];
-    career.activeMatch!.moments.push({
-      id: 'm2',
-      minute: 20,
-      kind: 'position',
-      playerId: striker,
-      text: 'Me deixa jogar na minha posição!',
-      status: 'open',
-      role: position,
-    });
-    const c = resolveMoment(career, world, 'm2', 'swap');
-    expect(c.activeMatch!.homeLineup[target]).toBe(striker);
-    expect(c.activeMatch!.homeLineup[cb]).toBe(mate);
-    expect(c.lineup[target]).toBe(striker);
-  });
-  it('um momento aberto bloqueia novos pedidos até a decisão do técnico', () => {
-    for (const id of career.lineup.slice(1)) career.players[id].fitness = 40;
-    start();
-    run(60);
-    let open = career.activeMatch!.moments.filter((m) => m.status === 'open');
-    expect(open).toHaveLength(1);
-    career.activeMatch = stepMatch(career, world, career.activeMatch!, true);
-    open = career.activeMatch!.moments.filter((m) => m.status === 'open');
-    expect(open.filter((m) => m.kind !== 'injury')).toHaveLength(1);
-  });
-});
-
 describe('playoffs da Série B', () => {
   it('cria duas séries de ida e volta entre 3º/6º e 4º/5º', () => {
     // Isola o Brasileirão: as copas têm testes próprios em season.test.ts.
@@ -552,7 +454,6 @@ describe('playoffs da Série B', () => {
         minutesPlayed: {},
         energySpent: {},
         injured: [],
-        moments: [],
         usedSubs: 0,
         dismissed: [],
         replaced: [],

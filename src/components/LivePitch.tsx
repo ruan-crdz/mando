@@ -321,7 +321,7 @@ export function LivePitch({
     <div
       className={`live-field ${playing ? 'live' : ''}`}
       role="img"
-      aria-label="Simulação 2D ilustrativa da partida; os lances oficiais aparecem na narração"
+      aria-label="Simulação 2D ilustrativa da partida; os eventos aparecem no registro textual"
     >
       <div className="field-half" />
       <div className="field-circle" />

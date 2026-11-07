@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createDemoWorld } from './world';
 import {
-  acceptJobOffer,
   advanceDay,
   createCareer,
   finishMatch,
@@ -31,15 +30,6 @@ function playSeason(start: Career) {
   for (let guard = 0; guard < 800 && !c.seasonEnded; guard++) {
     for (const m of c.messages.filter((m) => m.important && !m.resolved))
       c = respondMessage(c, m.id);
-    if (c.sacked) {
-      expect(() => advanceDay(c, world)).toThrow('Você foi demitido');
-      const offer = c.jobOffers[0];
-      expect(offer, 'Uma demissão deve oferecer um caminho para continuar a carreira').toBeDefined();
-      c = acceptJobOffer(c, world, offer.id);
-      expect(c.sacked).toBe(false);
-      expect(c.clubId).toBe(offer.clubId);
-      continue;
-    }
     const f = nextFixture(c);
     if (f && f.date <= c.date) {
       const live = careerWorld(world, c);

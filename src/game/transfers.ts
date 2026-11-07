@@ -198,8 +198,6 @@ export function createOffer(
 ): Career {
   const c = structuredClone(career);
   if (!transferWindow(c.date)) throw new Error('A janela de transferências está fechada.');
-  if (c.living.transferBan && c.living.transferBan >= c.date)
-    throw new Error(`Transfer ban da FIFA até ${c.living.transferBan.split('-').reverse().join('/')}: o clube não pode contratar.`);
   if (!Number.isFinite(fee) || fee < 0 || !Number.isFinite(wage) || wage <= 0)
     throw new Error('Informe valores válidos.');
   const player = world.players.find((p) => p.id === playerId);
@@ -585,12 +583,6 @@ export function respondCounter(
 
 export function completeTransfer(c: Career, world: World, offer: Offer) {
   if (!transferWindow(c.date)) throw new Error('Transferência fora da janela.');
-  if (
-    offer.fromClubId === c.clubId &&
-    c.living.transferBan &&
-    c.living.transferBan >= c.date
-  )
-    throw new Error('O clube está impedido de contratar pelo transfer ban.');
   const buyer = financeOf(c, world, offer.fromClubId);
   if (c.players[offer.playerId].clubId !== offer.toClubId)
     throw new Error('O atleta já mudou de clube.');
@@ -1031,8 +1023,6 @@ export function createLoanOffer(
 ): Career {
   const c = structuredClone(career);
   if (!transferWindow(c.date)) throw new Error('A janela de transferências está fechada.');
-  if (c.living.transferBan && c.living.transferBan >= c.date)
-    throw new Error(`Transfer ban da FIFA até ${c.living.transferBan.split('-').reverse().join('/')}: o clube não pode receber atletas.`);
   const player = world.players.find((p) => p.id === playerId);
   const state = c.players[playerId];
   if (!player || !state?.clubId || state.clubId === c.clubId || state.loanFrom || isForeign(state.clubId))
@@ -1252,8 +1242,6 @@ function loanAgentDecision(c: Career, world: World, offer: Offer) {
 
 function completeLoan(c: Career, world: World, offer: Offer) {
   if (!transferWindow(c.date)) throw new Error('Empréstimo fora da janela.');
-  if (c.living.transferBan && c.living.transferBan >= c.date)
-    throw new Error('O clube está impedido de receber atletas pelo transfer ban.');
   const s = c.players[offer.playerId];
   if (s.clubId !== offer.toClubId || s.loanFrom) throw new Error('O atleta já mudou de clube.');
   if (addMonths(c.date, offer.loan!.months) > s.contractEnd)
@@ -1459,8 +1447,6 @@ export function exerciseLoanOption(career: Career, world: World, playerId: strin
   const c = structuredClone(career);
   const option = loanOptionFor(c, playerId);
   if (!option) throw new Error('Não há opção de compra disponível para este atleta.');
-  if (c.living.transferBan && c.living.transferBan >= c.date)
-    throw new Error('Transfer ban da FIFA: o clube não pode contratar agora.');
   if (c.finances[c.clubId].cash < option.fee)
     throw new Error('Caixa insuficiente para exercer a opção de compra.');
   const s = c.players[playerId];

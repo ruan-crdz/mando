@@ -61,15 +61,14 @@ O `GamepadProvider` continua priorizando `[data-stop-run]` nos quatro comandos p
 
 ## Loop e paradas
 
-A cada 110 ms, `advanceStep(current, base, mode)` retorna a carreira e, eventualmente, `played` e `stop`. O App grava a carreira, incrementa partidas e aplica o destino existente. O avanço pode gerar mensagens e conquistas normalmente.
+A cada 110 ms, `advanceStep(current, base, mode)` retorna a carreira e, eventualmente, `played` e `stop`. O App grava a carreira, incrementa partidas e aplica o destino existente. O avanço pode gerar mensagens de carreira normalmente.
 
-| stop     | Toast                                                  | Destino                 |
-| -------- | ------------------------------------------------------ | ----------------------- |
-| match    | Dia de jogo! O avanço parou.                           | Modal Dia de jogo       |
-| decision | Uma decisão espera por você no escritório.             | Escritório              |
-| message  | Nova mensagem no escritório.                           | Escritório              |
-| season   | Temporada encerrada.                                   | Permanece na tela atual |
-| sacked   | Você foi demitido. Escolha um novo clube na Diretoria. | Escritório/Diretoria    |
+| stop     | Toast                                      | Destino                 |
+| -------- | ------------------------------------------ | ----------------------- |
+| match    | Dia de jogo! O avanço parou.               | Modal Dia de jogo       |
+| decision | Uma decisão espera por você no escritório. | Escritório              |
+| message  | Nova mensagem no escritório.               | Escritório              |
+| season   | Temporada encerrada.                       | Permanece na tela atual |
 
 Parada automática vibra `whistle`; notices somem sozinhos em 2,6 s. Erros aparecem por 4 s. Parada manual não cria um novo toast nem altera o modo escolhido.
 

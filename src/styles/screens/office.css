@@ -138,49 +138,6 @@
   color: var(--mando-cyan);
   text-decoration: underline;
 }
-.voice-button {
-  align-self: flex-start;
-  margin: 2px 0 12px;
-  background: linear-gradient(90deg, #0b5cff, #00b4ff);
-  border-color: transparent;
-}
-.voice-button.speaking {
-  background: linear-gradient(90deg, var(--pink), var(--orange));
-}
-.voice-wave {
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
-  height: 18px;
-}
-.voice-wave i {
-  width: 3px;
-  height: 6px;
-  border-radius: 2px;
-  background: currentColor;
-  opacity: 0.6;
-}
-.voice-button.speaking .voice-wave i {
-  animation: voice-bar 0.8s ease-in-out infinite;
-}
-.voice-button.speaking .voice-wave i:nth-child(2) {
-  animation-delay: 0.12s;
-}
-.voice-button.speaking .voice-wave i:nth-child(3) {
-  animation-delay: 0.24s;
-}
-.voice-button.speaking .voice-wave i:nth-child(4) {
-  animation-delay: 0.36s;
-}
-.voice-button.speaking .voice-wave i:nth-child(5) {
-  animation-delay: 0.48s;
-}
-@keyframes voice-bar {
-  50% {
-    height: 18px;
-    opacity: 1;
-  }
-}
 .objective-line {
   display: flex;
   flex-wrap: wrap;
@@ -370,9 +327,6 @@
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr);
   gap: 16px;
-}
-.confidence-panel {
-  border-top-color: var(--lime);
 }
 .huge-number {
   font: italic 800 clamp(64px, 12vh, 120px) / 1 var(--display);
