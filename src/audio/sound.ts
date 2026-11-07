@@ -1,30 +1,75 @@
 import type { Message } from '../game/types';
 
 export const soundtrack = [
-  { title: 'Primeiro Mando', bpm: 112, roots: [48, 53, 55, 48], motif: [0, 7, 12, 4, 7, 2, 4, 0] },
-  { title: 'Noite de Derby', bpm: 126, roots: [45, 41, 48, 43], motif: [0, 3, 7, 10, 7, 3, 12, 7] },
-  { title: 'Linha de Passe', bpm: 104, roots: [50, 55, 47, 52], motif: [4, 7, 2, 0, 9, 7, 4, 2] },
   {
-    title: 'Arquibancada Azul',
-    bpm: 118,
-    roots: [43, 48, 52, 50],
-    motif: [0, 4, 7, 11, 12, 7, 4, 2],
+    title: 'Neon no Estádio',
+    artist: 'Mando Studio',
+    bpm: 126,
+    roots: [45, 41, 48, 43],
+    motif: [0, 7, 10, 12, 10, 7, 3, 7],
   },
-  { title: 'Depois do Apito', bpm: 96, roots: [48, 45, 53, 55], motif: [12, 7, 4, 0, 2, 4, 7, 9] },
-  { title: 'Contra-ataque', bpm: 132, roots: [40, 43, 45, 47], motif: [0, 7, 3, 10, 12, 10, 7, 3] },
-  { title: 'Talento da Base', bpm: 108, roots: [53, 48, 50, 46], motif: [0, 5, 7, 9, 12, 9, 5, 2] },
   {
-    title: 'Luzes do Estadio',
+    title: 'Virada Elétrica',
+    artist: 'Mando Studio',
+    bpm: 132,
+    roots: [40, 43, 47, 45],
+    motif: [0, 3, 7, 10, 12, 10, 7, 3],
+  },
+  {
+    title: 'Luzes da Linha',
+    artist: 'Mando Studio',
+    bpm: 124,
+    roots: [50, 46, 53, 48],
+    motif: [0, 7, 12, 14, 12, 7, 4, 2],
+  },
+  {
+    title: 'Ritmo de Jogo',
+    artist: 'Mando Studio',
+    bpm: 128,
+    roots: [43, 48, 45, 50],
+    motif: [0, 5, 7, 12, 10, 7, 5, 2],
+  },
+  {
+    title: 'Noite em São Paulo',
+    artist: 'Mando Studio',
     bpm: 122,
-    roots: [47, 43, 50, 45],
-    motif: [7, 12, 14, 10, 7, 3, 0, 3],
+    roots: [48, 45, 53, 50],
+    motif: [12, 7, 4, 0, 7, 10, 12, 7],
   },
-  { title: 'Janela Aberta', bpm: 116, roots: [50, 46, 53, 48], motif: [0, 3, 5, 7, 10, 7, 5, 3] },
   {
-    title: 'Uma Nova Temporada',
-    bpm: 120,
-    roots: [48, 55, 57, 53],
-    motif: [0, 4, 7, 12, 14, 12, 9, 7],
+    title: 'Pressão Alta',
+    artist: 'Mando Studio',
+    bpm: 134,
+    roots: [40, 45, 43, 48],
+    motif: [0, 7, 10, 7, 3, 7, 12, 10],
+  },
+  {
+    title: 'Cidade em Movimento',
+    artist: 'Mando Studio',
+    bpm: 128,
+    roots: [50, 53, 46, 48],
+    motif: [0, 3, 7, 12, 14, 12, 7, 3],
+  },
+  {
+    title: 'Manto Neon',
+    artist: 'Mando Studio',
+    bpm: 124,
+    roots: [43, 40, 48, 45],
+    motif: [0, 5, 7, 10, 12, 10, 7, 5],
+  },
+  {
+    title: 'Contra o Tempo',
+    artist: 'Mando Studio',
+    bpm: 130,
+    roots: [45, 50, 41, 48],
+    motif: [0, 7, 12, 10, 7, 3, 10, 12],
+  },
+  {
+    title: 'Último Minuto',
+    artist: 'Mando Studio',
+    bpm: 132,
+    roots: [47, 43, 50, 45],
+    motif: [7, 12, 14, 10, 7, 3, 0, 7],
   },
 ] as const;
 
@@ -42,6 +87,7 @@ let musicBus: GainNode;
 let crowdBus: GainNode;
 let effectsBus: GainNode;
 let noise: AudioBufferSourceNode | null = null;
+let percussionBuffer: AudioBuffer | null = null;
 let scheduler: ReturnType<typeof setInterval> | null = null;
 let scene: 'menu' | 'match' = 'menu';
 let liveCrowd = false;
@@ -86,21 +132,54 @@ function tone(
   };
 }
 
-function drums(time: number, count: number) {
-  if (!context) return;
-  const oscillator = context.createOscillator();
+function noiseHit(
+  time: number,
+  duration: number,
+  volume: number,
+  cutoff: number,
+  type: BiquadFilterType,
+) {
+  if (!context || !percussionBuffer) return;
+  const source = context.createBufferSource();
+  const filter = context.createBiquadFilter();
   const gain = context.createGain();
-  oscillator.frequency.setValueAtTime(count % 2 ? 170 : 100, time);
-  oscillator.frequency.exponentialRampToValueAtTime(35, time + 0.14);
-  gain.gain.setValueAtTime(0.17, time);
-  gain.gain.exponentialRampToValueAtTime(0.001, time + 0.15);
-  oscillator.connect(gain).connect(musicBus);
-  oscillator.start(time);
-  oscillator.stop(time + 0.16);
-  oscillator.onended = () => {
-    oscillator.disconnect();
+  source.buffer = percussionBuffer;
+  filter.type = type;
+  filter.frequency.setValueAtTime(cutoff, time);
+  gain.gain.setValueAtTime(volume, time);
+  gain.gain.exponentialRampToValueAtTime(0.001, time + duration);
+  source.connect(filter).connect(gain).connect(musicBus);
+  source.start(time);
+  source.stop(time + duration + 0.01);
+  source.onended = () => {
+    source.disconnect();
+    filter.disconnect();
     gain.disconnect();
   };
+}
+
+function drums(time: number, count: number) {
+  if (!context) return;
+  if (count % 2 === 0) {
+    const oscillator = context.createOscillator();
+    const gain = context.createGain();
+    oscillator.type = 'sine';
+    oscillator.frequency.setValueAtTime(145, time);
+    oscillator.frequency.exponentialRampToValueAtTime(42, time + 0.12);
+    gain.gain.setValueAtTime(0.3, time);
+    gain.gain.exponentialRampToValueAtTime(0.001, time + 0.16);
+    oscillator.connect(gain).connect(musicBus);
+    oscillator.start(time);
+    oscillator.stop(time + 0.17);
+    oscillator.onended = () => {
+      oscillator.disconnect();
+      gain.disconnect();
+    };
+  }
+  if (count % 8 === 2 || count % 8 === 6)
+    noiseHit(time, 0.12, 0.11, 2200, 'bandpass');
+  if (count % 2 === 1) noiseHit(time, 0.04, 0.035, 7800, 'highpass');
+  if (count % 16 === 15) noiseHit(time, 0.1, 0.065, 6500, 'highpass');
 }
 
 function levels() {
@@ -135,6 +214,14 @@ export async function unlockAudio() {
       const buffer = context.createBuffer(1, context.sampleRate * 4, context.sampleRate);
       const samples = buffer.getChannelData(0);
       for (let index = 0; index < samples.length; index++) samples[index] = Math.random() * 2 - 1;
+      percussionBuffer = context.createBuffer(
+        1,
+        Math.ceil(context.sampleRate * 0.25),
+        context.sampleRate,
+      );
+      const percussion = percussionBuffer.getChannelData(0);
+      for (let index = 0; index < percussion.length; index++)
+        percussion[index] = Math.random() * 2 - 1;
       noise = context.createBufferSource();
       noise.buffer = buffer;
       noise.loop = true;
@@ -157,13 +244,35 @@ export async function unlockAudio() {
           const song = soundtrack[state.track];
           const step = 60 / song.bpm / 2;
           const root = song.roots[Math.floor(beat / 16) % 4];
-          tone(musicBus, nextBeat, root + 24 + song.motif[beat % 8], step * 1.4, 0.14);
-          if (beat % 4 === 0) {
-            tone(musicBus, nextBeat, root - 12, step * 3, 0.26, 'sine');
+          const bassPattern = [0, 0, 7, 0, 0, 3, 7, 3];
+          tone(
+            musicBus,
+            nextBeat,
+            root - 12 + bassPattern[beat % 8],
+            step * 0.9,
+            0.13,
+            'sawtooth',
+          );
+          tone(
+            musicBus,
+            nextBeat,
+            root + 24 + song.motif[beat % 8],
+            step * 0.72,
+            0.075,
+            'sawtooth',
+          );
+          if (beat % 2 === 1) {
             for (const interval of [0, state.track % 2 ? 3 : 4, 7])
-              tone(musicBus, nextBeat, root + 12 + interval, step * 5, 0.07, 'sine');
+              tone(
+                musicBus,
+                nextBeat,
+                root + 12 + interval,
+                step * 1.6,
+                0.045,
+                'square',
+              );
           }
-          if (beat % 2 === 0) drums(nextBeat, beat);
+          drums(nextBeat, beat);
           nextBeat += step;
           beat++;
           if (beat === 512) {
@@ -305,6 +414,7 @@ export function disposeAudio() {
   scheduler = null;
   noise?.stop();
   noise = null;
+  percussionBuffer = null;
   if (context) void context.close();
   context = null;
 }

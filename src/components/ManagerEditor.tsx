@@ -1,7 +1,57 @@
 import { useState } from 'react';
 import { type Manager } from '../game/types';
-import { NumberStepper, OptionCycler } from './controls';
+import { OptionCycler } from './controls';
 import { ControllerButtonHint } from '../controller/ControllerButtonHint';
+import { useStepper } from '../controller/GamepadProvider';
+
+function BirthDatePart({
+  label,
+  value,
+  min,
+  max,
+  onChange,
+}: {
+  label: string;
+  value: number;
+  min: number;
+  max: number;
+  onChange: (value: number) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const ref = useStepper<HTMLButtonElement>((direction) =>
+    onChange(Math.max(min, Math.min(max, value + direction))),
+  );
+  return (
+    <div className={`manager-date-part ${editing ? 'editing' : ''}`}>
+      <span className="control-label">{label}</span>
+      <button
+        ref={ref}
+        type="button"
+        data-stepper={editing ? '' : undefined}
+        data-toggle-edit=""
+        aria-pressed={editing}
+        aria-label={`${label}: ${value}. ${
+          editing
+            ? 'Esquerda e direita alteram, confirme para concluir'
+            : 'Confirme para alterar'
+        }`}
+        onClick={() => setEditing((current) => !current)}
+        onBlur={() => setEditing(false)}
+      >
+        <span aria-hidden="true">‹</span>
+        <strong>{String(value).padStart(2, '0')}</strong>
+        <span aria-hidden="true">›</span>
+      </button>
+      <small>
+        {editing ? (
+          '← → alterar · confirmar concluir'
+        ) : (
+          <ControllerButtonHint action="confirm" label="Alterar" />
+        )}
+      </small>
+    </div>
+  );
+}
 
 export function ManagerEditor({
   manager,
@@ -78,31 +128,28 @@ export function ManagerEditor({
         </label>
       </div>
       <div className="form-grid manager-birth-date">
-        <NumberStepper
+        <BirthDatePart
           label="Dia de nascimento"
           value={Number(birth.slice(8))}
           min={1}
           max={new Date(
             Date.UTC(Number(birth.slice(0, 4)), Number(birth.slice(5, 7)), 0),
           ).getUTCDate()}
-          step={1}
-          onChange={(value) => datePart('day', value ?? 1)}
+          onChange={(value) => datePart('day', value)}
         />
-        <NumberStepper
+        <BirthDatePart
           label="Mês de nascimento"
           value={Number(birth.slice(5, 7))}
           min={1}
           max={12}
-          step={1}
-          onChange={(value) => datePart('month', value ?? 1)}
+          onChange={(value) => datePart('month', value)}
         />
-        <NumberStepper
+        <BirthDatePart
           label="Ano de nascimento"
           value={Number(birth.slice(0, 4))}
           min={referenceYear - 85}
           max={referenceYear - 18}
-          step={1}
-          onChange={(value) => datePart('year', value ?? referenceYear - draft.age)}
+          onChange={(value) => datePart('year', value)}
         />
       </div>
       <OptionCycler

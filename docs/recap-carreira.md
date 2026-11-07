@@ -163,11 +163,12 @@ do elenco: o jogo não promove menores nem reforça silenciosamente o profission
 
 ## Áudio autorizado
 
-Dez instrumentais originais, sintetizados por Web Audio, tocam em fila circular:
-Primeiro Mando; Noite de Derby; Linha de Passe; Arquibancada Azul; Depois do Apito;
-Contra-ataque; Talento da Base; Luzes do Estadio; Janela Aberta; Uma Nova Temporada.
-Artista exibido: **Mando Studio**. São composições procedurais, não gravações
-comerciais ou arquivos de músicas licenciadas.
+Dez faixas eletrônicas originais, sintetizadas por Web Audio, tocam em fila
+circular: Neon no Estádio; Virada Elétrica; Luzes da Linha; Ritmo de Jogo;
+Noite em São Paulo; Pressão Alta; Cidade em Movimento; Manto Neon; Contra o
+Tempo; Último Minuto. As batidas usam bumbo marcado, clap, hi-hats e baixo
+sintetizado. Artista exibido: **Mando Studio**. São composições procedurais,
+não gravações comerciais ou arquivos de músicas licenciadas.
 
 Cada começo exibe título/artista no canto inferior direito por três segundos.
 Torcida é sintetizada durante a partida e reage ao gol. A caixa postal usa

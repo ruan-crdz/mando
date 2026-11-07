@@ -214,6 +214,57 @@ test('controle Xbox e DualSense navegam, teclado virtual confirma sem mouse', as
   await expect(page.getByRole('heading', { name: /O clube é seu/ })).toBeVisible();
 });
 
+test('controle altera ano de nascimento no perfil do manager', async ({ page }) => {
+  await page.addInitScript(() => {
+    const buttons = Array.from({ length: 17 }, () => ({
+      pressed: false,
+      touched: false,
+      value: 0,
+    }));
+    const pad = {
+      id: 'Xbox Controller',
+      index: 0,
+      connected: true,
+      mapping: 'standard',
+      axes: [0, 0, 0, 0],
+      buttons,
+      timestamp: 0,
+    };
+    Object.defineProperty(navigator, 'getGamepads', { value: () => [pad] });
+    Object.defineProperty(window, '__testPad', { value: pad });
+  });
+  const press = async (index: number) => {
+    await page.evaluate(async (buttonIndex) => {
+      const pad = Reflect.get(window, '__testPad');
+      const frame = () => new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+      pad.buttons[buttonIndex].pressed = true;
+      await frame();
+      await frame();
+      pad.buttons[buttonIndex].pressed = false;
+      await frame();
+      await frame();
+    }, index);
+  };
+  await createCareer(page);
+  await page
+    .getByRole('navigation', { name: 'Áreas do clube' })
+    .getByRole('button', { name: 'ESCRITÓRIO', exact: true })
+    .click();
+  await page
+    .getByRole('navigation', { name: 'Atalhos do Escritório' })
+    .getByRole('button', { name: 'Personalização', exact: true })
+    .click();
+  const year = page.getByRole('button', { name: /Ano de nascimento:/ });
+  const previousYear = Number(await year.locator('strong').innerText());
+  await year.focus();
+  await press(0);
+  await expect(year).toHaveAttribute('aria-pressed', 'true');
+  await press(15);
+  await expect(year.locator('strong')).toHaveText(String(previousYear + 1));
+  await press(0);
+  await expect(year).toHaveAttribute('aria-pressed', 'false');
+});
+
 test('partida completa registra placar e volta à tabela sem duplicar resultado', async ({
   page,
 }) => {

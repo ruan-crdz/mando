@@ -28,7 +28,7 @@ export function AudioDirector({ inMatch }: { inMatch: boolean }) {
           <div>
             <small>TOCANDO AGORA</small>
             <strong>{soundtrack[state.track].title}</strong>
-            <span>Mando Studio · trilha original</span>
+            <span>{soundtrack[state.track].artist} · eletrônica original</span>
           </div>
         </aside>
       )}

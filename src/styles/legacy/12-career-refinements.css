@@ -193,6 +193,34 @@
 .manager-edit-form .manager-birth-date {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
+.manager-date-part {
+  display: grid;
+  gap: 7px;
+}
+.manager-date-part > button {
+  display: flex;
+  min-height: 48px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  border: 1px solid var(--mando-border);
+  border-radius: 8px;
+  background: var(--mando-surface);
+  color: var(--mando-text);
+  font-variant-numeric: tabular-nums;
+}
+.manager-date-part > button > span {
+  color: var(--mando-text-muted);
+  font-size: 22px;
+}
+.manager-date-part.editing > button {
+  border-color: var(--mando-cyan);
+  box-shadow: 0 0 0 2px rgba(54, 214, 231, 0.2);
+}
+.manager-date-part > small {
+  color: var(--mando-text-muted);
+  font-size: 10px;
+}
 .office-screen .profile-panel {
   max-height: 100%;
   overflow-y: auto;

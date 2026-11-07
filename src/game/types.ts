@@ -275,22 +275,29 @@ export const tacticSchema = z.object({
   line: z.number().int().min(1).max(5),
 });
 export type Tactic = z.infer<typeof tacticSchema>;
+const matchEventTypes = [
+  'kickoff',
+  'chance',
+  'goal',
+  'save',
+  'miss',
+  'yellow',
+  'red',
+  'injury',
+  'sub',
+  'tactic',
+  'half',
+  'full',
+] as const;
+const knownMatchEventTypes = new Set<string>(matchEventTypes);
+const matchEventTypeSchema = z.preprocess(
+  (value) =>
+    typeof value === 'string' && !knownMatchEventTypes.has(value) ? 'chance' : value,
+  z.enum(matchEventTypes),
+);
 const eventSchema = z.object({
   minute: z.number().int().min(0).max(95),
-  type: z.enum([
-    'kickoff',
-    'chance',
-    'goal',
-    'save',
-    'miss',
-    'yellow',
-    'red',
-    'injury',
-    'sub',
-    'tactic',
-    'half',
-    'full',
-  ]),
+  type: matchEventTypeSchema,
   clubId: z.string(),
   playerId: z.string().optional(),
   /** Quem deu o passe para o gol. */

@@ -11,7 +11,14 @@ import {
 } from './engine';
 import { createDemoWorld } from './world';
 import { ageAt, addDays, hash, random } from './random';
-import { formations, type Career, type Formation, type Manager, type Tactic } from './types';
+import {
+  formations,
+  matchSchema,
+  type Career,
+  type Formation,
+  type Manager,
+  type Tactic,
+} from './types';
 import { pitchCoordinates, formationRows } from './pitch';
 import {
   assistantCandidates,
@@ -34,6 +41,28 @@ const manager: Manager = {
 const start = () => createCareer(world, manager, 'sao-paulo', 'Amador', 'Realista', 42);
 
 describe('refinamentos da carreira', () => {
+  it('mantém saves antigos quando uma partida contém um evento legado', () => {
+    const match = matchSchema.parse({
+      fixtureId: 'legacy-fixture',
+      seed: 1,
+      minute: 90,
+      homeGoals: 0,
+      awayGoals: 0,
+      home: { shots: 0, xg: 0, possession: 50, passes: 0 },
+      away: { shots: 0, xg: 0, possession: 50, passes: 0 },
+      events: [{ minute: 12, type: 'penalty', clubId: 'home', text: 'Penalidade antiga' }],
+      homeLineup: [],
+      awayLineup: [],
+      usedSubs: 0,
+      replaced: [],
+      ratings: {},
+    });
+    expect(match.events[0]).toMatchObject({
+      type: 'chance',
+      text: 'Penalidade antiga',
+    });
+  });
+
   it('desenha as onze formações com linhas, pontas e centroavante corretos', () => {
     for (const formation of Object.keys(formations) as Formation[]) {
       const coordinates = pitchCoordinates(formation);

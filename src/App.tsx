@@ -18,7 +18,7 @@ import {
   X,
 } from 'lucide-react';
 import { type User } from '@supabase/supabase-js';
-import { z } from 'zod';
+import { ZodError, z } from 'zod';
 import { GamepadProvider, useControllerActions, useGamepad } from './controller/GamepadProvider';
 import { ControllerButtonHint } from './controller/ControllerButtonHint';
 import { Badge, dateLabel, Modal, money } from './components/ui';
@@ -111,6 +111,20 @@ const contractChallengeObjectives: Record<Career['challenge'], string> = {
   'Venda necessária': 'Concluir R$ 10 milhões em vendas antes de contratar.',
   Reconstrução: 'Renovar o elenco e controlar o orçamento disponível.',
 };
+
+function readableError(error: unknown) {
+  if (error instanceof ZodError) {
+    const paths = [
+      ...new Set(error.issues.map((issue) => issue.path.map(String).join('.')).filter(Boolean)),
+    ].slice(0, 3);
+    const location = paths.length ? `: ${paths.join(', ')}` : '';
+    return (
+      `Dados incompatíveis no save (${error.issues.length} campos${location}). ` +
+      'Atualize a página e tente novamente.'
+    );
+  }
+  return error instanceof Error ? error.message : String(error);
+}
 type AdvanceMode = Career['prefs']['advance'];
 const advanceModes: { id: AdvanceMode; title: string; text: string }[] = [
   {
@@ -190,8 +204,8 @@ function Game() {
   const lock = useRef(false);
   const { rumble } = controller;
   const fail = useCallback(
-    (message: string) => {
-      setError(message);
+    (error: unknown) => {
+      setError(readableError(error));
       setNotice('');
       rumble('error');
     },
@@ -217,7 +231,7 @@ function Game() {
       setError('');
       setNotice('');
       void operation()
-        .catch((e: unknown) => fail(e instanceof Error ? e.message : String(e)))
+        .catch(fail)
         .finally(() => {
           lock.current = false;
           setBusy(false);
@@ -231,7 +245,7 @@ function Game() {
         setError('');
         operation();
       } catch (e) {
-        fail(e instanceof Error ? e.message : String(e));
+        fail(e);
       }
     },
     [fail],
@@ -242,7 +256,7 @@ function Game() {
         setSaves(records);
         records.forEach((s) => revisions.current.set(s.career.id, s.cloudRevision));
       })
-      .catch((e: unknown) => fail(e instanceof Error ? e.message : String(e)));
+      .catch(fail);
     if (!supabase) return;
     // Guest account is created silently: cloud backup and AI never ask the player to log in.
     void ensureSession()
@@ -287,7 +301,7 @@ function Game() {
       })
       .catch((e: unknown) => {
         if (version === saveVersion.current) setSaveState('error');
-        fail(`Save local não gravado: ${e instanceof Error ? e.message : String(e)}.`);
+        fail(new Error(`Save local não gravado: ${readableError(e)}.`));
       });
   }, [career, world, fail]);
   useEffect(() => {
@@ -427,7 +441,7 @@ function Game() {
         }
       } catch (e) {
         setRunning(false);
-        fail(e instanceof Error ? e.message : String(e));
+        fail(e);
       }
     }, 110);
     return () => window.clearTimeout(timer);
@@ -1098,7 +1112,7 @@ function Game() {
               Vibração: {controller.vibration ? 'Ligada' : 'Desligada'}
             </button>
             <button onClick={toggleMusic}>
-              Trilha original: {audio.music ? 'Ligada' : 'Desligada'} · 10 faixas
+              Trilha eletrônica: {audio.music ? 'Ligada' : 'Desligada'} · 10 faixas
             </button>
             <button onClick={toggleCrowd}>
               Som de torcida: {audio.crowd ? 'Ligado' : 'Desligado'}
