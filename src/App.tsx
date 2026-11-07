@@ -23,7 +23,7 @@ import { GamepadProvider, useControllerActions, useGamepad } from './controller/
 import { ControllerButtonHint } from './controller/ControllerButtonHint';
 import { Badge, dateLabel, Modal, money } from './components/ui';
 import { PlayerFace } from './components/PlayerFace';
-import { MainMenu } from './screens/MainMenu';
+import { MainMenu, SavedGameList } from './screens/MainMenu';
 import { CreateManager } from './screens/CreateManager';
 import { CareerCentral } from './screens/CareerCentral';
 import { Squad } from './screens/Squad';
@@ -80,7 +80,7 @@ import { registerSW } from 'virtual:pwa-register';
 import { AdvanceOverlay } from './components/CareerCalendar';
 
 type OfficeSeasonView = 'table' | 'calendar' | 'stats' | 'legacy';
-type Popup = 'world' | 'contract' | 'tutorial' | 'pause' | 'prematch' | 'prefs' | null;
+type Popup = 'world' | 'load' | 'contract' | 'tutorial' | 'pause' | 'prematch' | 'prefs' | null;
 const onboardingTour = [
   {
     title: 'Central',
@@ -648,7 +648,7 @@ function Game() {
             saves={saves}
             onContinue={(record) => act(() => continueCareer(record))}
             onNew={() => setPopup('world')}
-            onDelete={setDeleting}
+            onLoad={() => setPopup('load')}
           />
         )}
         {screen === 'create' && world && (
@@ -1007,6 +1007,19 @@ function Game() {
         <div className="busy-indicator" role="status">
           <LoaderCircle className="spin" size={17} /> Processando…
         </div>
+      )}
+      {popup === 'load' && (
+        <Modal title="Carregar jogo" onClose={() => setPopup(null)} wide>
+          {saves.length ? (
+            <SavedGameList
+              saves={saves}
+              onContinue={(record) => act(() => continueCareer(record))}
+              onDelete={setDeleting}
+            />
+          ) : (
+            <p>Nenhuma carreira salva. Volte ao menu para começar uma nova carreira.</p>
+          )}
+        </Modal>
       )}
       {popup === 'world' && (
         <Modal title="Nova carreira" onClose={() => setPopup(null)} wide>
@@ -1446,7 +1459,24 @@ function Game() {
               className="danger"
               onClick={() =>
                 run(async () => {
-                  await removeLocal(deleting.career.id);
+                  const previous = latestSave.current;
+                  const deletingCurrent = previous.career?.id === deleting.career.id;
+                  if (deletingCurrent) {
+                    latestSave.current = { career: null, world: null };
+                    setCareer(null);
+                    setWorld(null);
+                  }
+                  try {
+                    await queue.current;
+                    await removeLocal(deleting.career.id);
+                  } catch (error) {
+                    if (deletingCurrent) {
+                      latestSave.current = previous;
+                      setCareer(previous.career);
+                      setWorld(previous.world);
+                    }
+                    throw error;
+                  }
                   setSaves(await listLocal());
                   setDeleting(null);
                 })

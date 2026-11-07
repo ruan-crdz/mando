@@ -1,20 +1,21 @@
-import { ArrowRight, Plus, Trash2 } from 'lucide-react';
+import { ArrowRight, FolderOpen, Plus, Trash2 } from 'lucide-react';
 import { Badge, dateLabel, ManagerPortrait } from '../components/ui';
 import { type SavedCareer } from '../services/storage';
+
+const clubOf = (s: SavedCareer) => s.world.clubs.find((c) => c.id === s.career.clubId)!;
 
 export function MainMenu({
   saves,
   onContinue,
   onNew,
-  onDelete,
+  onLoad,
 }: {
   saves: SavedCareer[];
   onContinue: (save: SavedCareer) => void;
   onNew: () => void;
-  onDelete: (save: SavedCareer) => void;
+  onLoad: () => void;
 }) {
-  const [recent, ...others] = saves;
-  const clubOf = (s: SavedCareer) => s.world.clubs.find((c) => c.id === s.career.clubId)!;
+  const recent = saves.length === 1 ? saves[0] : undefined;
   return (
     <div className="screen menu-screen">
       <div className="menu-heading">
@@ -51,9 +52,22 @@ export function MainMenu({
             <ManagerPortrait manager={recent.career.manager} />
           </button>
         )}
+        {saves.length > 1 && (
+          <button className="tile tile-blue load-game-tile" data-autofocus onClick={onLoad}>
+            <span className="tile-label">CARREGAR JOGO</span>
+            <span className="tile-icon">
+              <FolderOpen size={64} strokeWidth={2.4} />
+            </span>
+            <strong className="tile-title">Escolha sua carreira</strong>
+            <span>{saves.length} carreiras salvas</span>
+            <span className="tile-cta">
+              CARREGAR <ArrowRight size={20} />
+            </span>
+          </button>
+        )}
         <button
-          className={`tile ${recent ? 'tile-green' : 'tile-blue'} new-career-tile`}
-          data-autofocus={recent ? undefined : true}
+          className={`tile ${saves.length ? 'tile-green' : 'tile-blue'} new-career-tile`}
+          data-autofocus={saves.length ? undefined : true}
           onClick={onNew}
         >
           <span className="tile-label">NOVA CARREIRA</span>
@@ -65,29 +79,45 @@ export function MainMenu({
             COMEÇAR <ArrowRight size={20} />
           </span>
         </button>
-        {others.map((s, i) => (
-          <div className="save-slot" key={s.career.id}>
-            <button
-              className={`tile ${['tile-orange', 'tile-purple', 'tile-pink'][i % 3]} slot-tile`}
-              onClick={() => onContinue(s)}
-            >
-              <span className="tile-label">CARREGAR</span>
-              <Badge club={clubOf(s)} size="large" />
-              <strong className="tile-title">{clubOf(s).name}</strong>
-              <span className="slot-meta">
-                {s.career.manager.firstName} · {dateLabel(s.career.date)}
-              </span>
-            </button>
-            <button
-              className="slot-delete"
-              aria-label={`Excluir carreira ${s.career.manager.firstName}`}
-              onClick={() => onDelete(s)}
-            >
-              <Trash2 size={18} />
-            </button>
-          </div>
-        ))}
       </div>
+    </div>
+  );
+}
+
+export function SavedGameList({
+  saves,
+  onContinue,
+  onDelete,
+}: {
+  saves: SavedCareer[];
+  onContinue: (save: SavedCareer) => void;
+  onDelete: (save: SavedCareer) => void;
+}) {
+  return (
+    <div className="save-picker">
+      {saves.map((s, i) => (
+        <div className="save-slot" key={s.career.id}>
+          <button
+            className={`tile ${['tile-orange', 'tile-purple', 'tile-pink'][i % 3]} slot-tile`}
+            data-autofocus={i === 0 ? true : undefined}
+            onClick={() => onContinue(s)}
+          >
+            <span className="tile-label">CARREGAR</span>
+            <Badge club={clubOf(s)} size="large" />
+            <strong className="tile-title">{clubOf(s).name}</strong>
+            <span className="slot-meta">
+              {s.career.manager.firstName} {s.career.manager.lastName} · {dateLabel(s.career.date)}
+            </span>
+          </button>
+          <button
+            className="slot-delete"
+            aria-label={`Excluir carreira ${s.career.manager.firstName} ${s.career.manager.lastName}`}
+            onClick={() => onDelete(s)}
+          >
+            <Trash2 size={18} />
+          </button>
+        </div>
+      ))}
     </div>
   );
 }

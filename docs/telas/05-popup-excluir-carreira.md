@@ -1,14 +1,14 @@
 # Tela: Popup "Excluir carreira?"
 
 ## Resumo
-Modal de confirmação para apagar um save local do menu principal. Mostra qual carreira será removida (manager, clube, data no jogo) e oferece **Cancelar** ou **Excluir**.
+Modal de confirmação para apagar um save local pelo seletor Carregar jogo. Mostra qual carreira será removida (manager, clube, data no jogo) e oferece **Cancelar** ou **Excluir**.
 
 ## Como se chega / como se sai
-**Entrada**: Menu principal › lista "outras carreiras" › botão lixeira (`Trash2`) de um slot → `onDelete(save)` → `setDeleting(save)`. O save mais recente (tile "CONTINUAR") **não** tem lixeira.
+**Entrada**: Menu principal › Carregar jogo › botão lixeira (`Trash2`) de um slot → `onDelete(save)` → `setDeleting(save)`. O seletor inclui todos os saves, inclusive o mais recente.
 
 **Saída**
-- "Cancelar", "‹ Voltar", ○/B ou Esc → `setDeleting(null)` (volta ao menu, nada muda). O handler `back` do App também trata `deleting` em primeiro lugar.
-- "Excluir" → `run(async () => { await removeLocal(deleting.career.id); setSaves(await listLocal()); setDeleting(null); })` → volta ao menu com a lista atualizada.
+- "Cancelar", "‹ Voltar", ○/B ou Esc → `setDeleting(null)` (volta ao seletor, nada muda).
+- "Excluir" → interrompe o autosave da carreira escolhida se ela ainda estiver carregada em memória, aguarda gravações locais pendentes, remove o save e atualiza o seletor. Uma sincronização atrasada não deve recriar o save excluído.
 
 ## Arquivos-fonte
 - `src/App.tsx` — `{deleting && <Modal title="Excluir carreira?" onClose={() => setDeleting(null)}>…}`, estado `deleting: SavedCareer | null` (`{ career, world }`), `run()`.
@@ -65,14 +65,14 @@ Sem ícones nos botões, sem escudo, sem retrato.
 1. Confirmação explícita antes de excluir; foco inicial na opção segura (Cancelar).
 2. Identificação da carreira: manager, clube e data no jogo.
 3. Cancelar com ○/B/Esc/Voltar; navegável só no controle.
-4. Após excluir, a lista do menu é atualizada imediatamente.
+4. Após excluir, o seletor é atualizado imediatamente; ao fechá-lo, o menu distingue novamente 0, 1 e 2+ saves.
 
 ## Problemas atuais e oportunidades
 - Texto mínimo: não diz que a ação é **irreversível** nem que o backup na nuvem continua (ou não). Adicionar "Esta ação não pode ser desfeita."
 - Falta identidade visual: mostrar escudo do clube, retrato do manager, temporada/posição na tabela, como um "card de save" FIFA.
 - Sem feedback de sucesso: um aviso curto que some em 2–3s ("Carreira excluída") ajudaria.
 - No estilo FIFA/console, ações destrutivas costumam exigir **segurar ✕** (barra de progresso) em vez de um toque — reduz exclusões acidentais no controle.
-- O save mais recente não pode ser excluído pelo menu (sem lixeira no tile "CONTINUAR"); considerar um gerenciador de saves com △ = excluir em qualquer slot.
+- Com exatamente um save, Continuar abre diretamente a carreira. A exclusão fica no seletor quando ele está aberto.
 - Só o primeiro nome do manager aparece; usar nome completo.
 
 ## Estado do redesign MANDO 27 LEGACY

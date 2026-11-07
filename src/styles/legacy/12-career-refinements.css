@@ -9,6 +9,25 @@
   height: 100%;
   object-fit: contain;
 }
+.squad-screen .lineup-management {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding-inline: 4px;
+}
+.squad-controls > .panel-heading,
+.squad-controls > .lineup-metrics {
+  flex-shrink: 0;
+}
+.reserve-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  flex: 0 0 auto;
+}
+.reserve-panel > * {
+  flex-shrink: 0;
+}
 .bench-player-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));

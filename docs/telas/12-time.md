@@ -136,11 +136,11 @@ com foto real ou retrato neutro quando indisponível.
 
 ## Resumo
 
-Campinho com as fotos dos 11 titulares à esquerda e, à direita, um resumo
-contextual do onze. Selecionar uma posição abre recomendações. Abaixo do resumo
-há nove reservas em quadrados, quatro por linha; depois de um divisor ficam os
-não relacionados. Selecione um não relacionado, use ↑/Y/△ e escolha o reserva
-que sairá. Não há seletor antigo de “reservas selecionados”.
+Campinho com as fotos dos 11 titulares à esquerda e, à direita, banco e não
+relacionados em quadrados, quatro por linha. Não há lista duplicada de titulares.
+Selecionar um titular mantém essas mesmas duas grades para escolher quem entra;
+não abre o seletor de recomendados. Selecionar dois reservas troca sua ordem.
+Para incluir um não relacionado no banco, selecione-o, use ↑/Y/△ e escolha quem sai.
 
 ## Wireframe atual (ASCII)
 
@@ -150,20 +150,20 @@ que sairá. Não há seletor antigo de “reservas selecionados”.
 │ ONZE NOMES. UMA IDEIA.                                       [✨ AUTOESCALAR] │
 │ [🛡 Escalação] [⎚ Tática] [📋 Responsabilidades] [# Jogadores]               │
 ├───────────────────────────────┬──────────────────────────────────────────────┤
-│ 4-2-3-1           (Equilibrada)│ ONZE INICIAL           [Ver elenco completo]│
+│ 4-2-3-1           (Equilibrada)│ RESERVAS               [Ver elenco completo]│
 │ ┌───────────────────────────┐ │ Formação · condição média · indisponíveis   │
 │ │          camisa ST        │ │ reservas                                    │
-│ │   LW      AM      RW      │ │ TITULARES             OVR NA FUNÇÃO · COND. │
-│ │       DM      DM          │ │ [GK] Nome do goleiro             77 · 100%  │
-│ │   LB   CB   CB   RB       │ │ [LB] Nome do lateral             80 ·  90%  │
-│ │          camisa GK        │ │ ... 11 titulares, com rolagem ...           │
+│ │   LW      AM      RW      │ │ BANCO: [foto] [foto] [foto] [foto]          │
+│ │       DM      DM          │ │        [foto] [foto] [foto] [foto]          │
+│ │   LB   CB   CB   RB       │ │        [foto]                              │
+│ │          foto GK          │ │ FORA DA RELAÇÃO         [↑ Enviar ao banco]│
 │ └───────────────────────────┘ │                                             │
 │ Selecione uma posição: ...    │                                             │
 └───────────────────────────────┴──────────────────────────────────────────────┘
- Minicamisa: número, OVR na função, nome, condição e alertas.
+ Foto: OVR na função, nome, condição e alertas.
  Seleção: [‹ Cancelar] TROCAR ST · NOME · OVR na função
-          RECOMENDADOS PARA ST [cards fotográficos] + condição/familiaridade abaixo
-          ELENCO POR POSIÇÃO   [demais cards fotográficos]
+          BANCO               [mesmos quadrados, OVR na função selecionada]
+          FORA DA RELAÇÃO     [mesmos quadrados, sem titulares]
 ```
 
 ## Elementos
@@ -183,15 +183,16 @@ que sairá. Não há seletor antigo de “reservas selecionados”.
     4. Barra de condição proporcional ao `fitness`; indisponíveis usam cor de alerta.
   - `aria-label` informa função, nome, número, overall, condição, disponibilidade e familiaridade.
 - Texto de ajuda (`p.muted.small`) abaixo do campo:
-  - Sem seleção: **`Selecione uma posição: o painel ao lado mostra as opções recomendadas.`**
-  - Com slot selecionado: **`Escolha outro titular para trocar de posição com {shortName}, ou vá → para as recomendações.`**
+  - Sem seleção: selecionar um titular para substituí-lo por alguém do banco ou fora da relação.
+  - Com slot selecionado: escolher outro titular para trocar de posição, ou ir à direita para banco e não relacionados.
 
-### Painel direito — estado padrão: "Onze inicial"
+### Painel direito — estado padrão: "Reservas"
 
-- Cabeçalho **`Onze inicial`** com botão **`Ver elenco completo`**, que abre a aba Jogadores.
+- Cabeçalho **`Reservas`** com botão **`Ver elenco completo`**, que abre a aba Jogadores.
 - Métricas: formação, condição média, quantidade de titulares indisponíveis e reservas.
-- Lista rolável com os 11 titulares na ordem da formação, função, nome, disponibilidade, aviso de improvisação, overall na função e condição física.
-- Clique em um titular → `openDetail(p)` (abre sua linha na aba **Jogadores**).
+- Grade com os nove reservas na ordem de `career.bench`; selecionar dois troca suas posições no banco.
+- Divisor e grade dos não relacionados. Selecione um, envie ao banco e escolha o reserva substituído; se houver vaga, ele é incluído diretamente.
+- A seleção tem cancelamento por botão ou B/○; uma troca bem-sucedida mantém o foco no atleta que entrou.
 
 ### Painel direito — estado "escolhendo posição" (`picking = {kind:'slot', index}`)
 
@@ -199,13 +200,10 @@ que sairá. Não há seletor antigo de “reservas selecionados”.
   - Botão `text-button` com `data-back-action`: ícone `ChevronLeft` 16 + **`Cancelar`** (devolve foco ao slot e limpa `picking`).
   - `h2`: **`Trocar {função} · {shortName do atual}`** (ex. `Trocar ST · Hulk`).
   - `span.pill`: **`OVR na função`**.
-- `PlayerPicker`:
-  - **`Recomendados para {função}`** — até 5 atletas: primeiro os disponíveis cuja posição natural é a 1ª de `roleFits[função]` ou com familiaridade ≥ 85 na função, ordenados pelo overall na função; se faltarem, completa com disponíveis cuja posição natural está em `roleFits[função]`. Exclui o atual do slot; no slot 0 só goleiros.
-  - **`Elenco por posição`** — todo o resto do pool, ordenado por `byPosition`.
-  - Cada card: `PlayerCard` com `role={função}` (OVR e posição na função). Abaixo ficam titular/reserva, disponibilidade, condição e familiaridade; substituições inválidas são desabilitadas.
-  - Se não houver candidato selecionável, uma mensagem explica que não há atleta disponível para a troca.
-  - Clique → `changeSlot(index, id)`.
-- `roleFits` (quem serve para cada função): `GK[GK]`, `CB[CB,DM]`, `LB[LB,LW,CB]`, `RB[RB,RW,CB]`, `DM[DM,CM,CB]`, `CM[CM,DM,AM]`, `AM[AM,CM,LW,RW]`, `LM[LW,CM,LB,AM]`, `RM[RW,CM,RB,AM]`, `LW[LW,RW,AM,ST]`, `RW[RW,LW,AM,ST]`, `ST[ST,AM,LW,RW]`.
+- Mesmo painel de banco e não relacionados do estado padrão, sem recomendações e sem outros titulares.
+- Cada quadrado mostra foto, nome, condição e OVR na função escolhida; indisponíveis ficam desabilitados. Para o slot 0, somente goleiros podem entrar.
+- Clique → `changeSlot(index, id)`. Um reserva que entra é substituído no mesmo lugar do banco pelo titular disponível que saiu; quem veio de fora da relação não altera a ordem do banco.
+- Se não houver candidato selecionável, uma mensagem explica que não há atleta disponível para a troca.
 
 ## Estados e variações
 
@@ -213,7 +211,7 @@ que sairá. Não há seletor antigo de “reservas selecionados”.
 - Camisa selecionada recebe contorno ciano; improvisação e indisponibilidade têm alertas próprios.
 - A barra de condição varia de 0–100%; o percentual exato também aparece na lista e no seletor.
 - Nos cards fotográficos, jogador sem foto ou com foto quebrada recebe silhueta neutra.
-- Painel direito alterna entre "Onze inicial" e "Seletor de posição".
+- Painel direito preserva banco e não relacionados; selecionar um slot muda somente cabeçalho, OVR e ação dos quadrados.
 - Erros (toast via `onError`): atleta indisponível, exigência de goleiro ou tentativa de deslocar um titular indisponível em vez de substituí-lo por reserva disponível.
 
 ## Interações
@@ -224,15 +222,14 @@ que sairá. Não há seletor antigo de “reservas selecionados”.
 - Clique na mesma camisa selecionada → desseleciona.
 - Clique em **outra** camisa com um slot selecionado → `swapSlots(origem, destino)`: troca titulares disponíveis (falha se o slot 0 deixar de ter `GK`). Foco vai para o slot de destino.
 - Clique num card do seletor → `changeSlot(i, id)`: se o escolhido já é titular em outro slot, os dois trocam; senão o reserva entra e o atual sai. Bloqueia indisponíveis e qualquer troca que deixe um não-goleiro no slot 0; o goleiro titular aparece desabilitado quando não pode deixar o gol. Foco volta ao slot.
-- **Arrastar e soltar** (só mouse, só entre camisas do campinho): soltar um titular sobre outro → `changeSlot(destino, arrastado)` (equivale à troca). Cards do painel direito **não** são arrastáveis.
-- Clique em titular do "Onze inicial" → abre o jogador na aba Jogadores.
+- **Arrastar e soltar**: titulares entre slots; reservas/não relacionados para um slot; reserva sobre outro reserva troca a ordem; não relacionado sobre um reserva substitui esse lugar no banco.
 - Setas do teclado = navegação espacial (mesmo comportamento do D-pad); `Enter`/`Espaço` = clique; **`Esc` = Voltar** (mesma ação do ○/B: clica em `Cancelar` quando há posição selecionada); `[`/`]` = aba principal; `q`/`e` = sub-aba.
 
 **Controle (PS5 / Xbox)**
 
 - **D-pad / analógico esquerdo**: foco espacial entre camisas (algoritmo `FocusManager.move`: prioriza mesma região `data-focus-region` e alinhamento). → a partir do campinho alcança o painel direito (região `panel`).
 - **✕ / A** sobre uma camisa: seleciona a posição. **O foco permanece no campinho** (só no modo responsabilidades o foco salta para o painel).
-  - Com posição selecionada: **✕/A noutra camisa** = trocar os dois de posição; **✕/A na mesma** = cancelar; **→** = ir aos recomendados; **✕/A num card** = escalar; **○ / B** = clica no botão `[data-back-action]` **Cancelar** (foco volta ao slot).
+  - Com posição selecionada: **✕/A noutra foto** = trocar os dois de posição; **✕/A na mesma** = cancelar; **→** = ir ao banco; **✕/A num quadrado** = substituir; **○ / B** = Cancelar (foco volta ao slot).
 - **✕/A** num titular da lista = abre a ficha (aba Jogadores).
 - **L2/R2 · LT/RT**: muda de sub-aba. **L1/R1 · LB/RB**: muda de aba principal. **Analógico direito vertical**: rola a área rolável mais próxima (grade de cards). **R-stick horizontal**: sem uso nesta aba (rola carrossel horizontal se existir).
 - **□ / X**: avança o dia (global). **△ / Y**: Escritório. **Options/☰**: pausa.
@@ -242,7 +239,7 @@ que sairá. Não há seletor antigo de “reservas selecionados”.
 
 - `.squad-layout` usa duas colunas também no celular deitado, com rolagem vertical do conteúdo; em retrato o aviso global pede para girar o aparelho.
 - Em landscape até 700 px, as colunas têm a mesma largura, as camisas acompanham o campo e o editor empilha o painel de posições abaixo da camisa e do mapa de calor.
-- `.pitch-panel` usa superfície grafite; `.football-pitch` preenche o espaço. `.pitch-player` contém a camisa vetorial, OVR, nome e condição, sem fundo metálico.
+- `.pitch-panel` usa superfície grafite; `.football-pitch` preenche o espaço. `.pitch-player` contém foto, OVR, nome e condição, sem fundo metálico.
 - Tiers (`--card-bg`): bronze `#e7b083 → #b06b35 → #5e3313`; prata `#f1f5f8 → #a9b4bc → #56636c`; ouro `#ffe590 → #d4a537 → #7a5512`; ouro brilhante `#fff6c4 → #ffcf2e → #e09a00 → #6b3f00` + anel/glow dourado + faixa de brilho animada (`::after`). `--card-name` (faixa do nome) em tons escuros do próprio metal.
 - `.player-card` (ver comum): quadrado, padding 0, foto `inset 6% 0 0 0`, nome em faixa inferior gradiente, OVR/posição brancos no topo-esquerda.
 - `.card-grid` tem 4 colunas no desktop e 3 no celular deitado; `.card-scroll` usa `overflow-y: auto`.
@@ -258,15 +255,14 @@ que sairá. Não há seletor antigo de “reservas selecionados”.
 - Indicação de **fora de posição** (familiaridade < 85) e de **condição física** (fitness %) em cada titular.
 - Indisponíveis (lesão, suspensão, fitness < 30) não podem entrar: desabilitados no seletor. Um titular indisponível pode sair por um reserva disponível, mas não ser deslocado para outro slot titular.
 - Fluxo de troca: selecionar slot → (a) outro slot = trocar posições, (b) card = substituir/trocar; cancelar devolve o foco ao slot.
-- Recomendados (até 5) primeiro, depois elenco por posição.
+- Banco na ordem definida pelo usuário; divisor e não relacionados. O mesmo painel é usado para substituir titulares.
 - **Preferência do usuário — "o card é a foto"**: nos cards dos seletores, foto grande e centralizada, com a **base colada embaixo**; mostrar **só nome, posição e overall (sem número)** sobre ela. Fundo pelo nível **bronze (<65) / prata (65–74) / ouro (75–82) / ouro brilhante (≥83)**; fonte branca; sem foto = silhueta neutra. O campo usa minicamisas, não cards.
 - Autoescalar sempre acessível.
 - Navegação 100% por controle, com foco visível e retorno de foco ao ponto de origem.
 
 ## Problemas atuais e oportunidades
 
-- Drag-and-drop só entre titulares; não dá para arrastar do banco.
-- Não existe visão de **banco/reservas** separada no campinho; o elenco completo fica na aba Jogadores e no seletor.
+- O seletor de responsabilidades ainda usa recomendações, mas não deve ser reutilizado para substituir titulares.
 
 ---
 

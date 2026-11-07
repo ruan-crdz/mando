@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { type SavedCareer } from '../src/services/storage';
 
 async function createCareer(page: Page) {
   await page.goto('./');
@@ -155,6 +156,128 @@ test('criação, todas as abas, negociação, avanço e save/load persistente', 
     .click();
   await expect(page.getByRole('heading', { name: '4-3-3', exact: true })).toBeVisible();
   expect(errors).toEqual([]);
+});
+
+test('banco compartilhado permite ordenar reservas e substituir titulares', async ({ page }) => {
+  await createCareer(page);
+  await page
+    .getByRole('navigation', { name: 'Áreas do clube' })
+    .getByRole('button', { name: 'TIME', exact: true })
+    .click();
+  const bench = page.getByRole('group', { name: 'Banco de reservas', exact: true });
+  const outside = page.getByRole('group', { name: 'Atletas fora da relação', exact: true });
+  const benchIds = () =>
+    bench
+      .locator('button')
+      .evaluateAll((buttons) => buttons.map((button) => button.getAttribute('data-bench-player')));
+  await expect(page.locator('.lineup-list-row')).toHaveCount(0);
+  const original = await benchIds();
+  expect(original).toHaveLength(9);
+  await bench.locator('button').nth(0).click();
+  await bench.locator('button').nth(1).click();
+  const reordered = await benchIds();
+  expect(reordered[0]).toBe(original[1]);
+  expect(reordered[1]).toBe(original[0]);
+  const incoming = outside.locator('button:not(:disabled)').first();
+  const incomingId = await incoming.getAttribute('data-reserve-player');
+  await incoming.click();
+  await page.getByRole('button', { name: /Enviar ao banco/ }).click();
+  await bench.locator('button').nth(0).click();
+  expect((await benchIds())[0]).toBe(incomingId);
+  await expect(outside.locator(`[data-reserve-player="${reordered[0]}"]`)).toBeVisible();
+  const starter = page.locator('[data-slot="10"]');
+  const starterName = await starter.getAttribute('aria-label');
+  await starter.click();
+  await expect(bench).toBeVisible();
+  await expect(outside).toBeVisible();
+  await expect(page.getByText(/Recomendados para/)).toHaveCount(0);
+  const substituteName = await bench.locator('button').nth(0).locator('strong').textContent();
+  await bench.locator('button').nth(0).click();
+  await expect(starter).toContainText(substituteName!);
+  expect(await starter.getAttribute('aria-label')).not.toBe(starterName);
+  await expect(bench.locator('button')).toHaveCount(9);
+  await expect(page.locator('.save-status')).toHaveText(/SALVO/);
+  const savedOrder = await benchIds();
+  await page.reload();
+  await page.getByRole('button', { name: /CONTINUAR CARREIRA/ }).click();
+  await page
+    .getByRole('navigation', { name: 'Áreas do clube' })
+    .getByRole('button', { name: 'TIME', exact: true })
+    .click();
+  expect(await benchIds()).toEqual(savedOrder);
+  await expect(starter).toContainText(substituteName!);
+});
+
+test('menu escolhe saves e mantém a lixeira compacta quando focada', async ({ page }) => {
+  await createCareer(page);
+  await expect(page.locator('.save-status')).toHaveText(/SALVO/);
+  await page.evaluate(
+    () =>
+      new Promise<void>((resolve, reject) => {
+        const request = indexedDB.open('mando-careers', 1);
+        request.onerror = () => reject(request.error);
+        request.onsuccess = () => {
+          const db = request.result;
+          const tx = db.transaction('careers', 'readwrite');
+          const store = tx.objectStore('careers');
+          const read = store.getAll();
+          read.onsuccess = () => {
+            const record: SavedCareer | undefined = read.result[0];
+            if (!record) {
+              tx.abort();
+              return;
+            }
+            const copy = structuredClone(record);
+            copy.career.id = crypto.randomUUID();
+            copy.career.manager.firstName = 'Bruno';
+            copy.cloudRevision = 0;
+            copy.savedAt = new Date().toISOString();
+            store.put(copy);
+          };
+          tx.oncomplete = () => {
+            db.close();
+            resolve();
+          };
+          tx.onerror = () => {
+            db.close();
+            reject(tx.error);
+          };
+          tx.onabort = () => {
+            db.close();
+            reject(tx.error ?? new Error('Save de teste ausente.'));
+          };
+        };
+      }),
+  );
+  await page.keyboard.press('Escape');
+  await page.getByRole('button', { name: /Salvar e sair para o menu/ }).click();
+  await expect(page.getByRole('button', { name: /CONTINUAR CARREIRA/ })).toHaveCount(0);
+  await expect(page.locator('main .save-slot')).toHaveCount(0);
+  await page.getByRole('button', { name: /CARREGAR JOGO/ }).click();
+  const picker = page.getByRole('dialog', { name: 'Carregar jogo', exact: true });
+  await expect(picker.locator('.save-slot')).toHaveCount(2);
+  const trash = picker.locator('.slot-delete').first();
+  await picker.locator('.slot-tile').first().focus();
+  await page.keyboard.press('ArrowUp');
+  await expect(trash).toBeFocused();
+  expect(
+    await trash.evaluate((button) => {
+      const style = getComputedStyle(button);
+      return { position: style.position, width: style.width, height: style.height };
+    }),
+  ).toEqual({ position: 'absolute', width: '36px', height: '36px' });
+  await trash.click();
+  const confirmation = page.getByRole('dialog', { name: 'Excluir carreira?', exact: true });
+  await confirmation.getByRole('button', { name: 'Cancelar', exact: true }).click();
+  await expect(picker.locator('.save-slot')).toHaveCount(2);
+  await trash.click();
+  await confirmation.getByRole('button', { name: 'Excluir', exact: true }).click();
+  await expect(picker.locator('.save-slot')).toHaveCount(1);
+  await picker.locator('[data-dialog-close]').click();
+  await page.reload();
+  await expect(page.getByRole('button', { name: /CARREGAR JOGO/ })).toHaveCount(0);
+  await page.getByRole('button', { name: /CONTINUAR CARREIRA/ }).click();
+  await expect(page.getByRole('heading', { name: /Bom trabalho, Bruno/ })).toBeVisible();
 });
 
 test('controle Xbox e DualSense navegam, teclado virtual confirma sem mouse', async ({ page }) => {

@@ -99,7 +99,19 @@
   letter-spacing: 0.12em;
 }
 
+.load-game-tile {
+  width: clamp(430px, 47vw, 700px);
+  padding: clamp(22px, 3vw, 38px);
+  justify-content: space-between;
+}
+
+.load-game-tile .tile-title {
+  font: 700 clamp(26px, 2.5vw, 40px) / 1 var(--mando-title-font);
+  text-transform: uppercase;
+}
+
 .continue-tile .tile-cta,
+.load-game-tile .tile-cta,
 .new-career-tile .tile-cta {
   color: var(--mando-text);
 }
@@ -131,6 +143,19 @@
   min-width: 220px;
 }
 
+.save-picker {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
+  gap: var(--mando-tile-gap);
+  padding: 6px;
+}
+
+.save-picker .save-slot {
+  width: auto;
+  min-width: 0;
+  height: 280px;
+}
+
 .slot-tile {
   align-items: flex-start;
   justify-content: flex-end;
@@ -154,16 +179,25 @@
   font-size: 13px;
 }
 
-.slot-delete {
+.save-slot > .slot-delete {
+  position: absolute;
   top: 10px;
   right: 10px;
+  width: 36px;
+  height: 36px;
+  min-width: 36px;
+  min-height: 36px;
+  max-width: 36px;
+  max-height: 36px;
+  padding: 0;
+  z-index: 4;
   border: 1px solid var(--mando-border);
   border-radius: 3px;
   background: rgba(8, 12, 24, 0.82);
   color: var(--mando-text-secondary);
 }
 
-.slot-delete:hover:not(:disabled) {
+.save-slot > .slot-delete:hover:not(:disabled) {
   background: var(--mando-danger);
   color: var(--mando-bg);
 }
@@ -324,7 +358,9 @@
 .difficulty-card:focus-visible {
   outline: 2px solid var(--mando-focus-outer);
   outline-offset: 2px;
-  box-shadow: 0 0 0 5px var(--mando-focus-inner), 0 14px 30px rgba(0, 0, 0, 0.45);
+  box-shadow:
+    0 0 0 5px var(--mando-focus-inner),
+    0 14px 30px rgba(0, 0, 0, 0.45);
 }
 
 .club-option .club-badge.large {
@@ -475,7 +511,9 @@
   transform: translateY(-2px);
   outline: 2px solid var(--mando-focus-outer);
   outline-offset: 2px;
-  box-shadow: 0 0 0 5px var(--mando-focus-inner), 0 18px 34px rgba(0, 0, 0, 0.45);
+  box-shadow:
+    0 0 0 5px var(--mando-focus-inner),
+    0 18px 34px rgba(0, 0, 0, 0.45);
 }
 
 .world-option:disabled {
@@ -629,7 +667,9 @@
   display: block;
   padding: 2px 6px;
   color: var(--mando-cyan);
-  font: italic 600 24px/1.3 Georgia, serif;
+  font:
+    italic 600 24px/1.3 Georgia,
+    serif;
   animation: contract-sign 0.8s ease-out both;
 }
 
@@ -863,7 +903,6 @@
     font-size: 10px;
     letter-spacing: 0.08em;
   }
-
 }
 
 @media (max-height: 760px) and (min-width: 761px) {

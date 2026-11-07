@@ -39,3 +39,4 @@ Uma doc por tela/popup do jogo, descrevendo o estado atual: wireframe, elementos
 | 19 | [19-tutorial-inicial.md](./19-tutorial-inicial.md) | Tutorial inicial |
 | 20 | [20-notificacoes.md](./20-notificacoes.md) | Notificações (caixa de entrada e conversas com atletas) |
 | 21 | [21-academia.md](./21-academia.md) | Academia (captação, elenco jovem e lacunas de simulação) |
+| 22 | [22-popup-carregar-jogo.md](./22-popup-carregar-jogo.md) | Popup Carregar jogo (selecionar e excluir saves) |

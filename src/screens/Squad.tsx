@@ -55,6 +55,7 @@ import {
   replaceBenchPlayer,
   saveLineup,
   selectBenchPlayer,
+  swapBenchPlayers,
   syncBenchWithLineup,
 } from '../game/squadManagement';
 import { HeatMap } from '../components/HeatMap';
@@ -75,13 +76,7 @@ import {
 } from '../game/types';
 import { dateLabel, Modal, money, SectionTitle, thresholdPercent } from '../components/ui';
 import { ChipGroup, NumberStepper, ShirtNumberDial, TacticSlider } from '../components/controls';
-import {
-  byPosition,
-  PlayerCard,
-  PlayerPicker,
-  roleFits,
-  shortName,
-} from '../components/PlayerCard';
+import { byPosition, PlayerCard, PlayerPicker, shortName } from '../components/PlayerCard';
 
 const roleScore: Record<string, (p: Player, c: Career) => number> = {
   Capitão: (p, c) =>
@@ -168,6 +163,7 @@ export function Squad({
   const [focusId, setFocusId] = useState<string | null>(null);
   const [outsideId, setOutsideId] = useState<string | null>(null);
   const [benchTarget, setBenchTarget] = useState(false);
+  const [benchOrderId, setBenchOrderId] = useState<string | null>(null);
   const [hiringArea, setHiringArea] = useState<AssistantArea | null>(null);
   const lastDetail = useRef<string | null>(null);
   const panel = useRef<HTMLElement>(null);
@@ -193,8 +189,7 @@ export function Squad({
 
   useEffect(() => {
     requestAnimationFrame(() => {
-      // Ao escolher uma posição o foco fica no campinho: → vai às recomendações,
-      // ou outro titular pode ser selecionado para trocar de posição.
+      // Ao escolher uma posição, o foco fica no campo; → acessa o banco.
       if (picking?.kind === 'role')
         panel.current
           ?.querySelector<HTMLElement>('.player-card:not(:disabled), .role-card')
@@ -262,6 +257,7 @@ export function Squad({
       return;
     }
     onChange(syncBenchWithLineup(c, lineup));
+    resetBenchSelection();
     returnFocus.current = `[data-slot="${index}"]`;
     setPicking(null);
   };
@@ -277,6 +273,7 @@ export function Squad({
       return;
     }
     onChange(syncBenchWithLineup(c, lineup));
+    resetBenchSelection();
     returnFocus.current = `[data-slot="${to}"]`;
     setPicking(null);
   };
@@ -398,38 +395,161 @@ export function Squad({
   const cycleSort = (dir: number) =>
     setSortMode((m) => (m + dir + sortModes.length) % sortModes.length);
   useStickX(cycleSort, view === 'kit' && !kitId && !detail);
+  const slotPicking = picking?.kind === 'slot' ? picking : null;
+  const reserveRole = slotPicking ? rolePositions[slotPicking.index] : null;
+  const resetBenchSelection = () => {
+    setOutsideId(null);
+    setBenchTarget(false);
+    setBenchOrderId(null);
+  };
+  const focusReserve = (id: string) =>
+    requestAnimationFrame(() =>
+      panel.current?.querySelector<HTMLElement>(`[data-reserve-player="${id}"]`)?.focus(),
+    );
+  const changeBench = (incoming: string, outgoing: string) => {
+    const changed = apply(() =>
+      c.bench.includes(incoming)
+        ? swapBenchPlayers(c, incoming, outgoing)
+        : replaceBenchPlayer(c, incoming, outgoing),
+    );
+    if (changed) {
+      resetBenchSelection();
+      focusReserve(incoming);
+    }
+  };
+  const reserveButton = (player: Player, onBench: boolean) => {
+    const id = player.id;
+    const state = c.players[id];
+    const role = reserveRole ?? state.position ?? player.position;
+    const selected = !slotPicking && (onBench ? benchOrderId === id : outsideId === id);
+    const eligible =
+      available(c, id) && (!slotPicking || slotPicking.index !== 0 || player.position === 'GK');
+    return (
+      <button
+        key={id}
+        className={`bench-player-square ${selected ? 'selected' : ''}`}
+        data-bench-player={onBench ? id : undefined}
+        data-reserve-player={id}
+        aria-pressed={selected}
+        aria-label={`${player.name}, ${role}, overall ${overall(player, role, state)}, ${onBench ? 'banco' : 'fora da relação'}, ${availability(player)}`}
+        disabled={slotPicking || !onBench ? !eligible : false}
+        onFocus={() => setFocusId(id)}
+        onClick={() => {
+          if (slotPicking) {
+            resetBenchSelection();
+            changeSlot(slotPicking.index, id);
+          } else if (!onBench) {
+            resetBenchSelection();
+            setOutsideId(id);
+          } else if (benchTarget && outsideId) {
+            changeBench(outsideId, id);
+          } else if (benchOrderId && benchOrderId !== id) {
+            changeBench(benchOrderId, id);
+          } else {
+            resetBenchSelection();
+            setBenchOrderId(selected ? null : id);
+          }
+        }}
+        draggable={(!slotPicking && onBench) || eligible}
+        onDragStart={(event) => event.dataTransfer.setData('text/plain', id)}
+        onDragOver={(event) => {
+          if (onBench && !slotPicking) event.preventDefault();
+        }}
+        onDrop={(event) => {
+          event.preventDefault();
+          const incoming = event.dataTransfer.getData('text/plain');
+          if (onBench && !slotPicking && incoming !== id) changeBench(incoming, id);
+        }}
+      >
+        <PlayerFace player={player} size="md" />
+        <b>
+          {overall(player, role, state)} · {role}
+        </b>
+        <strong>{shortName(player.name)}</strong>
+        <small>
+          {!available(c, id)
+            ? availability(player)
+            : slotPicking?.index === 0 && player.position !== 'GK'
+              ? 'Não é goleiro'
+              : `${Math.round(state.fitness)}%`}
+        </small>
+      </button>
+    );
+  };
+  const reservePanel = (
+    <div className="reserve-panel">
+      <div className="lineup-section-heading">
+        <h3>Banco · {c.bench.length}/9</h3>
+        {(input === 'xbox' || input === 'playstation') && (
+          <ControllerButtonHint
+            action="confirm"
+            label={slotPicking ? 'Substituir' : 'Selecionar'}
+          />
+        )}
+      </div>
+      <p className="muted">
+        {slotPicking
+          ? 'Escolha um reserva ou atleta fora da relação para entrar em campo.'
+          : benchTarget
+            ? 'Escolha quem vai sair do banco.'
+            : benchOrderId
+              ? 'Selecione outro reserva para trocar a ordem do banco.'
+              : 'Selecione dois reservas para trocar a ordem. Para incluir um atleta de fora, selecione-o e envie ao banco.'}
+      </p>
+      <div
+        className={`bench-player-grid ${benchTarget && !slotPicking ? 'choosing-target' : ''}`}
+        role="group"
+        aria-label="Banco de reservas"
+      >
+        {c.bench.map((id) => reserveButton(byId(id), true))}
+      </div>
+      <div className="bench-divider">
+        <span>FORA DA RELAÇÃO</span>
+        {!slotPicking && (
+          <>
+            <button
+              disabled={!outsideId}
+              data-controller-info
+              onClick={() => {
+                if (!outsideId) return;
+                if (c.bench.length < 9) {
+                  if (apply(() => selectBenchPlayer(c, outsideId))) {
+                    focusReserve(outsideId);
+                    resetBenchSelection();
+                  }
+                } else {
+                  setBenchTarget(true);
+                  focusReserve(c.bench[0]);
+                }
+              }}
+            >
+              ↑ Enviar ao banco <ControllerButtonHint action="info" label="Trocar" />
+            </button>
+            {(outsideId || benchOrderId) && (
+              <button data-back-action onClick={resetBenchSelection}>
+                Cancelar seleção
+              </button>
+            )}
+          </>
+        )}
+      </div>
+      <div
+        className="bench-player-grid outside-player-grid"
+        role="group"
+        aria-label="Atletas fora da relação"
+      >
+        {players
+          .filter((player) => !c.lineup.includes(player.id) && !c.bench.includes(player.id))
+          .sort(byPosition(c))
+          .map((player) => reserveButton(player, false))}
+      </div>
+    </div>
+  );
   let pickerContent = null;
   if (picking?.kind === 'slot') {
     const role = rolePositions[picking.index];
     const currentId = c.lineup[picking.index];
     const current = byId(currentId);
-    const pool = players.filter(
-      (p) => p.id !== currentId && (picking.index !== 0 || p.position === 'GK'),
-    );
-    const goalkeeperWouldLeaveGoal = (p: Player) =>
-      p.id === c.lineup[0] && picking.index !== 0 && current.position !== 'GK';
-    const canSelect = (p: Player) =>
-      available(c, p.id) &&
-      (!c.lineup.includes(p.id) || available(c, currentId)) &&
-      !goalkeeperWouldLeaveGoal(p);
-    const fit = roleFits[role] || [role];
-    // Recomendados: quem é da posição ou já é apto nela (secundária/treinada), pelo OVR na função.
-    const recommended = pool
-      .filter(
-        (p) =>
-          canSelect(p) &&
-          (fit[0] === p.position || familiarity(p, role, c.players[p.id]) >= LEARNED),
-      )
-      .sort((a, b) => overall(b, role, c.players[b.id]) - overall(a, role, c.players[a.id]))
-      .slice(0, 5);
-    if (recommended.length < 5)
-      recommended.push(
-        ...pool
-          .filter((p) => !recommended.includes(p) && fit.includes(p.position) && canSelect(p))
-          .sort((a, b) => overall(b, role, c.players[b.id]) - overall(a, role, c.players[a.id]))
-          .slice(0, 5 - recommended.length),
-      );
-    const others = pool.filter((p) => !recommended.includes(p)).sort(byPosition(c));
     pickerContent = (
       <>
         <div className="panel-heading picker-heading">
@@ -438,6 +558,7 @@ export function Squad({
             data-back-action
             onClick={() => {
               returnFocus.current = `[data-slot="${picking.index}"]`;
+              resetBenchSelection();
               setPicking(null);
             }}
           >
@@ -448,44 +569,13 @@ export function Squad({
           </h2>
           <span className="pill">OVR na função</span>
         </div>
-        {!pool.some(canSelect) && (
-          <p className="squad-empty">Não há atletas disponíveis para esta troca.</p>
-        )}
-        <PlayerPicker
-          recommended={recommended}
-          others={others}
-          recommendedLabel={`Recomendados para ${role}`}
-          othersLabel="Elenco por posição"
-          render={(p) => {
-            const starter = c.lineup.indexOf(p.id);
-            const state = c.players[p.id];
-            const fit = familiarity(p, role, state);
-            const reason =
-              starter >= 0 && !available(c, currentId)
-                ? ' · substitua por um reserva'
-                : goalkeeperWouldLeaveGoal(p)
-                  ? ' · titular precisa permanecer no gol'
-                  : '';
-            const condition = `${availability(p)} · condição ${thresholdPercent(state.fitness)}% · ${familiarityLabel(fit)} ${thresholdPercent(fit)}%${reason}`;
-            return (
-              <div className="squad-candidate" key={p.id}>
-                <PlayerCard
-                  player={p}
-                  career={c}
-                  role={role}
-                  number={numbers[p.id]}
-                  disabled={!canSelect(p)}
-                  accessibilityNote={`${starter >= 0 ? `Titular ${rolePositions[starter]}` : 'Reserva'}, ${condition}`}
-                  onClick={() => changeSlot(picking.index, p.id)}
-                />
-                <span className={`squad-candidate-meta ${canSelect(p) ? '' : 'unavailable'}`}>
-                  <b>{starter >= 0 ? `Titular · ${rolePositions[starter]}` : 'Reserva'}</b>
-                  {condition}
-                </span>
-              </div>
-            );
-          }}
-        />
+        {!players.some(
+          (p) =>
+            !c.lineup.includes(p.id) &&
+            available(c, p.id) &&
+            (picking.index !== 0 || p.position === 'GK'),
+        ) && <p className="squad-empty">Não há atletas disponíveis para esta troca.</p>}
+        <div className="lineup-management">{reservePanel}</div>
       </>
     );
   } else if (picking?.kind === 'role') {
@@ -987,6 +1077,7 @@ export function Squad({
           className={view === 'lineup' ? 'active' : ''}
           onClick={() => {
             setView('lineup');
+            resetBenchSelection();
             setPicking(null);
           }}
         >
@@ -1101,8 +1192,8 @@ export function Squad({
             </div>
             <p className="muted small">
               {picking?.kind === 'slot'
-                ? `Escolha outro titular para trocar de posição com ${shortName(byId(c.lineup[picking.index]).name)}, ou vá → para as recomendações.`
-                : 'Selecione uma posição: o painel ao lado mostra as opções recomendadas.'}
+                ? `Escolha outro titular para trocar de posição com ${shortName(byId(c.lineup[picking.index]).name)}, ou vá → para o banco e os não relacionados.`
+                : 'Selecione um titular para substituí-lo por alguém do banco ou fora da relação.'}
             </p>
           </section>
         )}
@@ -1469,8 +1560,8 @@ export function Squad({
               <>
                 <div className="panel-heading lineup-overview-heading">
                   <div>
-                    <p className="eyebrow">O TIME QUE ENTRA EM CAMPO</p>
-                    <h2>Onze inicial</h2>
+                    <p className="eyebrow">BANCO E ELENCO</p>
+                    <h2>Reservas</h2>
                   </div>
                   <button
                     type="button"
@@ -1503,135 +1594,8 @@ export function Squad({
                     Reservas <strong>{Math.max(0, players.length - starters.length)}</strong>
                   </span>
                 </div>
-                <div className="lineup-list-heading">
-                  <span>TITULARES</span>
-                  <span>OVR NA FUNÇÃO · CONDIÇÃO</span>
-                </div>
-                <div className="lineup-list">
-                  {starters.map(({ player, state, role, ovr, fit }) => (
-                    <button
-                      type="button"
-                      key={player.id}
-                      className={`lineup-list-row ${available(c, player.id) ? '' : 'unavailable'}`}
-                      onClick={() => openDetail(player)}
-                      aria-label={`${player.name}, ${role}, overall ${ovr}, condição ${thresholdPercent(state.fitness)}%, ${availability(player)}, ${familiarityLabel(fit)} ${thresholdPercent(fit)}%. Abrir ficha`}
-                    >
-                      <span className="lineup-position">{role}</span>
-                      <span className="lineup-name">
-                        <strong>{player.name}</strong>
-                        <small>
-                          {availability(player)}
-                          {fit < LEARNED ? ` · ${familiarityLabel(fit)}` : ''}
-                        </small>
-                      </span>
-                      <b className="lineup-ovr">{ovr}</b>
-                      <span className="lineup-condition">{thresholdPercent(state.fitness)}%</span>
-                    </button>
-                  ))}
-                </div>
                 <div className="lineup-management">
-                  <div className="lineup-section-heading">
-                    <div>
-                      <p className="eyebrow">BANCO E ESCALAÇÕES</p>
-                      <h3>Banco · {c.bench.length}/9</h3>
-                    </div>
-                    {(input === 'xbox' || input === 'playstation') && (
-                      <ControllerButtonHint action="confirm" label="Selecionar" />
-                    )}
-                  </div>
-                  <div
-                    className={`bench-player-grid ${benchTarget ? 'choosing-target' : ''}`}
-                    aria-label="Banco de reservas"
-                  >
-                    {c.bench.map((id) => {
-                      const player = byId(id);
-                      return (
-                        <button
-                          key={id}
-                          className="bench-player-square"
-                          data-bench-player={id}
-                          onFocus={() => setFocusId(id)}
-                          onClick={() => {
-                            if (!benchTarget || !outsideId) return;
-                            if (apply(() => replaceBenchPlayer(c, outsideId, id))) {
-                              setOutsideId(null);
-                              setBenchTarget(false);
-                            }
-                          }}
-                        >
-                          <PlayerFace player={player} size="md" />
-                          <b>
-                            {overall(player, player.position, c.players[id])} ·{' '}
-                            {c.players[id].position ?? player.position}
-                          </b>
-                          <strong>{shortName(player.name)}</strong>
-                          <small>
-                            {available(c, id)
-                              ? `${Math.round(c.players[id].fitness)}%`
-                              : availability(player)}
-                          </small>
-                        </button>
-                      );
-                    })}
-                  </div>
-                  <div className="bench-divider">
-                    <span>
-                      {benchTarget ? 'Escolha acima quem vai sair do banco' : 'FORA DA RELAÇÃO'}
-                    </span>
-                    <button
-                      disabled={!outsideId}
-                      data-controller-info
-                      onClick={() => {
-                        if (!outsideId) return;
-                        if (c.bench.length < 9) {
-                          if (apply(() => selectBenchPlayer(c, outsideId))) setOutsideId(null);
-                        } else {
-                          setBenchTarget(true);
-                          requestAnimationFrame(() =>
-                            panel.current
-                              ?.querySelector<HTMLElement>('[data-bench-player]')
-                              ?.focus(),
-                          );
-                        }
-                      }}
-                    >
-                      ↑ Enviar ao banco <ControllerButtonHint action="info" label="Trocar" />
-                    </button>
-                    {benchTarget && (
-                      <button onClick={() => setBenchTarget(false)}>Cancelar troca</button>
-                    )}
-                  </div>
-                  <div
-                    className="bench-player-grid outside-player-grid"
-                    aria-label="Atletas fora da relação"
-                  >
-                    {players
-                      .filter(
-                        (player) => !c.lineup.includes(player.id) && !c.bench.includes(player.id),
-                      )
-                      .sort(byPosition(c))
-                      .map((player) => (
-                        <button
-                          key={player.id}
-                          disabled={!available(c, player.id)}
-                          className={`bench-player-square ${outsideId === player.id ? 'selected' : ''}`}
-                          aria-pressed={outsideId === player.id}
-                          onFocus={() => setFocusId(player.id)}
-                          onClick={() => {
-                            setOutsideId(player.id);
-                            setBenchTarget(false);
-                          }}
-                        >
-                          <PlayerFace player={player} size="md" />
-                          <b>
-                            {overall(player, player.position, c.players[player.id])} ·{' '}
-                            {c.players[player.id].position ?? player.position}
-                          </b>
-                          <strong>{shortName(player.name)}</strong>
-                          <small>{availability(player)}</small>
-                        </button>
-                      ))}
-                  </div>
+                  {reservePanel}
                   <div className="saved-lineups">
                     <div className="lineup-section-heading">
                       <div>

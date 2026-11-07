@@ -4,12 +4,12 @@
 
 | Tela/área               | Conteúdo                                                                                                                          |
 | ----------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| Menu                    | Continuar, nova carreira, saves, importação e exclusão confirmada                                                                 |
+| Menu                    | Continuar com um save; Carregar jogo com vários; nova carreira e exclusão confirmada no seletor                                  |
 | Nova carreira           | Mundo brasileiro 2026, identidade/retrato, clube, dificuldade e desafio                                                           |
 | Primeiro trabalho       | Contrato, tutorial e apresentação do capitão na caixa postal                                                                      |
 | Central                 | Calendário superior, próximo jogo, avanço, manager, caixa postal e elenco                                                         |
 | Notificações            | Caixa postal falada e conversas iniciadas exclusivamente pelos atletas                                                            |
-| Time: escalação         | Onze com fotos, banco de nove em quadrados, divisor e não relacionados                                                            |
+| Time: escalação         | Onze com fotos, banco ordenável de nove em quadrados; mesmas grades de banco/não relacionados ao substituir um titular           |
 | Time: tática            | Onze formações, mentalidade, pressão, largura, construção e linha                                                                 |
 | Time: responsabilidades | Capitão e responsáveis pelas bolas paradas                                                                                        |
 | Time: jogadores         | Ficha expandida, camisa, contratos, venda/empréstimo, dispensa e treino de posições                                               |

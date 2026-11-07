@@ -10,6 +10,7 @@ import {
   lineupImportError,
   positionTrainingEta,
   selectBenchPlayer,
+  swapBenchPlayers,
   syncBenchWithLineup,
 } from './squadManagement';
 import { ageAt } from './random';
@@ -66,6 +67,24 @@ describe('gestão do elenco', () => {
     const promoted = syncBenchWithLineup(selected, lineup);
     expect(promoted.lineup).toContain(fieldReserve.id);
     expect(promoted.bench).not.toContain(fieldReserve.id);
+  });
+
+  it('troca a ordem de dois reservas sem alterar titulares ou o elenco do banco', () => {
+    const career = start();
+    const original = [...career.bench];
+    const updated = swapBenchPlayers(career, original[0], original[3]);
+    const expected = [...original];
+    [expected[0], expected[3]] = [expected[3], expected[0]];
+    expect(updated.bench).toEqual(expected);
+    expect(updated.lineup).toEqual(career.lineup);
+    expect(career.bench).toEqual(original);
+    expect(() => swapBenchPlayers(career, career.lineup[0], original[0])).toThrow(/banco/);
+    expect(() => swapBenchPlayers(career, original[0], original[0])).toThrow(/diferentes/);
+    const lineup = [...updated.lineup];
+    lineup[10] = updated.bench[3];
+    const replaced = syncBenchWithLineup(updated, lineup);
+    expect(replaced.bench[3]).toBe(updated.lineup[10]);
+    expect(replaced.bench.filter((id) => replaced.lineup.includes(id))).toEqual([]);
   });
 
   it('valida a escalação exportada e rejeita duplicatas e atletas estrangeiros', () => {

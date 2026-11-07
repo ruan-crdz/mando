@@ -1,7 +1,7 @@
 # Tela: Menu principal
 
 ## Resumo
-Primeira tela do jogo (`screen === 'menu'`). Apresenta a marca e o slogan e oferece, em uma faixa horizontal de tiles grandes no estilo hub do FIFA, as ações de **continuar a carreira mais recente**, **criar nova carreira** e **carregar/excluir outras carreiras salvas** no navegador. Não há tela de login: a conta Supabase é anônima e criada em silêncio.
+Primeira tela do jogo (`screen === 'menu'`). Sem saves, mostra somente Nova carreira. Com exatamente um save, mostra Continuar carreira com seus dados. Com dois ou mais, esse card vira Carregar jogo e abre a [seleção de saves](./22-popup-carregar-jogo.md); não exibe as carreiras individualmente no menu. Não há tela de login.
 
 ## Como se chega / como se sai
 **Entrada**
@@ -9,18 +9,26 @@ Primeira tela do jogo (`screen === 'menu'`). Apresenta a marca e o slogan e ofer
 - Pela Pausa da carreira › "Salvar e sair para o menu" (`menu()`: espera a fila de save, salva, recarrega a lista `listLocal()`, fecha popups e o detalhe de jogador).
 
 **Saída**
-- Tile "CONTINUAR CARREIRA" ou um tile "CARREGAR" → `continueCareer(record)`: valida (`validateCareerForWorld`), carrega `career` e `world`, `screen='career'`, aba 0 (CENTRAL).
+- Tile "CONTINUAR CARREIRA" → `continueCareer(record)`: valida, carrega a única carreira e abre a CENTRAL.
+- Tile "CARREGAR JOGO" → modal de seleção (`popup='load'`); escolher um save abre a carreira.
 - Tile "NOVA CARREIRA" → abre o modal **Nova carreira** (`popup='world'`, ver `03-popup-nova-carreira.md`).
-- Lixeira de um save → modal **Excluir carreira?** (`deleting`, ver `05-popup-excluir-carreira.md`).
+- Lixeira de um save no seletor → modal **Excluir carreira?** (`deleting`, ver `05-popup-excluir-carreira.md`).
 
 ## Arquivos-fonte
-- `src/screens/MainMenu.tsx` — `MainMenu({ saves, onContinue, onNew, onDelete })`.
+- `src/screens/MainMenu.tsx` — `MainMenu({ saves, onContinue, onNew, onLoad })` e `SavedGameList`.
 - `src/App.tsx` — estado `saves`, `continueCareer`, `setPopup('world')`, `setDeleting`, carregamento inicial `listLocal()` e sessão `ensureSession()`.
 - `src/services/storage.ts` — `SavedCareer = { career, world, savedAt, cloudRevision }`; `listLocal()` (IndexedDB `mando-careers`/`careers`), ordenado por `savedAt` decrescente.
 - `src/components/ui.tsx` — `Badge`, `dateLabel`, `ManagerPortrait`.
 - Ícones lucide: `ArrowRight`, `Plus`, `Trash2`.
 
-## Wireframe atual
+## Composição atual
+
+- **0 saves:** Nova carreira.
+- **1 save:** Continuar carreira (clube, manager, data e retrato) + Nova carreira.
+- **2+ saves:** Carregar jogo (quantidade de carreiras) + Nova carreira.
+- Nenhum slot individual ou lixeira aparece no menu; esses elementos ficam no seletor.
+
+## Referência visual do card de continuar (1 save)
 ```
 ┌ header: [logo] MANDO ........................................ (⌁)(🎮) ┐
 │                                                                       │
@@ -29,14 +37,14 @@ Primeira tela do jogo (`screen === 'menu'`). Apresenta a marca e o slogan e ofer
 │  O CLUBE É SEU.                                       (h1 gigante)    │
 │  A HISTÓRIA TAMBÉM.                                   (lima)          │
 │                                                                       │
-│  ┌──────────── tile azul ────────────┐┌─ tile verde ─┐┌laranja┐┌roxo┐→│ .menu-row.carousel
-│  │CONTINUAR CARREIRA                 ││NOVA CARREIRA ││🗑     ││🗑   │ │ (rolagem horizontal)
-│  │ [ESCUDO]          ┌──────────┐    ││   ( + )      ││CARREG.││    │ │
-│  │ SÃO PAULO         │ retrato  │    ││ NOVA CARREIRA││[escudo]│    │ │
-│  │ Nome Sobrenome    │ manager  │    ││ DE MANAGER   ││CLUBE  ││    │ │
-│  │ 01 DE JAN. 2026   │          │    ││              ││Nome·  ││    │ │
-│  │ [JOGAR →]         └──────────┘    ││ [COMEÇAR →]  ││data   ││    │ │
-│  └───────────────────────────────────┘└──────────────┘└───────┘└────┘ │
+│  ┌──────────── tile azul ────────────┐┌─ tile verde ─┐                │
+│  │CONTINUAR CARREIRA                 ││NOVA CARREIRA │                │
+│  │ [ESCUDO]          ┌──────────┐    ││   ( + )      │                │
+│  │ SÃO PAULO         │ retrato  │    ││ NOVA CARREIRA│                │
+│  │ Nome Sobrenome    │ manager  │    ││ DE MANAGER   │                │
+│  │ 01 DE JAN. 2026   │          │    ││              │                │
+│  │ [JOGAR →]         └──────────┘    ││ [COMEÇAR →]  │                │
+│  └───────────────────────────────────┘└──────────────┘                │
 │                                                                       │
 └ footer: (✕) SELECIONAR  (○) VOLTAR ──────────────────────────────────┘
 ```
@@ -49,10 +57,9 @@ Sem saves: só o tile NOVA CARREIRA (azul, com foco inicial).
 | 2 | Eyebrow | `p.eyebrow` | Texto fixo **"CARREIRA DE MANAGER · FUTEBOL BRASILEIRO 2026"** | Ciano 12px, letter-spacing 2px |
 | 3 | Título | `.menu-heading h1` | **"O clube é seu."** + `span` **"A história também."** | `italic 800 clamp(40px,6.4vw,92px)/0.9`, caixa alta; a 2ª linha em lima com glow |
 | 4 | Faixa de tiles | `.menu-row.carousel` | Altura `clamp(260px,50vh,470px)`; rolagem horizontal com snap; sem scrollbar | |
-| 5 | Tile continuar | `button.tile.tile-blue.continue-tile` (`data-autofocus`) | Primeiro save (`saves[0]`, o mais recente). `.tile-label` "CONTINUAR CARREIRA"; `.continue-body`: `Badge` large do clube (`world.clubs` do próprio save, por `career.clubId`) + `.continue-text` com `strong` **nome do clube** (itálico `clamp(26px,2.8vw,40px)`), `span` **"{manager.firstName} {manager.lastName}"** (18px), `em` **`dateLabel(career.date)`** (lima, caixa alta); `.tile-cta` "JOGAR →"; `ManagerPortrait` do manager absoluto à direita (42% largura, 92% altura, colado embaixo) | Largura `clamp(380px,44vw,640px)`, `padding-right: 38%`. Só existe se há pelo menos 1 save |
+| 5 | Tile continuar | `button.tile.tile-blue.continue-tile` (`data-autofocus`) | Único save, com clube, manager, data e retrato; ação JOGAR | Só existe com exatamente 1 save |
 | 6 | Tile nova carreira | `button.tile.new-career-tile` | `.tile-label` "NOVA CARREIRA"; `.tile-icon` com `Plus` 64px (círculo 110px); `.tile-title` "Nova carreira de manager"; `.tile-cta` "COMEÇAR →" | Verde (`tile-green`) se há save; **azul** e com `data-autofocus` se não há. Largura `clamp(260px,26vw,380px)` |
-| 7 | Slots de outros saves | `.save-slot` > `button.tile.slot-tile` | Para cada save além do 1º (`others`), cores alternadas `tile-orange`, `tile-purple`, `tile-pink`. Conteúdo centralizado: `.tile-label` "CARREGAR"; `Badge` large; `.tile-title` **nome do clube**; `.slot-meta` **"{firstName} · {dateLabel(date)}"** | Largura `clamp(200px,18vw,260px)` |
-| 8 | Excluir save | `button.slot-delete` | Ícone `Trash2` 18px, `aria-label="Excluir carreira {firstName}"` | Círculo preto 30% no canto superior direito do slot; hover vermelho. É um botão focável separado do tile |
+| 7 | Tile carregar | `button.tile.tile-blue.load-game-tile` (`data-autofocus`) | CARREGAR JOGO, ícone de pasta, quantidade de carreiras | Só existe com 2+ saves; abre o seletor |
 
 Dados de cada save vêm de `SavedCareer.career` (`manager.firstName`, `manager.lastName`, `manager.avatar`, `manager.style`, `clubId`, `date`) e `SavedCareer.world.clubs` (`name`, `short`, `color`, `id` para escudo).
 
@@ -61,7 +68,7 @@ Header nesta tela: só marca + status (sem abas/clube). Footer: só "Selecionar"
 ## Estados e variações
 - **Primeira vez / sem saves**: só o tile NOVA CARREIRA (azul, foco inicial). Não há texto de boas-vindas extra.
 - **1 save**: CONTINUAR (foco inicial) + NOVA CARREIRA (verde). **Sem botão de excluir** para esse save.
-- **2+ saves**: os demais aparecem como slots coloridos com lixeira; a faixa rola horizontalmente.
+- **2+ saves**: CARREGAR JOGO (foco inicial) + NOVA CARREIRA. Todos os saves, inclusive o mais recente, ficam no seletor.
 - **Retrato**: com `manager.avatar` mostra a foto gerada por IA; sem, a silhueta SVG com iniciais e roupa.
 - **Escudo**: real se houver logo; senão brasão genérico com sigla.
 - **Carregando lista**: não há indicador; a lista aparece quando `listLocal()` resolve (tela inicial mostra só NOVA CARREIRA até lá).
@@ -77,14 +84,13 @@ Header nesta tela: só marca + status (sem abas/clube). Footer: só "Selecionar"
 |---|---|
 | Clique / ✕ / A no tile CONTINUAR | `onContinue(recent)` → carreira, aba CENTRAL |
 | Clique / ✕ / A em NOVA CARREIRA | `onNew()` → modal Nova carreira |
-| Clique / ✕ / A em um slot CARREGAR | `onContinue(save)` |
-| Clique / ✕ / A na lixeira | `onDelete(save)` → modal Excluir carreira? |
+| Clique / ✕ / A em CARREGAR JOGO | `onLoad()` → seletor de saves |
 | D-pad/analógico esq. ←/→ | Move o foco entre tiles (e lixeiras); o carrossel centraliza o item focado |
-| D-pad ↑/↓ | Sobe/desce para a lixeira do slot / volta ao tile (navegação espacial) |
+| D-pad ↑/↓ | Navegação espacial; as lixeiras só existem no seletor |
 | Analógico direito horizontal | Rola a faixa de tiles |
 | ○ / B / Esc | Fecha modal aberto; sem modal, nada acontece no menu |
 | □, △, L1/R1, L2/R2, Options | Sem efeito no menu |
-| Foco inicial | CONTINUAR (se houver save) ou NOVA CARREIRA (`data-autofocus`) |
+| Foco inicial | NOVA CARREIRA (0 saves), CONTINUAR (1) ou CARREGAR JOGO (2+) |
 
 Ao focar um tile com controle/teclado: escala 1.025, contorno branco 4px e halo lima.
 
@@ -96,17 +102,16 @@ Ao focar um tile com controle/teclado: escala 1.025, contorno branco 4px e halo 
 - Mobile (≤760px): faixa com altura 320px, CONTINUAR 84vw, NOVA CARREIRA 70vw.
 
 ## Regras que o redesign deve preservar
-1. O save mais recente (por `savedAt`) em destaque, com escudo, nome do clube, nome do manager, data do jogo e retrato do manager, recebendo o foco inicial.
+1. Mostrar dados de uma carreira no menu somente quando existir exatamente um save; com vários, mostrar Carregar jogo.
 2. Nova carreira sempre disponível e com foco inicial quando não há saves.
-3. Todos os demais saves acessíveis para carregar, com nome do clube, manager e data.
+3. Todos os saves acessíveis no seletor, com nome do clube, manager e data, ordenados por `savedAt`.
 4. Excluir carreira com confirmação (modal), acessível por controle.
 5. Slogan/identidade da marca ("O clube é seu. A história também.") e contexto "Carreira de manager · Futebol brasileiro 2026".
 6. Navegação horizontal por controle com o item focado centralizado.
 7. Sem tela de login obrigatória.
 
 ## Problemas atuais e oportunidades
-- **O save mais recente não pode ser excluído** (só os "outros" têm lixeira) — inconsistente. Oferecer excluir para todos (ex.: botão △/Y "Excluir" no item focado, com dica no footer).
-- A lixeira é um alvo pequeno separado do tile; no controle exige navegar ↑ até ela. Melhor: ação de botão (△ ou □) sobre o tile focado, com dica no rodapé.
+- Com exatamente um save, o menu oferece continuar diretamente, sem lixeira. No seletor, todos os saves podem ser excluídos com confirmação.
 - **Logo duplicado** (header + menu-logo) e título enorme ocupam metade da tela; no FIFA 14 o menu inicial é dominado pelos tiles.
 - Slots de save não mostram temporada, divisão, posição na tabela, dificuldade/desafio ou "salvo há X" — dados existem em `career`/`savedAt`.
 - Footer mostra só "Selecionar/Voltar"; "Voltar" não faz nada no menu.
@@ -116,5 +121,5 @@ Ao focar um tile com controle/teclado: escala 1.025, contorno branco 4px e halo 
 
 ## Estado do redesign MANDO 27 LEGACY
 - **Lote 2 implementado:** cards de save com superfícies escuras, acentos semânticos, título/call-to-action mais contidos e carrossel horizontal com snap.
-- O fluxo de continuar, criar carreira e excluir save não mudou; não foram adicionadas opções secundárias nem novos dados ao save.
+- O card inicial distingue 0, 1 e 2+ saves; carregar e excluir várias carreiras acontece no seletor.
 - Verifiquei visualmente Menu em desktop e o fluxo de criação em viewport móvel; os demais estados ainda precisam da revisão por lote.

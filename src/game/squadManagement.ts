@@ -57,6 +57,17 @@ export function replaceBenchPlayer(career: Career, incoming: string, outgoing: s
   };
 }
 
+export function swapBenchPlayers(career: Career, first: string, second: string): Career {
+  if (!career.bench.includes(first) || !career.bench.includes(second))
+    throw new Error('Escolha dois atletas do banco para trocar a ordem.');
+  if (first === second) throw new Error('Escolha reservas diferentes.');
+  return {
+    ...career,
+    bench: career.bench.map((id) => (id === first ? second : id === second ? first : id)),
+    benchConfigured: true,
+  };
+}
+
 export function lineupImportError(
   input: string,
   career: Career,
