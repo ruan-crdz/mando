@@ -8,7 +8,7 @@ Uma doc por tela/popup do jogo, descrevendo o estado atual: wireframe, elementos
 
 - O card do jogador **é a foto**: foto grande, centralizada, base colada embaixo; só nome, posição e overall (sem número).
 - Cards por nível de overall: bronze, prata, ouro e ouro brilhante; fonte branca.
-- Jogador sem foto: silhueta/bonequinho padrão, sem sigla e sem fundo escuro.
+- Jogador sem foto: silhueta/bonequinho padrão, sem sigla e com o mesmo fundo colorido dos demais.
 - Avisos/popups informativos fecham sozinhos em 2–3 s, **sem X**.
 - Nada de modais pesados onde uma linha expansível resolve (ex.: aba Jogadores).
 - Tudo navegável no controle, com dicas de botões visíveis.

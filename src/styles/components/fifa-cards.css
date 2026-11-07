@@ -154,11 +154,6 @@
   bottom: 0;
 }
 
-/* Bonequinho neutro, sem fundo, para quem não tem foto. */
-.player-face.generated,
-.market-row .player-face.generated {
-  background: none !important;
-}
 .player-face.generated svg {
   inset: 10% 0 0;
   height: 90%;

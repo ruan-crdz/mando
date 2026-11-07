@@ -236,7 +236,7 @@ Detalhes dos controles:
 - **Linha** (`button.market-row`, uma por atleta, ordenadas por OVR base decrescente, 20 por página):
   1. Coluna JOGADOR:
      - `span.position-tag` com a posição (caixa ciano, texto azul-escuro, min 40px).
-     - `PlayerFace size="sm"` com classe `face-tier card-…` → **quadrado 56×56 px, raio 8px**, fundo no gradiente do nível (bronze/prata/ouro/ouro brilhante com brilho animado). Foto `object-fit: contain`, alinhada embaixo. Sem foto: silhueta SVG branca 60% **sem fundo** (`background: none !important` sobrepõe o fundo do nível).
+     - `PlayerFace size="sm"` com classe `face-tier card-…` → **quadrado 56×56 px, raio 8px**, fundo no gradiente do nível (bronze/prata/ouro/ouro brilhante com brilho animado). Foto `object-fit: contain`, alinhada embaixo. Sem foto: silhueta SVG branca 60% sobre o mesmo fundo do nível.
      - Nome em `strong`, precedido de `Star` 13px preenchida amarela (`.star-on`) se estiver na shortlist.
      - `small`: `{Clube} · {idade} anos · OVR {ovr}` (reticências se não couber).
   2. SCOUTING: `scoutReport()` em ciano (`.scouting-label`).
@@ -322,7 +322,7 @@ Vazio:
   - Card quadrado (`aspect-ratio: 1`), fundo pelo nível (bronze/prata/ouro/rare com brilho animado e contorno dourado).
   - Topo esquerdo: **OVR** grande (`pc-ovr`, 22–32px) + **posição** (`pc-pos`).
   - Topo direito: **escudo do clube atual** (`Badge size="small"` dentro de `pc-badge`).
-  - Foto ocupando o card (contain, alinhada embaixo); sem foto → silhueta branca 55% sem fundo.
+  - Foto ocupando o card (contain, alinhada embaixo); sem foto → silhueta branca 55% sobre o fundo do nível.
   - Rodapé: nome curto (`shortName`: se o nome tem >2 palavras, só o último) sobre degradê da cor do nível.
   - Se lesionado/suspenso: texto `Lesão {n}d` / `Suspenso {n}` e card acinzentado (`.out`).
   - O primeiro card recebe `data-autofocus`.
@@ -588,7 +588,7 @@ Identidade do atleta no estilo card FIFA (**o card que o usuário adorou — pre
   - `span.deal-ovr` OVR (absoluto, topo-esquerda, 38px).
   - `span.deal-pos` posição (abaixo do OVR, 15px).
   - `Badge` do clube atual (64×74 px, centralizado).
-  - `PlayerFace size="lg"` com `.deal-face` (150×150, sem raio, sem fundo, `drop-shadow`, máscara que some nos 25% inferiores); sem foto → silhueta neutra.
+  - `PlayerFace size="lg"` com `.deal-face` (150×150, sem raio, sem fundo próprio, `drop-shadow`, máscara que some nos 25% inferiores); sem foto → silhueta neutra sobre o fundo colorido do card.
   - `strong` nome completo (itálico 800 20px caixa alta).
   - `small` `{idade} anos · {nacionalidade}`.
 - **Fatos** (`dl.deal-facts`, linhas rótulo ↔ valor, separador fino): `Clube`, `Valor de mercado` (money), `Salário atual` (money), `Contrato até` (dateLabel), `Scouting` (scoutReport).

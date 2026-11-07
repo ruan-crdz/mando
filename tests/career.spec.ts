@@ -86,6 +86,18 @@ test('criação, todas as abas, negociação, avanço e save/load persistente', 
     .getByRole('navigation', { name: 'Áreas do clube' })
     .getByRole('button', { name: /TRANSFERÊNCIAS/ })
     .click();
+  const marketRows = page.locator('.market-row[data-market-player]');
+  await expect(marketRows.first()).toBeVisible();
+  const photoIndex = await marketRows.evaluateAll((rows) =>
+    rows.findIndex((row) => row.querySelector('.face-tier img')),
+  );
+  expect(photoIndex).toBeGreaterThanOrEqual(0);
+  const marketFace = marketRows.nth(photoIndex).locator('.player-face.face-tier');
+  const tierBackground = await marketFace.evaluate((face) => getComputedStyle(face).backgroundImage);
+  expect(tierBackground).toContain('gradient');
+  await marketFace.locator('img').dispatchEvent('error');
+  await expect(marketFace).toHaveClass(/generated/);
+  await expect(marketFace).toHaveCSS('background-image', tierBackground);
   await page.getByLabel('Nome', { exact: true }).fill('inexistente');
   await expect(page.getByText('Nenhum atleta atende a todos os critérios.')).toBeVisible();
   await page
@@ -112,6 +124,9 @@ test('criação, todas as abas, negociação, avanço e save/load persistente', 
   await page.getByRole('button', { name: 'Elenco jovem', exact: true }).click();
   const youthRows = page.locator('.academy-roster-list .roster-row');
   await expect(youthRows).toHaveCount(18);
+  const youthFace = youthRows.first().locator('.player-face.generated');
+  await expect(youthFace).toHaveCount(1);
+  await expect(youthFace).toHaveCSS('background-image', /gradient/);
   const youthStats = page.getByRole('region', { name: 'Ficha do jogador' });
   await expect(youthStats).toBeVisible();
   await page.locator('.academy-roster-row[data-age="15"]').first().click();

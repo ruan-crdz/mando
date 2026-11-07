@@ -222,7 +222,7 @@ Cada nível também define `--card-name` (cor escura translúcida da faixa do no
 ### `PlayerFace({ player, size: 'sm'|'md'|'lg', className })`
 - Foto real se `player.id` está em `player-faces.json`: `/assets/jogadores/{id}.webp`; se a imagem falhar (`onError`) cai no fallback.
 - Fora do card: círculo (30 / 48 / 120 px) com `object-fit: cover` focado no rosto.
-- **Sem foto: bonequinho/silhueta SVG** (cabeça + ombros), branco translúcido (60%; 55% dentro de cards), **sem sigla e sem fundo** (`background: none !important`). Há regras CSS legadas para `b` (iniciais) que não são mais renderizadas.
+- **Sem foto: bonequinho/silhueta SVG** (cabeça + ombros), branco translúcido (60%; 55% dentro de cards), sem sigla e com o mesmo fundo colorido da foto. Na lista de mercado usa o gradiente do nível; nos cards grandes, a silhueta fica sobre o fundo colorido do próprio card. Há regras CSS legadas para `b` (iniciais) que não são mais renderizadas.
 
 ---
 
@@ -319,7 +319,7 @@ O alvo principal é **tela grande 16:9 (TV/monitor) sem rolagem da página**: ca
 2. Atributos de integração com o controle (`data-autofocus`, `data-dialog-close`, `data-focus-scope`, `data-stepper`, `data-toggle-edit`, `data-back-action`, `data-focus-trap`, `data-trap-exit`, `data-stop-run`, `.segmented`, `.carousel`).
 3. Avisos que **fecham sozinhos em 2–4s, sem X**.
 4. Modais fecham com "Voltar"/○/B/Esc e devolvem o foco; nada de "X" pequeno.
-5. Cards de jogador: **a foto é o card** (grande, centralizada, colada na base), nome na faixa inferior, posição e overall no canto, **sem número**; níveis bronze/prata/ouro/ouro brilhante pelas faixas <65 / 65–74 / 75–82 / ≥83; brilho animado no ouro brilhante; sem foto = **bonequinho neutro sem sigla e sem fundo escuro**.
+5. Cards de jogador: **a foto é o card** (grande, centralizada, colada na base), nome na faixa inferior, posição e overall no canto, **sem número**; níveis bronze/prata/ouro/ouro brilhante pelas faixas <65 / 65–74 / 75–82 / ≥83; brilho animado no ouro brilhante; sem foto = **bonequinho neutro sem sigla sobre o mesmo fundo colorido**.
 6. Dicas de controle com os glifos corretos do controle conectado (PlayStation ou Xbox).
 7. Escudos reais quando existirem, com fallback de brasão genérico com sigla.
 8. Teclado virtual para qualquer campo de texto/número.

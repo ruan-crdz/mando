@@ -106,7 +106,7 @@ Descrito em detalhe na aba **Escalação**. Nas abas Tática e Responsabilidades
 ### Componente `PlayerFace`
 
 - Com foto: `<span class="player-face {sm|md|lg} ...">` + `<img loading="lazy">` de `assets/jogadores/{id}.webp`. Se a imagem falhar (`onError`), cai para o bonequinho.
-- Sem foto: `<span class="player-face generated ...">` com SVG 64×64 (círculo = cabeça, path = tronco), `fill` branco translúcido (0.55–0.6), **sem sigla/iniciais** e **sem fundo** (`background: none !important`). Corresponde à preferência do usuário.
+- Sem foto: `<span class="player-face generated ...">` com SVG 64×64 (círculo = cabeça, path = tronco), `fill` branco translúcido (0.55–0.6), **sem sigla/iniciais** e com o mesmo fundo colorido das fotos.
 - Tamanhos base: `sm` 30 px, `md` 48 px, `lg` 120 px (redimensionados por contexto).
 
 ### Componente `PlayerCard` (card quadrado FIFA)
@@ -495,7 +495,7 @@ Editor "Posições e treino" (dentro da linha expandida no painel direito):
 
 - Atributos: `data-player={id}`, `aria-expanded={aberta}`; classes `starter` (titular → filete limão de 3 px à esquerda), `focused` (jogador cujo stats aparece à esquerda → contorno limão 55%).
 - Colunas (grid `2.6fr | 54px | 1fr | 0.7fr`):
-  1. Bloco identidade: `span.position-tag` (fundo ciano, texto `#04204a`, 800 13 px) com **posição** (`state.position ?? player.position`); `PlayerFace md` (56 × 56 px, raio 8, fundo azul gradiente — sem fundo se bonequinho); nome completo em `strong`; `small` = **`{idade} anos · {salário}/mês · até {ano do fim do contrato}[ · À VENDA][ · Lesionado]`**.
+  1. Bloco identidade: `span.position-tag` (fundo ciano, texto `#04204a`, 800 13 px) com **posição** (`state.position ?? player.position`); `PlayerFace md` (56 × 56 px, raio 8, fundo azul gradiente inclusive para o bonequinho); nome completo em `strong`; `small` = **`{idade} anos · {salário}/mês · até {ano do fim do contrato}[ · À VENDA][ · Lesionado]`**.
   2. `b.roster-ovr` — **overall** (800 22 px, centralizado).
   3. `strong` — **valor de mercado** (`money`).
   4. `span` — **`Titular`** ou **`Reserva`**.
@@ -549,7 +549,7 @@ Editor "Posições e treino" (dentro da linha expandida no painel direito):
 
 - Jogador exibido (`fp`), por prioridade: jogador do editor "Posições e treino" → jogador **focado** (`focusId`, atualizado por `onFocus` e `onMouseEnter` de cada linha) → jogador aberto (`detail`) → primeiro da lista ordenada.
 - `.stats-head` (grid `180px | 1fr`, compacto em celular deitado):
-  - **Card do jogador** `div.hub-card.{tier}` (proporção 3:4, raio 10, fundo do tier, texto branco): `hub-card-top` = **overall** (44 px) + **posição** (`state.position ?? position`, 20 px); `PlayerFace` grande (`hub-card-face`, ocupa do topo 8% até a base, `contain`, base embaixo; bonequinho sem fundo se não houver foto); `hub-card-name` = sobrenome caixa alta 22 px numa faixa gradiente `var(--card-name)`. **Sem número no card.**
+  - **Card do jogador** `div.hub-card.{tier}` (proporção 3:4, raio 10, fundo do tier, texto branco): `hub-card-top` = **overall** (44 px) + **posição** (`state.position ?? position`, 20 px); `PlayerFace` grande (`hub-card-face`, ocupa do topo 8% até a base, `contain`, base embaixo; bonequinho sobre o fundo do tier se não houver foto); `hub-card-name` = sobrenome caixa alta 22 px numa faixa gradiente `var(--card-name)`. **Sem número no card.**
   - `div.stats-info`: `h2` **nome completo**; `p.eyebrow` **`{posições conhecidas (principal primeiro) separadas por " · "} · {função em campo} · {personalidade}`**; `div.hub-facts` (grid `auto-fill minmax(110px,1fr)`), cada fato = rótulo caixa alta 12 px + `strong` 15 px:
     **Camisa** `{n|—}` · **Idade** · **Overall** · **Potencial** `{mín}–{máx}` (= `potential + potentialDelta ∓ uncertainty`, limitado 1–99) · **Moral** · **Ritmo** `{sharpness}%` · **Valor** · **Salário** · **Contrato** `{dateLabel}` · **Temporada** `{gols} gols · {minutos} min`.
   - Se listado: `p.pill.hub-flag` **`À VENDA · {preço}`**.
@@ -632,7 +632,7 @@ Editor "Posições e treino" (dentro da linha expandida no painel direito):
 - Dispensa em dois passos com custo exibido; venda exige preço; empréstimo tem condições configuráveis para três clubes sugeridos; renovação mostra salário/luvas/término antes de confirmar.
 - Troca de número com permuta automática com o dono atual.
 - Regras de treino de posição (apto ≥85%, teto 92%, GK ↔ linha proibido) e "tornar principal" só com ≥85%.
-- Card de stats segue tiers e **fonte branca**; sem foto = bonequinho sem sigla/fundo.
+- Card de stats segue tiers e **fonte branca**; sem foto = bonequinho sem sigla sobre o fundo do tier.
 - Tudo 100% FIFA-like e navegável no controle.
 
 ## Problemas atuais e oportunidades
