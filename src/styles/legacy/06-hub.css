@@ -131,11 +131,11 @@
 .central-grid {
   flex: 1;
   min-height: 0;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  grid-template-rows: minmax(0, 1.15fr) minmax(0, 0.85fr);
+  grid-template-columns: 1.15fr 1.15fr 1fr 1fr 0.95fr;
+  grid-template-rows: minmax(0, 1.08fr) minmax(0, 1fr);
   grid-template-areas:
-    'fix adv'
-    'missions missions';
+    'fix fix adv adv man'
+    'inb inb sq tab man';
   gap: 8px;
   padding: 3px 6px;
 }
@@ -616,11 +616,12 @@
   .central-grid {
     flex: none;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    grid-template-rows: 160px 160px minmax(175px, auto);
+    grid-template-rows: 160px 160px 175px 135px;
     grid-template-areas:
       'fix fix'
-      'adv adv'
-      'missions missions';
+      'adv man'
+      'inb inb'
+      'sq tab';
     gap: 6px;
     padding-inline: 3px;
   }
@@ -741,5 +742,135 @@
 
   .simulation-dialog .calendar-events {
     font-size: 8px;
+  }
+}
+
+/* Central restaurada */
+.central .manager-tile {
+  background: linear-gradient(150deg, var(--hub-raised), var(--hub-coal));
+  padding-bottom: 0;
+}
+
+.manager-tile .manager-portrait {
+  object-fit: contain;
+  object-position: bottom;
+}
+
+.central .manager-title {
+  z-index: 1;
+  width: calc(100% + 32px);
+  margin-left: -16px;
+  padding: 24px 16px 16px;
+  background: linear-gradient(0deg, #101722 55%, transparent);
+}
+
+.central .manager-title strong {
+  font: 600 clamp(20px, 1.8vw, 28px)/1 var(--display);
+}
+
+.central .manager-title em {
+  color: var(--mando-text-secondary);
+  font-size: 11px;
+}
+
+.central .inbox-preview {
+  background: var(--hub-coal);
+}
+
+.central .inbox-row {
+  flex: 0 0 auto;
+  padding: 6px 9px;
+  border-radius: 2px;
+  background: rgba(207, 225, 247, 0.04);
+}
+
+.central .inbox-row:hover,
+.central .inbox-row:focus {
+  background: var(--hub-slate);
+}
+
+.central .inbox-row.read strong {
+  color: var(--mando-text-muted);
+  font-weight: 500;
+}
+
+.central .inbox-row.unread strong {
+  color: var(--mando-text);
+  font-weight: 600;
+}
+
+.central .inbox-row strong {
+  font-size: 14px;
+}
+
+.central .inbox-row small {
+  font-size: 10px;
+}
+
+.inbox-decision {
+  color: var(--mando-coral);
+  font: normal 600 9px var(--display);
+  letter-spacing: 0.06em;
+}
+
+.inbox-empty {
+  padding-block: 12px;
+  color: var(--mando-text-muted);
+}
+
+.central .squad-preview {
+  background: var(--hub-raised);
+}
+
+.central .table-preview {
+  background: var(--hub-slate);
+}
+
+.central .big-stat {
+  font: 600 clamp(42px, 6vh, 72px)/1 var(--display);
+}
+
+.central .big-stat small {
+  font: 600 11px var(--display);
+  color: var(--mando-text-secondary);
+}
+
+.central .tile-sub {
+  font-size: 12px;
+}
+
+.central .news-ticker {
+  flex: 0 0 auto;
+  display: flex;
+  min-height: 27px;
+  margin-inline: 6px;
+  border: 1px solid var(--mando-border);
+  border-radius: 3px;
+  background: rgba(8, 12, 24, 0.82);
+}
+
+.central .news-ticker > span {
+  align-self: stretch;
+  background: var(--hub-slate);
+  color: var(--mando-cyan);
+  font: 600 11px var(--display);
+}
+
+.central .news-ticker p {
+  font-size: 12px;
+}
+@media (max-width: 1100px) and (orientation: landscape) {
+.central .manager-tile .manager-portrait {
+    left: 30%;
+    width: 70%;
+  }
+
+.central .manager-title {
+    padding: 15px 11px 11px;
+    padding-right: 38%;
+  }
+
+.central .manager-title strong {
+    font-size: 20px;
   }
 }

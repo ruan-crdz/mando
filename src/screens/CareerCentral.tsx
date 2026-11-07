@@ -7,15 +7,15 @@ import {
   Trophy,
   Users,
 } from 'lucide-react';
-import { Badge, dateLabel, ManagerPortrait } from '../components/ui';
+import { Badge, dateLabel, ManagerPortrait, money } from '../components/ui';
 import { CareerCalendar } from '../components/CareerCalendar';
-import { squad } from '../game/matches';
-import { overall } from '../game/ratings';
 import { ControllerButtonHint } from '../controller/ControllerButtonHint';
 import { fixtureLabel, nextFixture } from '../game/calendar';
 import { clubById } from '../game/npc';
 import { addDays } from '../game/random';
+import { squad } from '../game/matches';
 import { standings } from '../game/engine';
+import { overall } from '../game/ratings';
 import { type Career, type World } from '../game/types';
 import { TAB } from '../navigation';
 
@@ -40,21 +40,19 @@ export function CareerCentral({
   onPreferences: () => void;
   busy: boolean;
 }) {
-  const club = world.clubs.find((item) => item.id === c.clubId)!;
+  const club = world.clubs.find((club) => club.id === c.clubId)!;
   const fixture = nextFixture(c);
   const home = fixture && clubById(world, fixture.homeId);
   const away = fixture && clubById(world, fixture.awayId);
   const label = fixture && fixtureLabel(fixture);
-  const position = standings(c, world, club.league).findIndex((row) => row.clubId === c.clubId) + 1;
+  const position = standings(c, world, club.league).findIndex((r) => r.clubId === c.clubId) + 1;
   const players = squad(c, world);
   const average = Math.round(
-    players.reduce(
-      (total, player) => total + overall(player, player.position, c.players[player.id]),
-      0,
-    ) / Math.max(1, players.length),
+    players.reduce((n, p) => n + overall(p, p.position, c.players[p.id]), 0) /
+      Math.max(1, players.length),
   );
-  const unread = c.messages.filter((message) => !message.read);
-  const pending = c.messages.filter((message) => message.important && !message.resolved);
+  const unread = c.messages.filter((m) => !m.read);
+  const pending = c.messages.filter((m) => m.important && !m.resolved);
   const isMatchDay = Boolean(fixture && fixture.date <= c.date);
   const mode = c.prefs?.advance || 'day';
   const auto = mode === 'auto' && !c.seasonEnded;
@@ -67,7 +65,6 @@ export function CareerCentral({
         : isMatchDay
           ? onMatch
           : onAdvance;
-
   return (
     <div className="screen central">
       <div className="central-strip">
@@ -182,7 +179,7 @@ export function CareerCentral({
             {busy
               ? 'Processando…'
               : pending.length
-                ? `${pending.length} decisão${pending.length === 1 ? '' : 'ões'} pendente${pending.length === 1 ? '' : 's'}`
+                ? `${pending.length} ação necessária`
                 : c.seasonEnded
                   ? 'Nova temporada'
                   : 'Continuar'}
@@ -205,35 +202,67 @@ export function CareerCentral({
         </button>
         <section className="tile tile-glass inbox-preview">
           <span className="tile-label">
-            <MessageSquare size={15} /> CAIXA POSTAL · {unread.length} NÃO LIDAS
+            <MessageSquare size={14} /> MENSAGENS <b className="count">{unread.length}</b>
           </span>
-          {c.messages.slice(0, 3).map((message) => (
-            <button
-              key={message.id}
-              className={!message.read ? 'unread' : ''}
-              onClick={() => onTab(TAB.NOTIFICATIONS)}
-            >
-              <small>{message.from}</small>
-              <strong>{message.title}</strong>
-              <ArrowRight size={14} />
-            </button>
-          ))}
+          <div className="inbox-rows">
+            {c.messages.slice(0, 4).map((m) => (
+              <button
+                className={`inbox-row ${m.read ? 'read' : 'unread'}`}
+                key={m.id}
+                onClick={() => onTab(TAB.NOTIFICATIONS)}
+              >
+                <span
+                  className={`message-indicator ${m.important && !m.resolved ? 'important' : ''}`}
+                />
+                <span>
+                  <small>
+                    {m.from} · {dateLabel(m.date)}
+                  </small>
+                  <strong>{m.title}</strong>
+                  {m.important && !m.resolved && (
+                    <em className="inbox-decision">DECISÃO PENDENTE</em>
+                  )}
+                </span>
+              </button>
+            ))}
+            {!c.messages.length && <p className="inbox-empty">Sua caixa de entrada está em dia.</p>}
+          </div>
         </section>
-        <button className="tile tile-raised squad-tile" onClick={() => onTab(TAB.SQUAD)}>
+        <button className="tile tile-surface squad-preview" onClick={() => onTab(TAB.SQUAD)}>
           <span className="tile-label">
-            <Users size={16} /> SEU ELENCO
+            <Users size={14} /> SEU TIME <em>{c.tactic.formation}</em>
           </span>
-          <strong className="squad-tile-overall">
+          <span className="big-stat">
             {average}
             <small>OVR MÉDIO</small>
-          </strong>
-          <span>
-            {players.length} atletas · {c.tactic.formation}
+          </span>
+          <span className="tile-sub">
+            {players.length} atletas ·{' '}
+            {players.filter((p) => c.players[p.id].injuryDays > 0).length} lesionados
           </span>
           <span className="tile-cta">
-            GERENCIAR TIME <ArrowRight size={15} />
+            GERENCIAR <ArrowRight size={16} />
           </span>
         </button>
+        <button className="tile tile-data table-preview" onClick={() => onOpenSeason('table')}>
+          <span className="tile-label">
+            <Trophy size={14} /> SÉRIE {club.league}
+          </span>
+          <span className="big-stat">
+            {position}º<small>NA TABELA</small>
+          </span>
+          <span className="tile-sub">Caixa {money(c.finances[c.clubId].cash)}</span>
+          <span className="tile-cta">
+            TEMPORADA <ArrowRight size={16} />
+          </span>
+        </button>
+      </div>
+      <div className="news-ticker">
+        <span>MANDO NEWS</span>
+        <p>
+          {c.messages.find((m) => m.kind === 'news')?.title ||
+            `${club.name} inicia um novo projeto. A primeira decisão é sua.`}
+        </p>
       </div>
     </div>
   );

@@ -10,11 +10,14 @@ Hub principal da carreira. Resume data e temporada, apresenta o próximo comprom
 2. **Próximo jogo:** competição/fase, escudos, nomes dos clubes, data e estádio. Em dia de jogo, o CTA muda para **Hoje é dia de jogo** e abre o pré-jogo. Sem partidas futuras, informa o encerramento da temporada e abre a tabela.
 3. **Avanço:** botão principal contextual. Pode avançar um dia, avançar até um evento, iniciar o modo automático, abrir Notificações para decisões pendentes ou iniciar a próxima temporada.
 4. **Manager:** retrato integrado, nome, clube e classificação; acesso ao Escritório.
-5. **Caixa postal:** prévia das mensagens e decisões pendentes; acesso a Notificações.
-6. **Elenco:** prévia dos atletas e overall; acesso ao Time.
+5. **Mensagens:** as quatro últimas mensagens com remetente, data e marcação de decisão pendente; acesso a Notificações.
+6. **Seu time:** overall médio, formação, total de atletas e lesionados; acesso ao Time.
+7. **Série:** posição na tabela e caixa do clube; acesso à Classificação.
+8. **Mando News:** faixa inferior com a manchete mais recente.
 
-O calendário horizontal voltou ao topo, com navegação pelos dias. A composição
-retoma os tiles assimétricos da Central anterior ao último redesign.
+O calendário horizontal fica no topo, com navegação pelos dias. É a Central
+anterior à limpeza de escopo, sem os cards de recursos removidos (Seleção,
+demissão, mercado da IA e confiança da diretoria).
 
 ## Regras de ação
 
@@ -41,7 +44,7 @@ retoma os tiles assimétricos da Central anterior ao último redesign.
 
 - O próximo jogo é o maior card da grade e recebe o foco inicial.
 - Avanço deve permanecer imediatamente acessível ao lado dele.
-- Manager, caixa postal e elenco devem permanecer legíveis sem competir com o próximo jogo.
+- Manager, mensagens, time e série devem permanecer legíveis sem competir com o próximo jogo.
 - Em telas estreitas, preservar a ordem: calendário, próximo jogo, avanço e previews.
 - Não usar cards de feed de mercado, torcida, olheiros ou estatísticas extras nesta tela.
 
