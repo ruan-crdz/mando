@@ -4,7 +4,7 @@ async function createCareer(page: Page) {
   await page.goto('./');
   await expect(page.getByRole('button', { name: /Continuar carreira/i })).toHaveCount(0);
   await page.getByRole('button', { name: /Nova carreira/i }).click();
-  await page.getByRole('button', { name: /Experimentar a demonstração/i }).click();
+  await page.getByRole('button', { name: /Brasileirão 2026/ }).click();
   await page.getByLabel('Nome', { exact: true }).fill('Alex');
   await page.getByLabel('Sobrenome').fill('Silva');
   await page.getByRole('button', { name: 'Continuar', exact: true }).click();
@@ -51,9 +51,6 @@ test('criação, todas as abas, negociação, avanço e save/load persistente', 
   const errors: string[] = [];
   page.on('pageerror', (e) => errors.push(e.message));
   await createCareer(page);
-  await expect(
-    page.getByText('DEMONSTRAÇÃO · Atletas e finanças sintéticos', { exact: false }),
-  ).toBeVisible();
   await page
     .getByRole('navigation', { name: 'Áreas do clube' })
     .getByRole('button', { name: /TIME/ })
@@ -153,7 +150,7 @@ test('controle Xbox e DualSense navegam, teclado virtual confirma sem mouse', as
   await page.getByRole('button', { name: /Nova carreira/i }).focus();
   await press(0);
   await expect(page.getByRole('dialog')).toBeVisible();
-  await page.getByRole('button', { name: /Experimentar a demonstração/ }).focus();
+  await page.getByRole('button', { name: /Brasileirão 2026/ }).focus();
   await press(0);
   await page.getByLabel('Nome', { exact: true }).focus();
   await press(0);
@@ -188,13 +185,9 @@ test('partida completa registra placar e volta à tabela sem duplicar resultado'
   await page.getByRole('button', { name: /O ESTÁDIO ESTÁ PRONTO/ }).click();
   await page.getByRole('button', { name: /Começar partida/ }).click();
   await page.getByRole('button', { name: '4×', exact: true }).click();
-  // Momentos humanos pausam o jogo até a decisão do técnico.
   const playUntil = async (target: ReturnType<Page['getByRole']>) => {
     for (let i = 0; i < 120 && !(await target.isVisible()); i++) {
-      const moment = page.locator('.moment-dialog');
-      if (await moment.isVisible())
-        await moment.locator('.moment-actions button:not(:disabled)').last().click();
-      else await page.waitForTimeout(500);
+      await page.waitForTimeout(500);
     }
     await expect(target).toBeVisible();
   };
@@ -203,17 +196,6 @@ test('partida completa registra placar e volta à tabela sem duplicar resultado'
   await page.getByRole('button', { name: 'Segundo tempo', exact: true }).click();
   await playUntil(page.getByRole('button', { name: /Confirmar resultado/ }));
   await page.getByRole('button', { name: /Confirmar resultado/ }).click();
-  // A coletiva pós-jogo abre após a partida; responde todas as perguntas.
-  const pressRoom = page.getByRole('dialog', { name: 'Sala de imprensa' });
-  await expect(pressRoom).toBeVisible();
-  while (await pressRoom.isVisible()) {
-    // A última resposta fecha a sala; o clique não pode esperar um botão que sumiu.
-    await pressRoom
-      .locator('.press-answer')
-      .first()
-      .click({ timeout: 3000 })
-      .catch(() => {});
-  }
   await openSeason(page);
   await pickCompetition(page, /Paulist/);
   const row = page.getByRole('row').filter({ hasText: 'São Paulo' });
