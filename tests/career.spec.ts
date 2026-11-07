@@ -11,6 +11,8 @@ async function createCareer(page: Page) {
   await page.getByRole('button', { name: /São Paulo/ }).click();
   await page.getByRole('button', { name: 'Continuar', exact: true }).click();
   await page.getByRole('button', { name: 'Assumir o clube' }).click();
+  await page.getByRole('button', { name: 'Assinar contrato' }).click();
+  await page.getByRole('button', { name: 'Pular tutorial' }).click();
   await expect(page.getByRole('heading', { name: /Bom trabalho, Alex/ })).toBeVisible();
 }
 
@@ -22,6 +24,17 @@ async function pickCompetition(page: Page, name: RegExp) {
   await expect(label).toHaveText(name);
 }
 
+async function openSeason(page: Page, view: 'table' | 'calendar' = 'table') {
+  await page
+    .getByRole('navigation', { name: 'Áreas do clube' })
+    .getByRole('button', { name: 'ESCRITÓRIO', exact: true })
+    .click();
+  await page
+    .getByRole('navigation', { name: 'Atalhos do Escritório' })
+    .getByRole('button', { name: view === 'table' ? 'Classificação' : 'Calendário', exact: true })
+    .click();
+}
+
 test('criação, todas as abas, negociação, avanço e save/load persistente', async ({ page }) => {
   const errors: string[] = [];
   page.on('pageerror', (e) => errors.push(e.message));
@@ -29,31 +42,50 @@ test('criação, todas as abas, negociação, avanço e save/load persistente', 
   await expect(
     page.getByText('DEMONSTRAÇÃO · Atletas e finanças sintéticos', { exact: false }),
   ).toBeVisible();
-  await page.getByRole('navigation').getByRole('button', { name: /TIME/ }).click();
+  await page
+    .getByRole('navigation', { name: 'Áreas do clube' })
+    .getByRole('button', { name: /TIME/ })
+    .click();
   await page.getByRole('button', { name: 'Tática', exact: true }).click();
   await page.getByRole('radiogroup', { name: 'Formação' }).getByRole('radio', { name: '4-3-3' }).click();
   await page.getByRole('button', { name: 'Responsabilidades' }).click();
   await page.locator('.role-card[data-role="Capitão"]').click();
   await expect(page.locator('.player-card').first()).toBeVisible();
+  await page.getByRole('button', { name: 'Comissão', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Auxiliares por setor' })).toBeVisible();
   await page
-    .getByRole('navigation')
+    .getByRole('navigation', { name: 'Áreas do clube' })
     .getByRole('button', { name: /TRANSFERÊNCIAS/ })
     .click();
   await page.getByLabel('Nome', { exact: true }).fill('inexistente');
   await expect(page.getByText('Nenhum atleta atende a todos os critérios.')).toBeVisible();
   await page
-    .getByRole('navigation')
+    .getByRole('navigation', { name: 'Áreas do clube' })
+    .getByRole('button', { name: 'NOTIFICAÇÕES', exact: true })
+    .click();
+  await page.getByRole('button', { name: 'Conversas com atletas', exact: true }).click();
+  await expect(
+    page.getByRole('heading', { name: 'Recados e conversas com o elenco.' }),
+  ).toBeVisible();
+  await page
+    .getByRole('navigation', { name: 'Áreas do clube' })
+    .getByRole('button', { name: 'ACADEMIA', exact: true })
+    .click();
+  await page.getByRole('button', { name: 'Torneio de base', exact: true }).click();
+  await expect(page.getByText('FUNCIONALIDADE FUTURA')).toBeVisible();
+  await page
+    .getByRole('navigation', { name: 'Áreas do clube' })
     .getByRole('button', { name: /ESCRITÓRIO/ })
     .click();
-  await page.getByRole('button', { name: 'Finanças', exact: true }).click();
-  await expect(page.getByRole('heading', { name: 'Para onde vai o dinheiro' })).toBeVisible();
   await page
-    .getByRole('navigation')
-    .getByRole('button', { name: /TEMPORADA/ })
+    .getByRole('group', { name: 'Áreas do Escritório' })
+    .getByRole('button', { name: 'Orçamento', exact: true })
     .click();
+  await expect(page.getByRole('heading', { name: 'Para onde vai o dinheiro' })).toBeVisible();
+  await openSeason(page);
   await expect(page.getByRole('table').getByRole('row')).toHaveCount(21);
   await page
-    .getByRole('navigation')
+    .getByRole('navigation', { name: 'Áreas do clube' })
     .getByRole('button', { name: /CENTRAL/ })
     .click();
   await page.getByRole('button', { name: /Avançar dia/ }).click();
@@ -63,7 +95,10 @@ test('criação, todas as abas, negociação, avanço e save/load persistente', 
   await expect(page.getByRole('button', { name: /CONTINUAR CARREIRA/ })).toBeVisible();
   await page.getByRole('button', { name: /CONTINUAR CARREIRA/ }).click();
   await expect(page.locator('.club-header')).toContainText('02');
-  await page.getByRole('navigation').getByRole('button', { name: /TIME/ }).click();
+  await page
+    .getByRole('navigation', { name: 'Áreas do clube' })
+    .getByRole('button', { name: /TIME/ })
+    .click();
   await expect(page.getByRole('heading', { name: '4-3-3', exact: true })).toBeVisible();
   expect(errors).toEqual([]);
 });
@@ -134,7 +169,7 @@ test('partida completa registra placar e volta à tabela sem duplicar resultado'
       await page.getByRole('button', { name: /Abrir escritório/ }).click();
       await page.getByRole('button', { name: 'Ciente. Continuar o trabalho.' }).click();
       await page
-        .getByRole('navigation')
+        .getByRole('navigation', { name: 'Áreas do clube' })
         .getByRole('button', { name: /CENTRAL/ })
         .click();
     }
@@ -177,10 +212,7 @@ test('partida completa registra placar e volta à tabela sem duplicar resultado'
       .click({ timeout: 3000 })
       .catch(() => {});
   }
-  await page
-    .getByRole('navigation')
-    .getByRole('button', { name: /TEMPORADA/ })
-    .click();
+  await openSeason(page);
   await pickCompetition(page, /Paulist/);
   const row = page.getByRole('row').filter({ hasText: 'São Paulo' });
   await expect(row.locator('td').nth(3)).toHaveText('1');
@@ -190,12 +222,12 @@ test('layout móvel deitado não cria rolagem horizontal e retrato pede rotaçã
   await page.setViewportSize({ width: 844, height: 390 });
   await createCareer(page);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-  await page.getByRole('navigation').getByRole('button', { name: /TIME/ }).click();
-  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page
-    .getByRole('navigation')
-    .getByRole('button', { name: /TEMPORADA/ })
+    .getByRole('navigation', { name: 'Áreas do clube' })
+    .getByRole('button', { name: /TIME/ })
     .click();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await openSeason(page);
   await pickCompetition(page, /Libertadores/);
   await expect(page.getByText('GRUPO A', { exact: true })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
@@ -241,8 +273,13 @@ test('Brasileirão 2026 com elencos reais e escudos locais', async ({ page }) =>
   await club.click();
   await page.getByRole('button', { name: 'Continuar', exact: true }).click();
   await page.getByRole('button', { name: 'Assumir o clube' }).click();
+  await page.getByRole('button', { name: 'Assinar contrato' }).click();
+  await page.getByRole('button', { name: 'Pular tutorial' }).click();
   await expect(page.getByRole('heading', { name: /Bom trabalho, Alex/ })).toBeVisible();
-  await page.getByRole('navigation').getByRole('button', { name: /TIME/ }).click();
+  await page
+    .getByRole('navigation', { name: 'Áreas do clube' })
+    .getByRole('button', { name: /TIME/ })
+    .click();
   await expect(page.getByText('Lucas Moura').first()).toBeVisible();
   expect(errors).toEqual([]);
 });
@@ -265,8 +302,18 @@ for (const [width, height] of [
     expect(await fits()).toBe(true);
     await createCareer(page);
     expect(await fits()).toBe(true);
-    for (const tab of [/TIME/, /TRANSFERÊNCIAS/, /ESCRITÓRIO/, /TEMPORADA/, /CENTRAL/]) {
-      await page.getByRole('navigation').getByRole('button', { name: tab }).click();
+    for (const tab of [
+      /NOTIFICAÇÕES/,
+      /TIME/,
+      /TRANSFERÊNCIAS/,
+      /ACADEMIA/,
+      /ESCRITÓRIO/,
+      /CENTRAL/,
+    ]) {
+      await page
+        .getByRole('navigation', { name: 'Áreas do clube' })
+        .getByRole('button', { name: tab })
+        .click();
       await page.waitForTimeout(400);
       expect(await fits(), `aba ${tab}`).toBe(true);
     }
