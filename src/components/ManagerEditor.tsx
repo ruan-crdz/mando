@@ -129,7 +129,11 @@ export function ManagerEditor({
         }))}
         onChange={(style) => setDraft({ ...draft, style })}
       />
-      <button className="primary" data-controller-secondary onClick={() => onSave(draft)}>
+      <button
+        className="primary"
+        data-controller-secondary
+        onClick={() => onSave({ ...draft, avatar: manager.avatar })}
+      >
         Salvar personalização <ControllerButtonHint action="secondary" label="Salvar" />
       </button>
     </section>

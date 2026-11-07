@@ -127,6 +127,40 @@ Ter a maior barra não significa sempre jogar melhor: depende do adversário.
 Resultados estatísticos são emitidos nos logs da CI. Não se deve inferir que
 uma variante vencerá todas as partidas, nem inventar percentuais antes da execução.
 
+### Resultados medidos
+
+Fonte: [execução da CI](https://github.com/ruan-crdz/mando/actions/runs/42392819093),
+nos testes de refinamentos, atributos e balanceamento que passaram. Essa execução
+teve uma falha separada no teste de segunda temporada; os números abaixo não
+representam aprovação daquela execução inteira.
+
+| Experimento pareado              | Resultado médio                              |
+| -------------------------------- | -------------------------------------------- |
+| Mentalidade defensiva → ofensiva | xG 1,28 → 1,59                               |
+| Pressão 1 → 5                    | desgaste 18,53 → 28,87; posse 48% → 50%      |
+| Largura 1 → 5                    | xG 1,24 → 1,65 neste adversário              |
+| Construção 1 → 5                 | xG 1,19 → 1,46; desgaste 21,97 → 25,42       |
+| Linha 1 → 5                      | xG 1,41 → 1,46 neste adversário              |
+| Formação 4-3-3 → 3-5-2           | xG 1,41 → 1,47 com os titulares adequados    |
+| Condição 40 → 95                 | xG 1,03 → 1,48; gols sofridos 2,75 → 1,56    |
+| Moral 40 → 95                    | xG 1,34 → 1,50                               |
+| Ritmo 40 → 95                    | xG 1,35 → 1,85                               |
+| Auxiliar ouro Pedro Santos       | crescimento diário 0,010781 → 0,014231: +32% |
+| Velocidade +35                   | xG 1,46 → 1,51                               |
+| Finalização +35                  | xG 1,46 → 1,57                               |
+| Passe/visão +35                  | nota 6,63 → 6,75                             |
+| Defesa +35                       | gols sofridos 1,18 → 1,10                    |
+| Goleiro +35                      | gols sofridos 1,18 → 1,13                    |
+| Plano recomendado vs padrão      | vitórias 42% vs 26%; saldo +0,27 vs −0,37    |
+| Centroavante na zaga             | nota 7,91 → 5,42; gols sofridos 0,62 → 0,77  |
+
+Tática/status usam 32 seeds no mundo demonstrativo, passando pelo motor real;
+atributos usam 72 seeds com os elencos 2026, São Paulo contra Bahia.
+Balanceamento usa amostras maiores e alterna mando. São comparações controladas,
+não previsões universais ou dados de futebol real. Na segunda temporada, a
+rotina de prova promove explicitamente jovens de 16+ para repor profundidade
+do elenco: o jogo não promove menores nem reforça silenciosamente o profissional.
+
 ## Áudio autorizado
 
 Dez instrumentais originais, sintetizados por Web Audio, tocam em fila circular:

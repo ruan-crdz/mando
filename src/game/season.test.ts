@@ -4,6 +4,7 @@ import {
   advanceDay,
   createCareer,
   finishMatch,
+  promoteAcademyPlayer,
   respondMessage,
   startNextSeason,
   standings,
@@ -14,6 +15,7 @@ import { nextFixture } from './calendar';
 import { cupGroups, cupTies } from './competitions';
 import { careerWorld } from './live';
 import { careerSchema, type Career, type Manager } from './types';
+import { ageAt } from './random';
 
 const world = createDemoWorld();
 const manager: Manager = {
@@ -107,8 +109,17 @@ describe('virada de temporada', () => {
     expect(() => validateCareerForWorld(careerSchema.parse(next), world)).not.toThrow();
     expect(() => startNextSeason(next, world)).toThrow('não terminou');
   });
-  it('joga uma segunda temporada inteira', () => {
-    const second = playSeason(next);
+  it('joga uma segunda temporada inteira com reforços elegíveis da base', () => {
+    let prepared = next;
+    const professionalCount = careerWorld(world, next).players.filter(
+      (player) => next.players[player.id]?.clubId === next.clubId,
+    ).length;
+    const promotions = next.living.academyRoster
+      .filter((player) => player.clubId === next.clubId && ageAt(player.birthDate, next.date) >= 16)
+      .sort((a, b) => Number(b.position === 'GK') - Number(a.position === 'GK'))
+      .slice(0, Math.max(0, 25 - professionalCount));
+    for (const player of promotions) prepared = promoteAcademyPlayer(prepared, player.id);
+    const second = playSeason(prepared);
     expect(second.seasonEnded).toBe(true);
     expect(second.honours.filter((h) => h.season === 2027 && h.competition === 'A')).toHaveLength(
       1,
