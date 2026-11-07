@@ -13,8 +13,9 @@ Fluxo de criação da carreira em **3 passos** — **MANAGER** (identidade e ret
 ## Arquivos-fonte
 - `src/screens/CreateManager.tsx` — `CreateManager({ world, onStart, onBack, onError, onPortrait })`, constantes `challengeDescriptions`, `difficultyDescriptions`, `nationalities`, `tileColors`.
 - `src/App.tsx` — renderização em `screen === 'create'`, `portrait()` (→ `requestPortrait`), `fail` (toast de erro).
+- `src/components/ManagerBirthDate.tsx` — seleção compartilhada de dia, mês e ano.
 - `src/components/PortraitCamera.tsx` — modal da webcam.
-- `src/components/controls.tsx` — `OptionCycler`, `NumberStepper`, `ChipGroup`.
+- `src/components/controls.tsx` — `OptionCycler`, `ChipGroup`.
 - `src/components/ui.tsx` — `Badge`, `ManagerPortrait`, `money`.
 - `src/game/types.ts` — `managerSchema`, `challenges`, `difficulties`, tipos `Manager`, `Career['challenge' | 'difficulty']`.
 - `src/services/supabase.ts` — `requestPortrait(manager, photo?)` (Edge Function `ai-manager-avatar`, retorna URL).
@@ -29,15 +30,17 @@ Fluxo de criação da carreira em **3 passos** — **MANAGER** (identidade e ret
 │ ┌──────────── .panel.manager-form (borda lima) ─────┐ ┌─ .portrait-card ─┐│
 │ │ NOME                 SOBRENOME                    │ │   (gradiente     ││
 │ │ [Seu nome        ]   [Seu sobrenome     ]         │ │   azul→roxo)     ││
-│ │ NACIONALIDADE        IDADE                        │ │  ┌───────────┐   ││
-│ │ [‹  Brasil  ›]       [ − ][  38  ][ + ]           │ │  │ retrato / │   ││
-│ │  ▬ ▪ ▪ ▪ ▪ ▪ ▪ …                                  │ │  │ silhueta  │   ││
-│ │ ROUPA                                             │ │  └───────────┘   ││
-│ │ [TERNO AZUL] [AGASALHO] [CAMISA SOCIAL]           │ │ MANAGER          ││
-│ │ APARÊNCIA (PARA O RETRATO)                        │ │ NOME SOBRENOME   ││
-│ │ [Cabelo curto escuro, barba curta, olhos…      ]  │ │ Brasil · 38 anos ││
-│ └───────────────────────────────────────────────────┘ │[📷 CRIAR RETRATO]││
-│                                                       └──────────────────┘│
+│ │ NACIONALIDADE        REGIÃO DE ORIGEM             │ │  ┌───────────┐   ││
+│ │ [‹  Brasil  ›]       [ Sudeste          ]         │ │  │ retrato / │   ││
+│ │ GÊNERO               TRATAMENTO                   │ │  │ silhueta  │   ││
+│ │ [‹  Homem   ›]       [‹  Sr.            ›]       │ │  └───────────┘   ││
+│ │ DATA DE NASCIMENTO                                │ │ MANAGER          ││
+│ │ [‹ 01 ›]  [‹ 01 ›]  [‹ 1988 ›]                   │ │ NOME SOBRENOME   ││
+│ │ ROUPA                                             │ │ Brasil · 38 anos ││
+│ │ [TERNO AZUL] [AGASALHO] [CAMISA SOCIAL]           │ │[📷 CRIAR RETRATO]││
+│ │ APARÊNCIA (PARA O RETRATO)                        │ │                  ││
+│ │ [Cabelo curto escuro, barba curta, olhos…      ]  │ │                  ││
+│ └───────────────────────────────────────────────────┘ └──────────────────┘│
 │ [← VOLTAR]            [escudo] SÃO PAULO / 01 JAN 2026      [CONTINUAR →] │ .creation-footer
 └ footer: (✕) SELECIONAR (○) VOLTAR ─────────────────────────────────────────┘
 ```
@@ -89,7 +92,7 @@ Fluxo de criação da carreira em **3 passos** — **MANAGER** (identidade e ret
 | **Nome** | `<input>` placeholder "Seu nome", `data-autofocus` | `''` | `maxLength 35`; schema: mínimo 2 letras após `trim` → erro "Informe um nome com pelo menos duas letras." |
 | **Sobrenome** | `<input>` placeholder "Seu sobrenome" | `''` | `maxLength 45`; mínimo 2 → "Informe um sobrenome com pelo menos duas letras." |
 | **Nacionalidade** | `OptionCycler` | "Brasil" | 12 opções: Brasil, Argentina, Portugal, Uruguai, Chile, Colômbia, Espanha, Itália, França, Alemanha, Japão, Angola (com pontinhos indicadores) |
-| **Idade** | `NumberStepper` (min 18, max 85, step 1) | 38 | Vazio vira 18; schema: "O manager deve ter entre 18 e 85 anos." |
+| **Data de nascimento** | `ManagerBirthDate`: seletores de dia, mês e ano | 01/01/1988 | A idade é calculada na data inicial do mundo e limitada a 18–85 anos. Dias inválidos são ajustados ao trocar mês ou ano. |
 | **Roupa** (linha inteira) | `ChipGroup` | "Terno azul" | Terno azul / Agasalho / Camisa social. Muda a cor da silhueta e entra no prompt do retrato |
 | **Aparência (para o retrato)** (linha inteira) | `<textarea rows=2>` | "Cabelo curto escuro, barba curta, olhos castanhos" | `maxLength 400`; usada pela IA |
 
@@ -164,18 +167,18 @@ Valores padrão: nenhum clube selecionado, série A, desafio Realista, dificulda
 ## Interações
 
 ### Mouse / toque
-Digitar nos campos; setas do `OptionCycler`; botões −/+ da idade; chips; clicar cartões de clube/desafio/dificuldade; Voltar/Continuar/Assumir; botão de retrato e botões da câmera.
+Digitar nos campos; setas do `OptionCycler` e de dia/mês/ano; chips; clicar cartões de clube/desafio/dificuldade; Voltar/Continuar/Assumir; botão de retrato e botões da câmera.
 
 ### Controle (ações registradas pela própria tela; o App não registra atalhos em `create`)
 | Botão (PS / Xbox) | Ação |
 |---|---|
-| ✕ / A | Confirma o foco. Em **Nome/Sobrenome/Aparência** abre o **teclado virtual** (ver design system). No **OptionCycler** entra/sai do modo edição. Na **Idade** abre o **teclado numérico** |
+| ✕ / A | Confirma o foco. Em **Nome/Sobrenome/Aparência** abre o **teclado virtual** (ver design system). No **OptionCycler** e no dia, mês ou ano de nascimento entra/sai do modo edição |
 | ○ / B | Se a câmera estiver aberta: fecha o modal (via "Voltar" do modal). Se um controle estiver em edição: sai da edição. Senão: **passo anterior** (no passo 0 volta ao menu) |
 | L1 / LB | Passo anterior (mesmo que ○) |
 | R1 / RB | Avança (`next()`, com validação) — só nos passos 0 e 1 e com a câmera fechada. No passo 2 **não** confirma (é preciso apertar "Assumir o clube") |
 | △ / Y | No passo 0, sem câmera e sem gerar: abre a câmera do retrato |
-| □ / X | Em controles com `data-toggle-edit` (Nacionalidade, Idade): entra/sai do modo ajuste |
-| ←/→ em modo edição | Nacionalidade: troca a opção (circular). Idade: ±1 (limitado 18–85) |
+| □ / X | Em controles com `data-toggle-edit` (Nacionalidade, dia, mês ou ano): entra/sai do modo ajuste |
+| ←/→ em modo edição | Nacionalidade: troca a opção (circular). Dia, mês ou ano: altera a parte selecionada, respeitando o calendário e a idade de 18–85 anos |
 | L2 / R2 | No passo 1 alterna **SÉRIE A/SÉRIE B** (o provider cicla o `.segmented` do `main`) |
 | D-pad / analógico esq. | Navegação espacial; no passo 1 mover pelos cartões **já seleciona o clube**; carrosséis centralizam o item focado |
 | Analógico direito | Horizontal rola os carrosséis; vertical rola o painel |
@@ -187,7 +190,7 @@ Vibração: `confirm` quando o retrato fica pronto; `error` nos toasts de erro (
 
 ## Classes CSS e visual atual
 - `.screen.creation`, `.creation-top`, `.step-track` (`span.active/.done`, `b`), `.screen-title`.
-- `.creation-grid` (grid 1.5fr / ≥280px, gap 18px), `.panel.manager-form` (borda superior lima), `.form-grid` (2 colunas; `.full` ocupa a linha), `label`, `input`, `textarea`, `.option-cycler`, `.number-stepper`, `.chip-group`.
+- `.creation-grid` (grid 1.5fr / ≥280px, gap 18px), `.panel.manager-form` (borda superior lima), `.form-grid` (2 colunas; `.full` ocupa a linha), `label`, `input`, `textarea`, `.option-cycler`, `.manager-birth-date`, `.manager-date-part`, `.chip-group`.
 - `.portrait-card(.generating)`, `.portrait-frame`, `.portrait-loading`, `.portrait-caption`, `.ai-portrait-button`, `.manager-portrait(.large)`.
 - `.portrait-camera` (grid vídeo | lado), `.camera-frame(.loading/.live/.denied)`, `.face-guide`, `.camera-side`, `.camera-actions`.
 - `.club-step`, `.club-step-bar`, `.segmented`, `.ghost-button`, `.club-grid.carousel`, `.club-option(.selected)` + `.tile-*`, `.stars` (amarelo; `i` apagadas), `.selected-check`.
@@ -197,7 +200,7 @@ Vibração: `confirm` quando o retrato fica pronto; `error` nos toasts de erro (
 
 ## Regras que o redesign deve preservar
 1. Três passos com indicador de progresso (MANAGER › CLUBE › DESAFIO) e título por passo.
-2. Campos: nome (2–35), sobrenome (2–45), nacionalidade (12 opções), idade (18–85, padrão 38), roupa (3 opções), aparência (até 400). Todos operáveis no controle (teclado virtual, cycler, stepper, chips).
+2. Campos: nome (2–35), sobrenome (2–45), nacionalidade (12 opções), data de nascimento (idade de 18–85 anos, padrão 38), roupa (3 opções), aparência (até 400). Todos operáveis no controle (teclado virtual, cycler, seletores de data, chips).
 3. Validação com mensagens do schema exibidas em toast que some sozinho.
 4. Pré-visualização ao vivo do manager (nome, nacionalidade, idade, roupa refletida na silhueta).
 5. Retrato por IA opcional: com foto da webcam (guia de rosto, tirar/tirar outra/gerar) ou só pela descrição; estado "Produzindo seu retrato…"; aviso de privacidade; exige nome e sobrenome.

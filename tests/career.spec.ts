@@ -1,13 +1,14 @@
 import { expect, test, type Page } from '@playwright/test';
 import { type SavedCareer } from '../src/services/storage';
 
-async function createCareer(page: Page) {
+async function createCareer(page: Page, prepareManager?: () => Promise<void>) {
   await page.goto('./');
   await expect(page.getByRole('button', { name: /Continuar carreira/i })).toHaveCount(0);
   await page.getByRole('button', { name: /Nova carreira/i }).click();
   await page.getByRole('button', { name: /Brasileirão 2026/ }).click();
   await page.getByLabel('Nome', { exact: true }).fill('Alex');
   await page.getByLabel('Sobrenome').fill('Silva');
+  await prepareManager?.();
   await page.getByRole('button', { name: 'Continuar', exact: true }).click();
   await page.getByRole('button', { name: /São Paulo/ }).click();
   await page.getByRole('button', { name: 'Continuar', exact: true }).click();
@@ -337,7 +338,7 @@ test('controle Xbox e DualSense navegam, teclado virtual confirma sem mouse', as
   await expect(page.getByRole('heading', { name: /O clube é seu/ })).toBeVisible();
 });
 
-test('controle altera ano de nascimento no perfil do manager', async ({ page }) => {
+test('controle define data de nascimento na criação e no perfil do manager', async ({ page }) => {
   await page.addInitScript(() => {
     const buttons = Array.from({ length: 17 }, () => ({
       pressed: false,
@@ -367,8 +368,35 @@ test('controle altera ano de nascimento no perfil do manager', async ({ page }) 
       await frame();
       await frame();
     }, index);
+    if (index >= 12 && index <= 15) await page.waitForTimeout(200);
   };
-  await createCareer(page);
+  await createCareer(page, async () => {
+    const day = page.getByRole('button', { name: /Dia de nascimento:/ });
+    const month = page.getByRole('button', { name: /Mês de nascimento:/ });
+    const year = page.getByRole('button', { name: /Ano de nascimento:/ });
+    await page.getByRole('button', { name: /Gênero:/ }).focus();
+    await press(13);
+    await expect(day).toBeFocused();
+    await press(0);
+    await expect(day).toHaveAttribute('aria-pressed', 'true');
+    await press(15);
+    await expect(day.locator('strong')).toHaveText('02');
+    await press(0);
+    await press(15);
+    await expect(month).toBeFocused();
+    await press(0);
+    await press(15);
+    await expect(month.locator('strong')).toHaveText('02');
+    await press(0);
+    await press(15);
+    await expect(year).toBeFocused();
+    await press(0);
+    await press(15);
+    await expect(year.locator('strong')).toHaveText('1989');
+    await press(1);
+    await expect(year).toHaveAttribute('aria-pressed', 'false');
+    await expect(page.locator('.portrait-caption p')).toContainText('36 anos');
+  });
   await page
     .getByRole('navigation', { name: 'Áreas do clube' })
     .getByRole('button', { name: 'ESCRITÓRIO', exact: true })
@@ -377,15 +405,41 @@ test('controle altera ano de nascimento no perfil do manager', async ({ page }) 
     .getByRole('navigation', { name: 'Atalhos do Escritório' })
     .getByRole('button', { name: 'Personalização', exact: true })
     .click();
+  const day = page.getByRole('button', { name: /Dia de nascimento:/ });
+  const month = page.getByRole('button', { name: /Mês de nascimento:/ });
   const year = page.getByRole('button', { name: /Ano de nascimento:/ });
-  const previousYear = Number(await year.locator('strong').innerText());
+  await expect(day.locator('strong')).toHaveText('02');
+  await expect(month.locator('strong')).toHaveText('02');
+  await expect(year.locator('strong')).toHaveText('1989');
+  await page.evaluate(() => {
+    Reflect.get(window, '__testPad').id = 'DualSense Wireless Controller';
+  });
   await year.focus();
   await press(0);
   await expect(year).toHaveAttribute('aria-pressed', 'true');
   await press(15);
-  await expect(year.locator('strong')).toHaveText(String(previousYear + 1));
-  await press(0);
+  await expect(year.locator('strong')).toHaveText('1990');
+  await press(1);
   await expect(year).toHaveAttribute('aria-pressed', 'false');
+  await expect(page.locator('.control-hint').first()).toContainText('✕');
+  await page.getByRole('button', { name: /Salvar personalização/ }).focus();
+  await press(0);
+  await expect(page.getByText('Personalização do manager salva.')).toBeVisible();
+  await expect(page.locator('.save-status')).toHaveText(/SALVO/);
+  await page.reload();
+  await page.getByRole('button', { name: /CONTINUAR CARREIRA/ }).click();
+  await page
+    .getByRole('navigation', { name: 'Áreas do clube' })
+    .getByRole('button', { name: 'ESCRITÓRIO', exact: true })
+    .click();
+  await page
+    .getByRole('navigation', { name: 'Atalhos do Escritório' })
+    .getByRole('button', { name: 'Personalização', exact: true })
+    .click();
+  await expect(day.locator('strong')).toHaveText('02');
+  await expect(month.locator('strong')).toHaveText('02');
+  await expect(year.locator('strong')).toHaveText('1990');
+  await expect(page.locator('.profile-panel')).toContainText('35 anos');
 });
 
 test('partida completa registra placar e volta à tabela sem duplicar resultado', async ({

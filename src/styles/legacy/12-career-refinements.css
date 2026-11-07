@@ -209,8 +209,15 @@
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
 }
-.manager-edit-form .manager-birth-date {
+.manager-birth-date-control {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+.manager-birth-date {
+  display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
 }
 .manager-date-part {
   display: grid;
@@ -239,6 +246,9 @@
 .manager-date-part > small {
   color: var(--mando-text-muted);
   font-size: 10px;
+}
+.manager-date-hint {
+  color: var(--mando-text-muted);
 }
 .office-screen .profile-panel {
   max-height: 100%;

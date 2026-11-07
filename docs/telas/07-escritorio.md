@@ -36,10 +36,11 @@ Apresenta o caixa do clube e os dados financeiros registrados na carreira, inclu
 ## Personalização
 
 Permite editar nome, sobrenome, nacionalidade, país/região, região de nascimento,
-data de nascimento, gênero, tratamento, vestuário e aparência. A idade é
-recalculada na data da carreira. Dia, mês e ano são alterados com ←/→ após
+data de nascimento, gênero, tratamento, vestuário e aparência. O mesmo seletor
+da criação limita a data à idade de 18 a 85 anos na data da carreira e ajusta
+dias inválidos ao trocar mês ou ano. Dia, mês e ano são alterados com ←/→ após
 selecionar o campo com ✕/A; ✕/A ou ○/B conclui a edição. X/□ salva o formulário
-validado. Retrato por câmera/IA continua disponível quando o serviço está configurado.
+validado e recalcula a idade. Retrato por câmera/IA continua disponível quando o serviço está configurado.
 
 ## Acessos da tela
 

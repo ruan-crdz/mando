@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { ArrowLeft, ArrowRight, Camera, Check, Dices, Flag, LoaderCircle } from 'lucide-react';
 import { PortraitCamera } from '../components/PortraitCamera';
+import { ManagerBirthDate } from '../components/ManagerBirthDate';
 import { Badge, ManagerPortrait, money } from '../components/ui';
 import {
   challenges,
@@ -12,6 +13,7 @@ import {
 } from '../game/types';
 import { useControllerActions, useGamepad } from '../controller/GamepadProvider';
 import { ChipGroup, OptionCycler } from '../components/controls';
+import { ageAt } from '../game/random';
 
 const challengeDescriptions: Record<Career['challenge'], string> = {
   Realista: 'As condições iniciais do snapshot, sem modificadores.',
@@ -43,17 +45,6 @@ const nationalities = [
   'Japão',
   'Angola',
 ];
-const managerAge = (birthDate: string, referenceDate: string) => {
-  const birth = new Date(`${birthDate}T00:00:00Z`);
-  const reference = new Date(`${referenceDate}T00:00:00Z`);
-  let age = reference.getUTCFullYear() - birth.getUTCFullYear();
-  if (
-    reference.getUTCMonth() < birth.getUTCMonth() ||
-    (reference.getUTCMonth() === birth.getUTCMonth() && reference.getUTCDate() < birth.getUTCDate())
-  )
-    age--;
-  return age;
-};
 const tileColors = [
   'tile-blue',
   'tile-green',
@@ -105,7 +96,6 @@ export function CreateManager({
   const carousel = useRef<HTMLDivElement>(null);
   const club = world.clubs.find((c) => c.id === clubId);
   const clubs = world.clubs.filter((c) => c.league === league);
-  const referenceYear = Number(world.date.slice(0, 4));
   useEffect(() => {
     if (step !== 1) return;
     carousel.current
@@ -254,24 +244,18 @@ export function CreateManager({
                   setManager({ ...manager, formOfAddress })
                 }
               />
-              <label>
-                Data de nascimento
-                <input
-                  type="date"
-                  value={manager.birthDate || ''}
-                  min={`${referenceYear - 85}${world.date.slice(4)}`}
-                  max={`${referenceYear - 18}${world.date.slice(4)}`}
-                  onChange={(e) => {
-                    const birthDate = e.target.value;
-                    if (birthDate)
-                      setManager({
-                        ...manager,
-                        birthDate,
-                        age: managerAge(birthDate, world.date),
-                      });
-                  }}
-                />
-              </label>
+              <ManagerBirthDate
+                className="full"
+                value={manager.birthDate || `${Number(world.date.slice(0, 4)) - manager.age}-01-01`}
+                referenceDate={world.date}
+                onChange={(birthDate) =>
+                  setManager((current) => ({
+                    ...current,
+                    birthDate,
+                    age: ageAt(birthDate, world.date),
+                  }))
+                }
+              />
               <div className="full">
                 <ChipGroup
                   label="Roupa"
