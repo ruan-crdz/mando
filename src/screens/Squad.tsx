@@ -74,13 +74,7 @@ import {
   type World,
 } from '../game/types';
 import { dateLabel, Modal, money, SectionTitle, thresholdPercent } from '../components/ui';
-import {
-  ChipGroup,
-  NumberStepper,
-  OptionCycler,
-  ShirtNumberDial,
-  TacticSlider,
-} from '../components/controls';
+import { ChipGroup, NumberStepper, ShirtNumberDial, TacticSlider } from '../components/controls';
 import {
   byPosition,
   PlayerCard,
