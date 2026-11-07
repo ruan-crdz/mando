@@ -27,7 +27,7 @@ import {
 } from './transfers';
 import { createSchedule, transferWindow } from './calendar';
 import { overall } from './ratings';
-import { careerSchema, formations, type Career, type Manager } from './types';
+import { careerSchema, type Career, type Manager } from './types';
 
 const world = createDemoWorld();
 const manager: Manager = {

@@ -13,7 +13,7 @@ import {
   tacticalEdge,
   type Strength,
 } from './tactics';
-import { trainingEffect, trainingLevel } from './economy';
+import { trainingEffect } from './economy';
 import { fitnessEffect, goalkeepingEffect, staffLevel } from './staff';
 import { manOfTheMatch, matchRatings } from './matchRatings';
 import {
@@ -491,7 +491,7 @@ export function stepMatch(
     rng() <
       (0.0015 + Math.max(0, 65 - stateOf(career, athlete.id)!.fitness) * 0.0002) *
         (clubId === career.clubId
-          ? (1 - trainingEffect(trainingLevel(career)).injury) * (1 - physio.injury)
+          ? (1 - trainingEffect().injury) * (1 - physio.injury)
           : 1)
   ) {
     match.injured.push(athlete.id);

@@ -22,9 +22,7 @@ import {
 import {
   economyMonth,
   trainingEffect,
-  trainingLevel,
   youthBonus,
-  youthLevel,
 } from './economy';
 import {
   createCups,
@@ -275,7 +273,7 @@ function applyMatch(c: Career, world: World, result: Match) {
           1,
           Math.round(
             s.injuryDays *
-              (1 - trainingEffect(trainingLevel(c)).injury) *
+              (1 - trainingEffect().injury) *
               (1 - medicalEffect(staffLevel(c, 'medical')).days),
           ),
         );
@@ -667,7 +665,7 @@ export function advanceDay(career: Career, world: World): Career {
     throw new Error('Hoje é dia de jogo. Prepare a equipe e comece a partida.');
   c.date = addDays(c.date, 1);
   c.jobOffers = c.jobOffers.filter((offer) => offer.expires >= c.date);
-  const ct = trainingEffect(trainingLevel(c));
+  const ct = trainingEffect();
   const physio = fitnessEffect(staffLevel(c, 'fitness'));
   const medical = medicalEffect(staffLevel(c, 'medical'));
   const keeperCoach = goalkeepingEffect(staffLevel(c, 'goalkeeping'));
@@ -1190,7 +1188,7 @@ export function startNextSeason(career: Career, world: World): Career {
   }
   // Categorias de base: três atletas por clube principal.
   const revealed: Player[] = [];
-  const baseBonus = youthBonus(youthLevel(c));
+  const baseBonus = youthBonus();
   const coordinator = youthCoachEffect(staffLevel(c, 'youth'));
   for (const club of live.clubs) {
     const count = club.id === c.clubId ? 3 + coordinator.extra : 3;
