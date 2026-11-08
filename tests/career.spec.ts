@@ -85,7 +85,7 @@ test('criação, todas as abas, negociação, avanço e save/load persistente', 
   );
   await page.getByRole('button', { name: 'Responsabilidades' }).click();
   await page.locator('.role-card[data-role="Capitão"]').click();
-  await expect(page.locator('.player-card').first()).toBeVisible();
+  await expect(page.locator('.reserve-panel').first()).toBeVisible();
   await page.getByRole('button', { name: 'Comissão', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Auxiliares por setor' })).toBeVisible();
   await page
