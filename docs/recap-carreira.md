@@ -107,9 +107,29 @@ Salários entram na folha; bronze pode ser a escolha economicamente adequada.
 | Lesão/suspensão   | Impedem escalação de indisponíveis; ocorrências em jogo mudam os participantes    |
 
 O confronto tático limita ajustes por setor a ±15%. A criação de chances usa
-`0,13 × (ataque / defesa)^2,2`. Desgaste por minuto usa
-`(0,155 + pressão × 0,03 + construção × 0,01) × fator de cansaço`.
+`0,13 × (ataque / defesa)^2,2`. Desgaste por minuto (`src/game/fatigue.ts`) usa
+`(0,12 + (pressão − 3) × 0,025 + (construção − 3) × 0,01 ± mentalidade) × carga da função
+× (1,35 − fôlego/200) × idade`: goleiro 0,35, zagueiro 0,85, laterais/alas/meias ~1,1; acima de
+30 anos +3% por ano. Um titular médio gasta ~10–13 pontos em 90 minutos.
+Rendimento pela condição: sem perda acima de 75, −0,35%/ponto entre 75 e 55 e −0,8%/ponto
+abaixo de 55; dentro do jogo, o desgaste acumulado tira até 8% (substituto descansado rende mais).
+Recuperação diária: `(3 + (100 − condição) × 0,15) × idade × fôlego` — ~97% em três dias;
+veteranos 80–90%, jovens 110%. Lesão em jogo só sobe com condição atual abaixo de 60.
 Ter a maior barra não significa sempre jogar melhor: depende do adversário.
+
+### IA do técnico rival
+
+- **Antes do jogo** (Amador/Profissional): testa as 625 combinações de pressão, largura, ritmo e
+  linha contra o seu desenho, elenco e plano, pela mesma conta de saldo esperado da engine, e
+  aplica a melhor sem abandonar a identidade do técnico (custo por passo: 0,035 no Amador,
+  0,012 no Profissional). O motivo aparece na narração.
+- **Aos 46 e 70 minutos** relê o jogo com cansaço, lesões, expulsões e o seu plano atual.
+- **Placar:** perdendo após 60' vai ao ataque (após 75' ou −2 também sobe pressão, ritmo e
+  linha); ganhando após 70' administra; no Profissional, empate após 80' fora de casa segura e
+  em casa vai atrás.
+- **Substituições** (até 5): lesionado sai na hora; nas janelas 46/58/64/70/76/82 compara cada
+  titular (overall na função × condição × desgaste) com o melhor reserva da função. Perdendo
+  prioriza o ataque, ganhando a marcação, e amarelados da defesa saem antes da expulsão.
 
 ### Provas reproduzíveis, não promessas
 

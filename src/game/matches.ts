@@ -5,6 +5,7 @@ import { familiarity } from './positions';
 import {
   adjustMentality,
   applyTactic,
+  counterTactic,
   npcTactic,
   profile,
   shotChance,
@@ -12,6 +13,7 @@ import {
   tacticalEdge,
   type Strength,
 } from './tactics';
+import { conditionFactor, injuryRisk, minuteDrain } from './fatigue';
 import { trainingEffect } from './economy';
 import { fitnessEffect, goalkeepingEffect, staffLevel } from './staff';
 import { manOfTheMatch, matchRatings } from './matchRatings';
@@ -62,7 +64,7 @@ export function bestLineup(
   const rest = clubId !== career.clubId;
   const score = (p: Player, role: string) => {
     const s = stateOf(career, p.id)!;
-    return overall(p, role, s) - (rest && s.fitness < 65 ? 10 : 0);
+    return overall(p, role, s) - (rest ? Math.max(0, 85 - s.fitness) * 0.5 : 0);
   };
   for (const role of formations[formation]) {
     const best = pool
@@ -166,6 +168,25 @@ export function beginMatch(career: Career, world: World, fixture: Fixture): Matc
   if (awayPlan && !ours) awayPlan.tactic = adjustMentality(awayPlan.tactic, awayPlan.ovr - homeOvr);
   const homeLineup = homePlan ? homePlan.lineup : [...career.lineup];
   const awayLineup = awayPlan ? awayPlan.lineup : [...career.lineup];
+  const rivalPlan = homePlan ?? awayPlan;
+  const prematch: Match['events'] = [];
+  if (ours && rivalPlan) {
+    const read = rivalRead(career, world, {
+      rivalTactic: rivalPlan.tactic,
+      rivalLineup: rivalPlan.lineup,
+      rivalHome: Boolean(homePlan),
+      ownLineup: career.lineup,
+    });
+    if (read) {
+      rivalPlan.tactic = read.tactic;
+      prematch.push({
+        minute: 0,
+        type: 'tactic',
+        clubId: homePlan ? fixture.homeId : fixture.awayId,
+        text: `${clubById(world, homePlan ? fixture.homeId : fixture.awayId).name} estudou seu time: ${read.reason}.`,
+      });
+    }
+  }
   return {
     ...(ours ? { aiSubs: 0 } : {}),
     fixtureId: fixture.id,
@@ -194,8 +215,53 @@ export function beginMatch(career: Career, world: World, fixture: Fixture): Matc
         clubId: fixture.homeId,
         text: 'Bola rolando. Começa a partida!',
       },
+      ...prematch,
     ],
   };
+}
+
+/**
+ * O técnico rival lê o plano do usuário (desenho, pressão, largura, ritmo, linha e o elenco em
+ * campo, com cansaço e lesões) e ajusta o próprio plano. Iniciante não estuda o adversário.
+ */
+function rivalRead(
+  career: Career,
+  world: World,
+  input: {
+    rivalTactic: Tactic;
+    rivalLineup: string[];
+    rivalHome: boolean;
+    ownLineup: string[];
+    spent?: Record<string, number>;
+    injured?: string[];
+  },
+) {
+  if (career.difficulty === 'Iniciante') return null;
+  const loyalty = career.difficulty === 'Profissional' ? 0.012 : 0.035;
+  const f = input.rivalTactic.formation;
+  const rival = {
+    profile: profile(career, world, input.rivalLineup, f),
+    base: strength(career, world, input.rivalLineup, f, input.spent, input.injured),
+  };
+  const user = {
+    tactic: career.tactic,
+    profile: profile(career, world, input.ownLineup, career.tactic.formation),
+    base: strength(
+      career,
+      world,
+      input.ownLineup,
+      career.tactic.formation,
+      input.spent,
+      input.injured,
+    ),
+  };
+  const read = counterTactic(input.rivalTactic, rival, user, input.rivalHome, loyalty);
+  const changed = (['pressure', 'width', 'tempo', 'line'] as const).some(
+    (k) => read.tactic[k] !== input.rivalTactic[k],
+  );
+  if (!changed || read.gain < 0.02) return null;
+  const reason = read.notes[0]?.text.toLowerCase() || 'ajustou o encaixe para o seu desenho';
+  return { tactic: read.tactic, reason };
 }
 
 export function stepMatch(career: Career, world: World, current: Match): Match {
@@ -216,15 +282,56 @@ export function stepMatch(career: Career, world: World, current: Match): Match {
     line: 3,
   };
   const ownHome = fixture.homeId === career.clubId;
-  const npc: Tactic = { ...((ownHome ? match.awayTactic : match.homeTactic) || legacy) };
-  const npcLosing =
-    fixture.homeId === career.clubId
-      ? match.awayGoals < match.homeGoals
-      : match.homeGoals < match.awayGoals;
-  if (career.difficulty !== 'Iniciante' && minute > 60 && npcLosing) npc.mentality = 'Ofensiva';
-  if (career.difficulty === 'Profissional' && minute > 75 && !npcLosing)
-    npc.mentality = 'Defensiva';
   const ours = ownHome || fixture.awayId === career.clubId;
+  // No intervalo e na reta final o rival relê o jogo com o cansaço e o seu plano atual.
+  if (ours && (minute === 46 || minute === 70)) {
+    const rivalTactic = ownHome ? match.awayTactic : match.homeTactic;
+    const active = (ids: string[]) => ids.map((id) => (match.dismissed.includes(id) ? '' : id));
+    const read =
+      rivalTactic &&
+      rivalRead(career, world, {
+        rivalTactic,
+        rivalLineup: active(ownHome ? match.awayLineup : match.homeLineup),
+        rivalHome: !ownHome,
+        ownLineup: active(ownHome ? match.homeLineup : match.awayLineup),
+        spent: match.energySpent,
+        injured: match.injured,
+      });
+    if (read) {
+      if (ownHome) match.awayTactic = read.tactic;
+      else match.homeTactic = read.tactic;
+      const rivalId = ownHome ? fixture.awayId : fixture.homeId;
+      match.events.push({
+        minute,
+        type: 'tactic',
+        clubId: rivalId,
+        text: `${clubById(world, rivalId).name} muda o plano: ${read.reason}.`,
+      });
+    }
+  }
+  const npc: Tactic = { ...((ownHome ? match.awayTactic : match.homeTactic) || legacy) };
+  const npcDiff = ownHome ? match.awayGoals - match.homeGoals : match.homeGoals - match.awayGoals;
+  const bump = (v: number, d: number) => Math.max(1, Math.min(5, v + d));
+  // Gestão do placar: quem perde se expõe aos poucos; quem ganha administra.
+  if (career.difficulty !== 'Iniciante') {
+    if (npcDiff < 0 && minute > 60) {
+      npc.mentality = 'Ofensiva';
+      if (minute > 75 || npcDiff <= -2) {
+        npc.pressure = bump(npc.pressure, 1);
+        npc.tempo = bump(npc.tempo, 1);
+        npc.line = bump(npc.line, 1);
+      }
+    } else if (npcDiff > 0 && minute > 70) {
+      npc.mentality = 'Defensiva';
+      if (career.difficulty === 'Profissional') {
+        npc.line = bump(npc.line, -1);
+        npc.tempo = bump(npc.tempo, -1);
+      }
+    } else if (npcDiff === 0 && minute > 80 && career.difficulty === 'Profissional') {
+      // Fora de casa o empate vale; em casa, o rival vai atrás da vitória.
+      npc.mentality = ownHome ? 'Defensiva' : 'Ofensiva';
+    }
+  }
   const ht = ownHome ? career.tactic : ours ? npc : match.homeTactic || legacy;
   const at =
     fixture.awayId === career.clubId ? career.tactic : ours ? npc : match.awayTactic || legacy;
@@ -235,13 +342,16 @@ export function stepMatch(career: Career, world: World, current: Match): Match {
     [match.homeLineup, ht, ownHome ? ownTire : 1],
     [match.awayLineup, at, fixture.awayId === career.clubId ? ownTire : 1],
   ] as const) {
-    for (const id of ids) {
-      if (match.dismissed.includes(id)) continue;
+    const roles = formations[tactic.formation];
+    ids.forEach((id, i) => {
+      if (match.dismissed.includes(id)) return;
       match.minutesPlayed[id] = (match.minutesPlayed[id] || 0) + 1;
-      match.energySpent[id] =
-        (match.energySpent[id] || 0) +
-        (0.155 + tactic.pressure * 0.03 + tactic.tempo * 0.01) * tire;
-    }
+      const player = findPlayer(world, id);
+      const drain = player
+        ? minuteDrain(player, roles[i] || 'CM', tactic, ageAt(player.birthDate, career.date))
+        : 0.13;
+      match.energySpent[id] = (match.energySpent[id] || 0) + drain * tire;
+    });
   }
   if (ours) aiSubstitutions(career, world, match, fixture, minute);
   const activeLineup = (ids: string[]) => ids.map((id) => (match.dismissed.includes(id) ? '' : id));
@@ -467,7 +577,7 @@ export function stepMatch(career: Career, world: World, current: Match): Match {
     !match.dismissed.includes(athlete.id) &&
     !match.injured.includes(athlete.id) &&
     rng() <
-      (0.0015 + Math.max(0, 65 - stateOf(career, athlete.id)!.fitness) * 0.0002) *
+      injuryRisk(stateOf(career, athlete.id)!.fitness - (match.energySpent[athlete.id] || 0)) *
         (clubId === career.clubId ? (1 - trainingEffect().injury) * (1 - physio.injury) : 1)
   ) {
     match.injured.push(athlete.id);
@@ -501,7 +611,12 @@ export function stepMatch(career: Career, world: World, current: Match): Match {
   return match;
 }
 
-/** Técnico da IA mexe no time aos 60, 70 e 80 minutos, sempre com um motivo. */
+/**
+ * Técnico da IA: troca lesionados na hora e, nas janelas do 2º tempo, compara cada titular
+ * (overall na função × condição atual × desgaste) com o melhor reserva para a mesma função.
+ * Perdendo, prioriza pernas novas no ataque; ganhando, reforça a marcação; amarelados em
+ * risco de expulsão saem antes. No máximo cinco trocas.
+ */
 function aiSubstitutions(
   career: Career,
   world: World,
@@ -509,47 +624,68 @@ function aiSubstitutions(
   fixture: Fixture,
   minute: number,
 ) {
-  if (![60, 70, 80].includes(minute) || (match.aiSubs ?? 0) >= 3) return;
+  if ((match.aiSubs ?? 0) >= 5) return;
   const rivalHome = fixture.awayId === career.clubId;
   const clubId = rivalHome ? fixture.homeId : fixture.awayId;
   const lineup = rivalHome ? match.homeLineup : match.awayLineup;
   const formation = (rivalHome ? match.homeTactic : match.awayTactic)?.formation || npcFormation;
   const roles = formations[formation];
-  const losing = rivalHome ? match.homeGoals < match.awayGoals : match.awayGoals < match.homeGoals;
-  const bench = squad(career, world, clubId).filter(
-    (p) =>
-      !lineup.includes(p.id) &&
-      !match.replaced.includes(p.id) &&
-      available(career, p.id) &&
-      p.position !== 'GK',
-  );
-  if (!bench.length) return;
-  const energy = (id: string) =>
-    (stateOf(career, id)?.fitness ?? 80) - (match.energySpent[id] || 0);
+  const diff = rivalHome ? match.homeGoals - match.awayGoals : match.awayGoals - match.homeGoals;
   const slots = lineup
     .map((id, i) => ({ id, i, role: roles[i] }))
-    .filter((s) => s.role !== 'GK' && !match.dismissed.includes(s.id));
+    .filter((s) => !match.dismissed.includes(s.id));
   const hurt = slots.find((s) => match.injured.includes(s.id));
-  const chasing =
-    losing && minute >= 70
-      ? slots.filter((s) => ['DM', 'CM', 'CB', 'LB', 'RB'].includes(s.role))
-      : [];
-  const tiredest = [...slots].sort((a, b) => energy(a.id) - energy(b.id))[0];
-  const out =
-    hurt || (chasing.length ? chasing.sort((a, b) => energy(a.id) - energy(b.id))[0] : tiredest);
-  if (!out || (!hurt && !chasing.length && energy(out.id) > 55)) return;
-  const role = chasing.length && !hurt ? 'AM' : out.role;
-  const incoming = bench.sort((a, b) => overall(b, role) - overall(a, role))[0];
-  const outgoing = findPlayer(world, out.id);
-  if (!incoming || !outgoing) return;
-  lineup[out.i] = incoming.id;
-  match.replaced.push(out.id);
+  const window = [46, 58, 64, 70, 76, 82].includes(minute);
+  if (!hurt && !window) return;
+  const bench = squad(career, world, clubId).filter(
+    (p) => !lineup.includes(p.id) && !match.replaced.includes(p.id) && available(career, p.id),
+  );
+  if (!bench.length) return;
+  const attacking = ['ST', 'LW', 'RW', 'AM', 'LM', 'RM'];
+  const defensive = ['GK', 'CB', 'LB', 'RB', 'DM'];
+  const booked = (id: string) =>
+    match.events.some((e) => e.type === 'yellow' && e.clubId === clubId && e.playerId === id);
+  const current = (id: string, role: string) => {
+    const p = findPlayer(world, id);
+    const s = stateOf(career, id);
+    if (!p || !s) return 0;
+    const spent = match.energySpent[id] || 0;
+    return (
+      overall(p, role, s) *
+      conditionFactor(s.fitness - spent) *
+      (1 - Math.min(0.08, spent * 0.003)) *
+      (match.injured.includes(id) ? 0.4 : 1) *
+      (booked(id) && minute >= 58 && defensive.includes(role) ? 0.94 : 1)
+    );
+  };
+  const fresh = (p: Player, role: string) =>
+    overall(p, role, stateOf(career, p.id)) * conditionFactor(stateOf(career, p.id)!.fitness);
+  let best: { slot: (typeof slots)[number]; incoming: Player; gain: number } | null = null;
+  for (const slot of hurt ? [hurt] : slots) {
+    const options = bench.filter((p) => (slot.role === 'GK') === (p.position === 'GK'));
+    const incoming = options.sort((a, b) => fresh(b, slot.role) - fresh(a, slot.role))[0];
+    if (!incoming) continue;
+    let gain = fresh(incoming, slot.role) - current(slot.id, slot.role);
+    if (diff < 0 && minute >= 64 && attacking.includes(slot.role)) gain *= 1.6;
+    if (diff > 0 && minute >= 70 && defensive.includes(slot.role)) gain *= 1.5;
+    if (!best || gain > best.gain) best = { slot, incoming, gain };
+  }
+  if (!best || (!hurt && best.gain < (minute >= 70 ? 0.8 : 1.6))) return;
+  const { slot, incoming } = best;
+  const outgoing = findPlayer(world, slot.id);
+  if (!outgoing) return;
+  lineup[slot.i] = incoming.id;
+  match.replaced.push(slot.id);
   match.aiSubs = (match.aiSubs ?? 0) + 1;
   const reason = hurt
     ? 'lesão'
-    : chasing.length
-      ? 'precisa do gol, tira um homem de marcação e coloca mais um ofensivo'
-      : 'renova o fôlego';
+    : booked(slot.id) && defensive.includes(slot.role) && minute >= 58
+      ? 'amarelado, evita a expulsão'
+      : diff < 0 && attacking.includes(slot.role)
+        ? 'precisa do gol: perna nova no ataque'
+        : diff > 0 && defensive.includes(slot.role)
+          ? 'segura o resultado e reforça a marcação'
+          : 'renova o fôlego';
   match.events.push({
     minute,
     type: 'sub',

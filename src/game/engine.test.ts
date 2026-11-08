@@ -153,7 +153,9 @@ describe('calendário nacional', () => {
     const next = advanceDay(career, world);
     expect(next.date).toBe('2026-02-01');
     expect(next.finances[career.clubId].history).toHaveLength(before + 1);
-    expect(next.players[career.lineup[0]].fitness).toBe(54.25);
+    // Recuperação realista: muito desgastado recupera rápido (~8–13 pontos no dia).
+    expect(next.players[career.lineup[0]].fitness).toBeGreaterThan(57);
+    expect(next.players[career.lineup[0]].fitness).toBeLessThan(65);
     expect(career.players[career.lineup[0]].fitness).toBe(50);
   });
 });

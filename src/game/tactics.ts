@@ -3,6 +3,7 @@ import { overall } from './ratings';
 import { familiarity, positionNames, roleOf } from './positions';
 import { findPlayer } from './npc';
 import { bestLineup, stateOf } from './matches';
+import { conditionFactor } from './fatigue';
 import {
   formations,
   type Attributes,
@@ -327,6 +328,47 @@ export function expectedBalance(
 
 export type Strength = { attack: number; midfield: number; defense: number };
 
+/**
+ * Leitura do técnico rival: testa pressão, largura, ritmo e linha contra o plano e o elenco do
+ * adversário e escolhe o que mais rende pela mesma conta da engine, sem abandonar a identidade
+ * do clube (cada passo longe dela custa `loyalty` gols de saldo esperado).
+ */
+export function counterTactic(
+  identity: Tactic,
+  ours: { profile: Profile; base: Strength },
+  theirs: { tactic: Tactic; profile: Profile; base: Strength },
+  home: boolean,
+  loyalty = 0.02,
+): { tactic: Tactic; gain: number; notes: EdgeNote[] } {
+  const score = (tactic: Tactic) => {
+    const r = expectedBalance({ tactic, ...ours }, theirs, home);
+    return r.goalsFor - r.goalsAgainst;
+  };
+  const start = score(identity);
+  let best = identity;
+  let bestScore = start;
+  for (let pressure = 1; pressure <= 5; pressure++)
+    for (let width = 1; width <= 5; width++)
+      for (let tempo = 1; tempo <= 5; tempo++)
+        for (let line = 1; line <= 5; line++) {
+          const tactic: Tactic = { ...identity, pressure, width, tempo, line };
+          const distance =
+            Math.abs(pressure - identity.pressure) +
+            Math.abs(width - identity.width) +
+            Math.abs(tempo - identity.tempo) +
+            Math.abs(line - identity.line);
+          const value = score(tactic) - distance * loyalty;
+          if (value > bestScore + 1e-9) {
+            best = tactic;
+            bestScore = value;
+          }
+        }
+  const notes = tacticalEdge({ tactic: best, profile: ours.profile }, theirs)
+    .notes.filter((n) => n.value > 0)
+    .sort((a, b) => b.value - a.value);
+  return { tactic: best, gain: score(best) - start, notes };
+}
+
 /** Chance de finalização por posse; o expoente faz a diferença de qualidade pesar. */
 const SHOT_BASE = 0.13;
 export const shotChance = (attack: number, defense: number) =>
@@ -358,7 +400,10 @@ export function strength(
       .filter(({ role }) => roles.includes(role))
       .map(({ player: p, role }) => {
         const s = stateOf(career, p.id)!;
-        const fatigue = clamp(s.fitness - (spent[p.id] || 0), 25, 100) / 100;
+        const used = spent[p.id] || 0;
+        // Condição baixa derruba o rendimento; dentro do jogo, as pernas pesam com o desgaste.
+        const condition =
+          conditionFactor(clamp(s.fitness - used, 0, 100)) * (1 - Math.min(0.08, used * 0.003));
         const sharpness = 0.85 + clamp(s.sharpness, 0, 100) * 0.003;
         const rolePositions: Record<string, string[]> = {
           Finalizador: ['ST'],
@@ -372,7 +417,7 @@ export function strength(
           s.role === 'Padrão' ? 1 : rolePositions[s.role]?.includes(role) ? 1.04 : 0.96;
         return (
           overall(p, role, s) *
-          (0.65 + fatigue * 0.25 + s.morale / 1000) *
+          (0.9 * condition + s.morale / 1000) *
           sharpness *
           roleFit *
           (injured.includes(p.id) ? 0.6 : 1)

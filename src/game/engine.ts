@@ -12,6 +12,7 @@ import { competitionName, createSchedule, fixtureLabel, nextFixture } from './ca
 import { endLoan, expireThread, processOffers } from './transfers';
 import { payroll, settleFee } from './market';
 import { overall } from './ratings';
+import { dailyRecovery } from './fatigue';
 import { LEARNED, TRAIN_CAP, familiarity, positionNames, trainingGain } from './positions';
 import { clubById, findPlayer, isForeign, knownClub } from './npc';
 import { baseWorld, careerWorld } from './live';
@@ -778,7 +779,16 @@ export function advanceDay(career: Career, world: World): Career {
         playerId: player.id,
       });
     }
-    s.fitness = clamp(s.fitness + (s.injuryDays ? 1 : 4) + (own ? physio.recovery : 0));
+    s.fitness = clamp(
+      s.fitness +
+        dailyRecovery(
+          s.fitness,
+          ageAt(player.birthDate, c.date),
+          s.injuryDays > 0,
+          player.attributes.stamina,
+        ) +
+        (own ? physio.recovery : 0),
+    );
     s.sharpness = clamp(s.sharpness - (s.clubId === c.clubId ? ct.decay : 0.15));
     if (s.training && s.clubId === c.clubId) trainPosition(c, player, s);
     if (s.clubId && ageAt(player.birthDate, c.date) <= 27 && s.injuryDays === 0 && rng() < 0.035) {
@@ -1354,7 +1364,7 @@ function playAcademyFixtures(c: Career, world: World) {
       state.ratingTotal = (state.ratingTotal ?? 0) + rating;
       state.monthlyRated = (state.monthlyRated ?? 0) + 1;
       state.monthlyRatingTotal = (state.monthlyRatingTotal ?? 0) + rating;
-      state.fitness = clamp(state.fitness - 12);
+      state.fitness = clamp(state.fitness - 11);
       state.sharpness = clamp(state.sharpness + 10);
     }
     for (let goal = 0; goal < goals && attackers.length; goal++)

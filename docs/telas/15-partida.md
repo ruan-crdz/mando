@@ -34,6 +34,11 @@ Partida 2D jogável da carreira, aberta a partir do popup Dia de jogo. O manager
 - **Tática:** pausa a partida e permite alterar formação, mentalidade, pressão, ritmo, linha defensiva, largura e capitão.
 - **Instruções da beira do campo:** oferece comandos táticos com duração e intervalo mínimo entre instruções. A ação fica indisponível durante o intervalo de espera.
 
+### Técnico rival
+
+- Estuda seu plano antes do jogo e de novo aos 46' e 70' (exceto Iniciante), ajustando pressão, largura, ritmo e linha; a narração explica o motivo.
+- Administra o placar (ataca quando perde, fecha quando ganha) e faz até cinco substituições por lesão, cansaço, cartão ou necessidade do resultado. Regras em [recap-carreira.md](../recap-carreira.md).
+
 ### Pós-jogo
 
 - O painel de números dá lugar às notas da partida.
