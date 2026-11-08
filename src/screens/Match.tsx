@@ -27,6 +27,7 @@ import { formations, type Career, type Formation, type Player, type World } from
 import { Badge, Modal } from '../components/ui';
 import { ChipGroup, TacticSlider } from '../components/controls';
 import { LivePitch, type PitchTeam } from '../components/LivePitch';
+import { FinalIntro } from '../components/FinalIntro';
 import { byPosition, PlayerCard, PlayerPicker, roleFits } from '../components/PlayerCard';
 import { PlayerFace } from '../components/PlayerFace';
 import { useGamepad } from '../controller/GamepadProvider';
@@ -73,6 +74,8 @@ export function MatchScreen({
   const home = clubById(world, fixture.homeId);
   const away = clubById(world, fixture.awayId);
   const label = fixtureLabel(fixture);
+  const isFinal = fixture.stage === 'Final' || fixture.cup === 'SUP';
+  const [intro, setIntro] = useState(isFinal && match.minute === 0);
   const ownLineup = fixture.homeId === c.clubId ? match.homeLineup : match.awayLineup;
   const selectedBench = c.benchConfigured ? new Set(c.bench) : null;
   const bench = world.players.filter(
@@ -180,6 +183,26 @@ export function MatchScreen({
   }, [playing, speed, sub, tactic, shout, paused, world, onChange, onError]);
   return (
     <div className="screen match-screen">
+      {intro && (
+        <FinalIntro
+          competition={label.name}
+          stage={label.stage}
+          stadium={home.stadium}
+          home={{
+            club: home,
+            players: (fixture.homeId === c.clubId ? ownLineup : match.homeLineup).flatMap(
+              (id) => findPlayer(world, id) ?? [],
+            ),
+            numbers: teamFor(fixture.homeId, match.homeLineup, home.color).numbers,
+          }}
+          away={{
+            club: away,
+            players: match.awayLineup.flatMap((id) => findPlayer(world, id) ?? []),
+            numbers: teamFor(fixture.awayId, match.awayLineup, away.color).numbers,
+          }}
+          onDone={() => setIntro(false)}
+        />
+      )}
       <div className="match-strip">
         <span>
           {label.name.toUpperCase()} · {label.stage.toUpperCase()}

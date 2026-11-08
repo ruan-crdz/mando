@@ -347,6 +347,66 @@ export function crowdGoal() {
   crowdBus.gain.setTargetAtTime(liveCrowd ? 0.16 : 0.055, context.currentTime + 1.5, 0.7);
 }
 
+let finalBus: GainNode | null = null;
+
+/** Trilha da entrada em campo na final: batidas de coração, rufar, torcida crescendo, hino e apito. */
+export async function finalBuildup() {
+  await unlockAudio();
+  if (!context || context.state !== 'running') return;
+  finalBus?.disconnect();
+  const bus = context.createGain();
+  bus.connect(effectsBus);
+  finalBus = bus;
+  const t = context.currentTime;
+  const heart = (time: number, v: number) => {
+    const o = context!.createOscillator();
+    const g = context!.createGain();
+    o.type = 'sine';
+    o.frequency.setValueAtTime(70, time);
+    o.frequency.exponentialRampToValueAtTime(38, time + 0.18);
+    g.gain.setValueAtTime(v, time);
+    g.gain.exponentialRampToValueAtTime(0.001, time + 0.22);
+    o.connect(g).connect(bus);
+    o.start(time);
+    o.stop(time + 0.24);
+  };
+  for (let i = 0; i < 4; i++) {
+    heart(t + i * 0.85, 0.9);
+    heart(t + i * 0.85 + 0.22, 0.6);
+  }
+  // Rufar que acelera até a entrada dos times.
+  let time = t + 3.2;
+  for (let gap = 0.16; time < t + 6; gap = Math.max(0.035, gap * 0.93)) {
+    noiseHit(time, 0.06, 0.25 + (time - t - 3.2) * 0.12, 1800, 'bandpass', bus);
+    time += gap;
+  }
+  // Acorde de hino na entrada em campo.
+  for (const [i, note] of [55, 62, 67, 71, 74].entries()) {
+    tone(bus, t + 6 + i * 0.03, note, 3.4, 0.16, 'sawtooth');
+    tone(bus, t + 8.2, note + 2, 2.6, 0.12, 'triangle');
+  }
+  if (state.crowd) {
+    crowdBus.gain.cancelScheduledValues(t);
+    crowdBus.gain.setValueAtTime(0.02, t);
+    crowdBus.gain.linearRampToValueAtTime(0.12, t + 5.8);
+    crowdBus.gain.linearRampToValueAtTime(0.42, t + 6.4);
+    crowdBus.gain.setTargetAtTime(0.055, t + 10.5, 0.8);
+  }
+  // Apito inicial.
+  for (const d of [0, 0.32]) {
+    tone(bus, t + 10.8 + d, 96, 0.22, 0.25, 'square');
+    tone(bus, t + 10.8 + d, 97, 0.22, 0.18, 'square');
+  }
+}
+
+export function stopFinalBuildup() {
+  finalBus?.disconnect();
+  finalBus = null;
+  if (!context) return;
+  crowdBus.gain.cancelScheduledValues(context.currentTime);
+  levels();
+}
+
 function stopPhoneLine() {
   if (!phoneLine) return;
   phoneLine.source.stop();

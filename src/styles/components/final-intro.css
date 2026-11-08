@@ -1,0 +1,303 @@
+/* Cerimônia de final: escuro → duelo de escudos → saída do túnel → apito. */
+.final-intro {
+  position: fixed;
+  inset: 0;
+  z-index: 900;
+  overflow: hidden;
+  color: #fff;
+  background: radial-gradient(ellipse at 50% 120%, #0d3b1e 0%, #04110a 45%, #000 80%);
+  animation: fi-out 0.6s ease 11.2s forwards;
+}
+.final-intro section {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.6s ease;
+}
+.final-intro.scene-night .fi-title,
+.final-intro.scene-versus .fi-versus,
+.final-intro.scene-walkout .fi-walkout,
+.final-intro.scene-whistle .fi-walkout,
+.final-intro.scene-whistle .fi-whistle {
+  opacity: 1;
+}
+
+/* Refletores acendendo em sequência. */
+.fi-lights {
+  position: absolute;
+  inset: -20% -10% auto;
+  height: 70%;
+  background:
+    radial-gradient(circle at 12% 30%, rgba(255, 255, 230, 0.55), transparent 22%),
+    radial-gradient(circle at 37% 18%, rgba(255, 255, 230, 0.45), transparent 20%),
+    radial-gradient(circle at 63% 18%, rgba(255, 255, 230, 0.45), transparent 20%),
+    radial-gradient(circle at 88% 30%, rgba(255, 255, 230, 0.55), transparent 22%);
+  opacity: 0;
+  animation: fi-lights 6.4s steps(4, end) forwards;
+  mix-blend-mode: screen;
+}
+.fi-smoke {
+  position: absolute;
+  inset: auto -20% -10%;
+  height: 55%;
+  background:
+    radial-gradient(ellipse at 20% 80%, color-mix(in srgb, var(--home) 55%, transparent), transparent 55%),
+    radial-gradient(ellipse at 80% 80%, color-mix(in srgb, var(--away) 55%, transparent), transparent 55%);
+  filter: blur(30px);
+  opacity: 0.35;
+  animation: fi-smoke 9s ease-in-out infinite alternate;
+}
+
+.fi-title p {
+  margin: 0;
+  letter-spacing: 0.5em;
+  font-size: 0.9rem;
+  opacity: 0.7;
+}
+.fi-title h1 {
+  margin: 0.4rem 0 0;
+  font-size: clamp(3rem, 8vw, 7rem);
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  background: linear-gradient(180deg, #fff6c8, #e6b23a 55%, #8a5a12);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: fi-heart 0.85s ease-in-out infinite;
+  filter: drop-shadow(0 0 24px rgba(230, 178, 58, 0.45));
+}
+.fi-title h2 {
+  margin: 0.6rem 0 0;
+  font-weight: 600;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  font-size: 1.05rem;
+  opacity: 0.85;
+}
+.fi-trophy {
+  color: #f3c64f;
+  filter: drop-shadow(0 0 18px rgba(243, 198, 79, 0.8));
+  animation: fi-rise 1.4s ease-out both;
+}
+
+.fi-versus {
+  grid-auto-flow: column;
+  align-items: center;
+  gap: clamp(1.5rem, 6vw, 6rem);
+}
+.fi-club {
+  display: grid;
+  justify-items: center;
+  gap: 1rem;
+  font-size: 1.6rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.fi-club .badge {
+  transform: scale(1.9);
+  margin-bottom: 2.4rem;
+}
+.scene-versus .fi-club.home {
+  animation: fi-from-left 0.9s cubic-bezier(0.2, 1.3, 0.4, 1) both;
+}
+.scene-versus .fi-club.away {
+  animation: fi-from-right 0.9s cubic-bezier(0.2, 1.3, 0.4, 1) both;
+}
+.fi-vs {
+  font-size: clamp(3rem, 7vw, 6rem);
+  font-weight: 900;
+  font-style: italic;
+  color: #f3c64f;
+  text-shadow: 0 0 30px rgba(243, 198, 79, 0.7);
+}
+.scene-versus .fi-vs {
+  animation: fi-slam 0.5s cubic-bezier(0.3, 1.6, 0.5, 1) 1.9s both;
+}
+
+/* Gramado em perspectiva com o túnel ao fundo. */
+.fi-walkout {
+  place-content: stretch;
+  perspective: 900px;
+}
+.fi-walkout::before {
+  content: '';
+  position: absolute;
+  inset: 38% -30% -10%;
+  background: repeating-linear-gradient(90deg, #1c7a37 0 8%, #1a6f32 8% 16%);
+  transform: rotateX(58deg);
+  transform-origin: top;
+  box-shadow: inset 0 40px 80px rgba(0, 0, 0, 0.6);
+}
+.fi-tunnel {
+  position: absolute;
+  left: 50%;
+  top: 22%;
+  width: 18%;
+  height: 22%;
+  translate: -50% 0;
+  border-radius: 50% 50% 0 0;
+  background: radial-gradient(ellipse at 50% 100%, #fff8 0%, #222 45%, #000 80%);
+  box-shadow: 0 0 60px 10px rgba(0, 0, 0, 0.8);
+}
+.fi-line {
+  position: absolute;
+  top: 40%;
+  bottom: 4%;
+  width: 46%;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  grid-template-rows: repeat(11, 1fr);
+  align-items: center;
+}
+.fi-line.home {
+  right: 51%;
+  justify-items: end;
+}
+.fi-line.away {
+  left: 51%;
+  justify-items: start;
+}
+.fi-line li {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.15rem 0.7rem 0.15rem 0.2rem;
+  border-radius: 999px;
+  font-weight: 700;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  background: linear-gradient(90deg, var(--home), rgba(0, 0, 0, 0.55));
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5);
+  opacity: 0;
+  animation: fi-walk-home 0.9s cubic-bezier(0.2, 0.9, 0.3, 1) both;
+  animation-delay: calc(6.3s + var(--i) * 0.28s);
+}
+.fi-line.away li {
+  flex-direction: row-reverse;
+  padding: 0.15rem 0.2rem 0.15rem 0.7rem;
+  background: linear-gradient(270deg, var(--away), rgba(0, 0, 0, 0.55));
+  animation-name: fi-walk-away;
+}
+.fi-line li b {
+  min-width: 1.6rem;
+  text-align: center;
+  font-size: 1rem;
+}
+.fi-line li .player-face {
+  width: 1.9rem;
+  height: 1.9rem;
+}
+.fi-flash {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 0 22px 10px rgba(255, 255, 255, 0.9);
+  opacity: 0;
+  animation: fi-flash 0.25s ease-out 3 both;
+}
+.fi-confetti {
+  position: absolute;
+  top: -4%;
+  width: 8px;
+  height: 14px;
+  opacity: 0;
+  animation-name: fi-fall;
+  animation-timing-function: linear;
+  animation-fill-mode: both;
+}
+
+.fi-whistle h1 {
+  margin: 0;
+  font-size: clamp(2.5rem, 7vw, 6rem);
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  text-shadow: 0 0 40px rgba(255, 255, 255, 0.7);
+}
+.scene-whistle .fi-whistle h1 {
+  animation: fi-slam 0.45s cubic-bezier(0.3, 1.6, 0.5, 1) both;
+}
+
+.fi-skip {
+  position: absolute;
+  right: 2rem;
+  bottom: 1.6rem;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: 999px;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.45);
+  font-weight: 700;
+  cursor: pointer;
+}
+.fi-skip:focus-visible,
+.fi-skip:focus {
+  outline: 2px solid #f3c64f;
+  outline-offset: 3px;
+}
+
+@keyframes fi-lights {
+  0% { opacity: 0; }
+  60% { opacity: 0.15; }
+  100% { opacity: 1; }
+}
+@keyframes fi-smoke {
+  to { transform: translateX(4%) scale(1.08); opacity: 0.55; }
+}
+@keyframes fi-heart {
+  0%, 100% { transform: scale(1); }
+  12% { transform: scale(1.06); }
+  26% { transform: scale(1.01); }
+  38% { transform: scale(1.04); }
+}
+@keyframes fi-rise {
+  from { transform: translateY(30px) scale(0.6); opacity: 0; }
+}
+@keyframes fi-from-left {
+  from { transform: translateX(-60vw) rotate(-8deg); opacity: 0; }
+}
+@keyframes fi-from-right {
+  from { transform: translateX(60vw) rotate(8deg); opacity: 0; }
+}
+@keyframes fi-slam {
+  from { transform: scale(3.2); opacity: 0; filter: blur(8px); }
+}
+@keyframes fi-walk-home {
+  from { opacity: 0; transform: translate(40vw, -32vh) scale(0.25); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes fi-walk-away {
+  from { opacity: 0; transform: translate(-40vw, -32vh) scale(0.25); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes fi-flash {
+  0% { opacity: 0; }
+  20% { opacity: 1; }
+  100% { opacity: 0; }
+}
+@keyframes fi-fall {
+  0% { opacity: 1; transform: translateY(0) rotate(0); }
+  100% { opacity: 0.9; transform: translateY(110vh) rotate(720deg); }
+}
+@keyframes fi-out {
+  to { opacity: 0; visibility: hidden; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .final-intro *,
+  .final-intro {
+    animation-duration: 0.01s !important;
+  }
+}
