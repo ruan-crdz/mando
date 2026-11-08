@@ -284,7 +284,12 @@ export function MatchScreen({
             },
           }
         : {}),
-      previousTab: () => {},
+      previousTab: () => {
+        if (!intro && !ceremony && match.minute < 90) {
+          setPlaying(false);
+          setShout(true);
+        }
+      },
       nextTab: () => {},
     },
     {
@@ -298,6 +303,7 @@ export function MatchScreen({
             ? 'Pausar partida'
             : 'Jogar',
       info: assistantSuggestion ? 'Recusar sugestão' : 'Substituições',
+      ...(match.minute < 90 ? { previousTab: 'Instruções' } : {}),
       previousView: 'Tática',
       nextView: `Velocidade: ${speed}×`,
     },
@@ -570,7 +576,8 @@ export function MatchScreen({
                 setShout(true);
               }}
             >
-              <Megaphone size={16} /> Instruções
+              <Megaphone size={16} /> Instruções{' '}
+              <ControllerButtonHint action="previousTab" label="" />
             </button>
           </div>
           {match.minute === 90 && (

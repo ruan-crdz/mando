@@ -940,7 +940,7 @@ export function ControllerHints() {
             {label}
           </span>
         ))}
-      <button className="text-button" onClick={showHelp}>
+      <button className="text-button" tabIndex={-1} onClick={showHelp}>
         {pad ? hints.stick : 'F1'} · Comandos
       </button>
     </div>
