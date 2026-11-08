@@ -780,7 +780,7 @@ export function GamepadProvider({ children }: { children: ReactNode }) {
               <p>Direcional / analógico esquerdo: navegar · Analógico direito: rolar</p>
               {Object.entries(actionLabels).map(([action, label]) => (
                 <p key={action}>
-                  <kbd>{hints[action as Action]}</kbd> {label}
+                  <kbd className={`pad-${action}`}>{hints[action as Action]}</kbd> {label}
                 </p>
               ))}
               <p>
@@ -936,7 +936,7 @@ export function ControllerHints() {
         .filter(([key]) => key !== 'stick')
         .map(([action, label]) => (
           <span className="control-hint" key={action}>
-            {pad && <kbd>{hints[action as Action]}</kbd>}
+            {pad && <kbd className={`pad-${action}`}>{hints[action as Action]}</kbd>}
             {label}
           </span>
         ))}
