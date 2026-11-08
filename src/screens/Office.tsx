@@ -634,6 +634,13 @@ export function Office({
                   onRead(msg.id);
                   mailboxChime();
                 }}
+                onFocus={() => {
+                  setSelected(msg.id);
+                  if (!msg.read) onRead(msg.id);
+                }}
+                onMouseEnter={() => {
+                  if (!msg.read) onRead(msg.id);
+                }}
               >
                 <span
                   className={`message-indicator ${msg.important && !msg.resolved ? 'important' : ''}`}
