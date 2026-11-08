@@ -221,6 +221,7 @@ export function MatchScreen({
             speed={speed}
             homePossession={match.home.possession || 50}
             shot={lastShot}
+            secondHalf={match.minute > 45}
           />
           <div className="match-timeline">
             <div className="timeline-track">

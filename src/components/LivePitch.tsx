@@ -33,19 +33,24 @@ type Ball = {
   /** Segundos com a bola no pé. */
   held: number;
   hold: number;
-  /** Depois de um chute defendido, a bola fica com o goleiro adversário. */
+  /** Finalização oficial pendente: a bola chega ao finalizador na área e ele chuta. */
+  shoot?: PitchShot['type'];
+  /** Depois de um chute defendido ou para fora, a bola fica com o goleiro adversário. */
   then?: { side: Side; index: number };
 };
 
+type Sim = { pos: Pt[][]; ball: Ball; time: number; holder: string; flipped: boolean };
+
 const dist = (a: Pt, b: Pt) => Math.hypot(a.x - b.x, (a.y - b.y) * 0.62);
-const clampX = (v: number) => Math.min(98, Math.max(2, v));
-const clampY = (v: number) => Math.min(95, Math.max(5, v));
+const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
 const ease = (t: number) => 1 - (1 - t) * (1 - t);
 
 /**
- * Simulação visual 2D contínua: atletas correm com inércia, a bola viaja no passe,
- * quem tem a posse conduz e o marcador mais próximo pressiona. Ilustrativa — o
- * resultado oficial vem da engine.
+ * Simulação visual 2D contínua. Cada time joga em bloco: sobe as linhas quando tem a bola,
+ * recua e fecha o meio quando defende, o marcador mais próximo pressiona e outro cobre.
+ * A bola progride por passes escolhidos pela linha de passe livre; finalizações só
+ * acontecem quando a engine registra uma, depois de a jogada chegar à área.
+ * No segundo tempo os lados se invertem. Ilustrativa — o resultado oficial vem da engine.
  */
 export function LivePitch({
   home,
@@ -54,6 +59,7 @@ export function LivePitch({
   speed,
   homePossession,
   shot,
+  secondHalf = false,
 }: {
   home: PitchTeam;
   away: PitchTeam;
@@ -62,11 +68,13 @@ export function LivePitch({
   homePossession: number;
   /** Finalização oficial da engine, animada com o desfecho correspondente. */
   shot: PitchShot | null;
+  secondHalf?: boolean;
 }) {
-  const bases = useMemo(
+  // Coordenadas relativas: x = profundidade a partir do próprio gol (4–48), y = faixa lateral.
+  const shapes = useMemo(
     () => [
       horizontalCoordinates(home.formation, false),
-      horizontalCoordinates(away.formation, true),
+      horizontalCoordinates(away.formation, false),
     ],
     [home.formation, away.formation],
   );
@@ -76,213 +84,350 @@ export function LivePitch({
   );
   const dots = useRef<(HTMLSpanElement | null)[][]>([[], []]);
   const ballEl = useRef<HTMLSpanElement>(null);
-  const live = useRef({ playing, speed, possession: homePossession, counts, bases, active });
-  live.current = { playing, speed, possession: homePossession, counts, bases, active };
-  const sim = useRef<{ pos: Pt[][]; ball: Ball; time: number; holder: string } | null>(null);
-  if (!sim.current)
+  const live = useRef({
+    playing,
+    speed,
+    possession: homePossession,
+    counts,
+    shapes,
+    active,
+    flipped: secondHalf,
+  });
+  live.current = {
+    playing,
+    speed,
+    possession: homePossession,
+    counts,
+    shapes,
+    active,
+    flipped: secondHalf,
+  };
+
+  /** Converte entre coordenadas do time (atacando para a direita) e do campo. */
+  const flip = (side: Side, p: Pt, flipped: boolean): Pt =>
+    (side === 0) !== flipped ? p : { x: 100 - p.x, y: 100 - p.y };
+  const kickoff = (side: Side, i: number, flipped: boolean): Pt => {
+    const base = live.current.shapes[side][i] || { x: 30, y: 50 };
+    return flip(side, { x: Math.min(46, base.x), y: base.y }, flipped);
+  };
+
+  const sim = useRef<Sim | null>(null);
+  if (!sim.current) {
+    const kicker = Math.min(10, counts[0] - 1);
     sim.current = {
-      pos: bases.map((team) => team.map((p) => ({ ...p }))),
+      pos: [0, 1].map((side) =>
+        shapes[side].map((_, i) => kickoff(side as Side, i, secondHalf)),
+      ),
       ball: {
         phase: 'held',
         side: 0,
-        index: Math.min(10, counts[0] - 1),
+        index: kicker,
         pos: { x: 50, y: 50 },
         from: { x: 50, y: 50 },
         to: { x: 50, y: 50 },
         t: 0,
         dur: 0,
         held: 0,
-        hold: 0.8,
+        hold: 0.9,
       },
       time: 0,
       holder: '',
+      flipped: secondHalf,
     };
+  }
   const lastShot = useRef<string | null>(shot?.key ?? null);
 
   useEffect(() => {
     const s = sim.current!;
-    s.pos = bases.map((team, side) => team.map((p, i) => s.pos[side]?.[i] ?? { ...p }));
-  }, [bases]);
+    s.pos = shapes.map((team, side) =>
+      team.map((_, i) => s.pos[side]?.[i] ?? kickoff(side as Side, i, s.flipped)),
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shapes]);
 
   useEffect(() => {
     if (!shot || shot.key === lastShot.current) return;
     lastShot.current = shot.key;
-    const simulation = sim.current!;
-    const b = simulation.ball;
+    const s = sim.current!;
+    const b = s.ball;
     const team = shot.side === 0 ? home : away;
-    const index = team.ids.indexOf(shot.playerId ?? '');
-    const from = simulation.pos[shot.side][index] ?? b.pos;
-    const other: Side = shot.side === 0 ? 1 : 0;
-    const destination = {
-      x: shot.side === 0 ? (shot.type === 'goal' ? 100.5 : 98) : shot.type === 'goal' ? -0.5 : 2,
-      y: shot.type === 'miss' ? 33 : 47 + Math.random() * 6,
-    };
+    const index = Math.max(0, team.ids.indexOf(shot.playerId ?? ''));
+    const shooter = s.pos[shot.side][index] ?? b.pos;
+    // A jogada chega à área: a bola é servida no espaço onde o finalizador ataca.
+    const rel = flip(shot.side, shooter, s.flipped);
+    const spot = flip(
+      shot.side,
+      { x: clamp(rel.x + 10, 72, 89), y: 50 + (rel.y - 50) * 0.45 + (Math.random() - 0.5) * 10 },
+      s.flipped,
+    );
     Object.assign(b, {
-      phase: 'shot',
+      phase: 'pass',
       side: shot.side,
-      index: Math.max(0, index),
-      from: { ...from },
-      to: destination,
+      index,
+      from: { ...b.pos },
+      to: spot,
       t: 0,
-      dur: 0.45,
-      then: shot.type === 'goal' ? undefined : { side: other, index: 0 },
+      dur: clamp(Math.max(dist(b.pos, spot) / 70, dist(shooter, spot) / 30), 0.35, 1.1),
+      shoot: shot.type,
+      then: undefined,
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [shot, home, away]);
 
   useEffect(() => {
     let frame = 0;
     let last = performance.now();
-    const forward = (side: Side, p: Pt) => (side === 0 ? p.x : 100 - p.x);
-    const pickHold = () => 0.45 + Math.random() * 0.9;
+    const pickHold = () => 0.35 + Math.random() * 0.75;
+    const rel = (side: Side, p: Pt) => flip(side, p, sim.current!.flipped);
+    const abs = rel;
 
-    const target = (side: Side, i: number, s: NonNullable<typeof sim.current>): Pt => {
-      const { bases } = live.current;
-      const base = bases[side][i] || { x: 50, y: 50 };
+    const nearestOf = (s: Sim, side: Side, p: Pt, skipKeeper = true) =>
+      live.current.active[side]
+        .filter((j) => !skipKeeper || j > 0)
+        .sort((j, k) => dist(s.pos[side][j], p) - dist(s.pos[side][k], p));
+
+    const target = (side: Side, i: number, s: Sim): Pt => {
+      const { shapes } = live.current;
+      const base = shapes[side][i] || { x: 30, y: 50 };
       const b = s.ball;
-      if (i === 0) return { x: base.x, y: 50 + (b.pos.y - 50) * 0.18 };
-      if (b.phase === 'reset') return base;
+      const me = rel(side, s.pos[side][i]);
+      const ball = rel(side, b.pos);
+      if (b.phase === 'reset') return kickoff(side, i, s.flipped);
       if (b.phase === 'held' && b.side === side && b.index === i) {
-        const dir = side === 0 ? 1 : -1;
-        const run = Math.min(10, b.held * 6);
-        return { x: clampX(s.pos[side][i].x + dir * run * 0.4), y: s.pos[side][i].y };
+        // Conduz para frente quando há espaço; pressionado, protege a bola.
+        const other: Side = side === 0 ? 1 : 0;
+        const marker = nearestOf(s, other, s.pos[side][i], false)[0];
+        const space = marker === undefined ? 30 : dist(s.pos[other][marker], s.pos[side][i]);
+        const run = i === 0 ? 0 : space > 9 ? 7 : space > 5 ? 3 : 0;
+        return abs(side, { x: clamp(me.x + run, 2, 92), y: me.y + (50 - me.y) * 0.08 });
       }
       if (b.phase === 'pass' && b.side === side && b.index === i) return b.to;
+      const wobble = (k: number) => Math.sin(s.time * (0.55 + k * 0.1) + i * 1.9) * 1.4;
+      if (i === 0)
+        return abs(side, {
+          x: 5 + clamp((ball.x - 30) * 0.12, 0, 10),
+          y: 50 + (ball.y - 50) * 0.22,
+        });
+      const depth = clamp((base.x - 8) / 38, 0, 1);
       const attacking = b.side === side;
-      const push = attacking ? (side === 0 ? 8 : -8) : side === 0 ? -5 : 5;
-      const t = s.time;
-      return {
-        x: clampX(base.x + (b.pos.x - 50) * 0.26 + push + Math.sin(t * 0.7 + i * 1.7) * 1.6),
-        y: clampY(base.y + (b.pos.y - base.y) * 0.18 + Math.cos(t * 0.55 + i * 2.3) * 1.8),
-      };
+      let x: number;
+      let y: number;
+      if (attacking) {
+        // Bloco sobe com a bola: zagueiros até a intermediária, atacantes atacam a última linha.
+        const back = clamp(ball.x - 36, 16, 58);
+        const front = clamp(ball.x + 22, 42, 90);
+        x = back + depth * (front - back);
+        y = 50 + (base.y - 50) * 1.2 + (ball.y - 50) * 0.12;
+        // Atacantes e meias ofensivos fazem diagonais e infiltrações.
+        if (depth > 0.7) x += (Math.sin(s.time * 0.8 + i * 2.1) * 0.5 + 0.5) * 7;
+      } else {
+        // Sem a bola: recua, compacta e fecha o lado da bola.
+        const back = clamp(ball.x - 18, 6, 44);
+        const front = clamp(ball.x + 12, 26, 70);
+        x = back + depth * (front - back);
+        y = 50 + (base.y - 50) * 0.78 + (ball.y - 50) * 0.32;
+      }
+      return abs(side, { x: clamp(x + wobble(1), 3, 95), y: clamp(y + wobble(2), 6, 94) });
     };
 
-    const decide = (s: NonNullable<typeof sim.current>) => {
+    const pass = (b: Ball, side: Side, index: number, to: Pt, speedK = 62) =>
+      Object.assign(b, {
+        phase: 'pass',
+        side,
+        index,
+        from: { ...b.pos },
+        to,
+        t: 0,
+        dur: dist(b.pos, to) / speedK + 0.15,
+      });
+
+    const decide = (s: Sim) => {
       const b = s.ball;
       const { possession, active } = live.current;
       const side = b.side;
       const other: Side = side === 0 ? 1 : 0;
-      const holder = s.pos[side][b.index];
-      const share = side === 0 ? possession : 100 - possession;
-      const mates = active[side]
-        .filter((i) => i !== b.index && i > 0)
-        .map((i) => ({ i, p: s.pos[side][i] }))
-        .filter(({ p }) => dist(p, holder) < 42 && dist(p, holder) > 6)
-        .sort((a, c) => forward(side, c.p) - forward(side, a.p) + (Math.random() - 0.5) * 36);
-      const mate = mates[0];
-      if (!mate) {
+      const holderAbs = s.pos[side][b.index];
+      const holder = rel(side, holderAbs);
+      const share = (side === 0 ? possession : 100 - possession) / 100;
+      const markers = nearestOf(s, other, holderAbs, false);
+      const marker = markers[0];
+      // Desarme: pressionado de perto, pode perder a bola.
+      if (
+        marker !== undefined &&
+        b.index > 0 &&
+        dist(s.pos[other][marker], holderAbs) < 3.5 &&
+        Math.random() < 0.22 + (0.5 - share) * 0.5
+      ) {
+        Object.assign(b, { side: other, index: marker, held: 0, hold: pickHold() });
+        return;
+      }
+      const openness = (p: Pt) => {
+        const n = nearestOf(s, other, p, false)[0];
+        return n === undefined ? 20 : dist(s.pos[other][n], p);
+      };
+      const deep = holder.x > 76;
+      const options = active[side]
+        .filter((i) => i !== b.index && (i > 0 || holder.x < 40))
+        .map((i) => {
+          const p = s.pos[side][i];
+          const r = rel(side, p);
+          const d = dist(p, holderAbs);
+          const progress = r.x - holder.x;
+          const free = Math.min(14, openness(p));
+          // No terço final sem finalização registrada, a jogada é recomposta.
+          const forward = deep ? -Math.abs(progress) * 0.3 : progress * (0.35 + share * 0.4);
+          const score =
+            forward + free * 0.9 - Math.abs(d - 18) * 0.25 + (Math.random() - 0.5) * 9;
+          return { i, p, r, d, free, score };
+        })
+        .filter((o) => o.d > 5 && o.d < (b.index === 0 ? 60 : 46))
+        .sort((a, c) => c.score - a.score);
+      const choice = options[0];
+      if (!choice) {
         b.hold += 0.4;
         return;
       }
-      const lead = { x: clampX(mate.p.x + (side === 0 ? 3 : -3)), y: mate.p.y };
-      const lose = Math.random() < 0.12 + (50 - share) / 380;
-      let receiver = { side, index: mate.i };
-      let to = lead;
-      if (lose) {
-        // Interceptação: o adversário mais próximo da linha do passe fica com a bola.
-        const mid = { x: (holder.x + lead.x) / 2, y: (holder.y + lead.y) / 2 };
-        const thief = active[other]
-          .filter((i) => i > 0)
-          .sort((i, j) => dist(s.pos[other][i], mid) - dist(s.pos[other][j], mid))[0];
+      const lead = abs(side, { x: clamp(choice.r.x + 2.5, 3, 95), y: choice.r.y });
+      const risk =
+        0.05 +
+        Math.max(0, 9 - choice.free) * 0.025 +
+        (0.5 - share) * 0.3 +
+        (choice.r.x > 75 ? 0.18 : 0) +
+        (deep ? 0.12 : 0);
+      if (Math.random() < risk) {
+        // Interceptação ou corte: o rival mais próximo da linha do passe fica com a bola.
+        const mid = { x: (holderAbs.x + lead.x) / 2, y: (holderAbs.y + lead.y) / 2 };
+        const thief = nearestOf(s, other, choice.r.x > 75 ? lead : mid)[0];
         if (thief !== undefined) {
-          receiver = { side: other, index: thief };
-          to = { x: (mid.x + s.pos[other][thief].x) / 2, y: (mid.y + s.pos[other][thief].y) / 2 };
+          const t = s.pos[other][thief];
+          pass(b, other, thief, { x: (mid.x + t.x * 2) / 3, y: (mid.y + t.y * 2) / 3 });
+          return;
         }
       }
-      Object.assign(b, {
-        phase: 'pass',
-        side: receiver.side,
-        index: receiver.index,
-        from: { ...b.pos },
-        to,
-        t: 0,
-        dur: dist(b.pos, to) / 62 + 0.18,
-      });
+      pass(b, side, choice.i, lead, b.index === 0 ? 75 : 62);
     };
 
-    const step = (s: NonNullable<typeof sim.current>, dt: number) => {
+    const step = (s: Sim, dt: number) => {
       s.time += dt;
       const b = s.ball;
-      const { counts, active } = live.current;
+      const { counts, active, flipped } = live.current;
+      if (s.flipped !== flipped) {
+        // Intervalo: times trocam de lado e o visitante dá a saída.
+        s.flipped = flipped;
+        s.pos = [0, 1].map((side) =>
+          live.current.shapes[side].map((_, i) => kickoff(side as Side, i, flipped)),
+        );
+        const kicker = active[1].at(-1) ?? 0;
+        Object.assign(b, {
+          phase: 'held',
+          side: 1,
+          index: kicker,
+          held: 0,
+          hold: 0.9,
+          pos: { x: 50, y: 50 },
+          shoot: undefined,
+          then: undefined,
+        });
+        if (s.pos[1][kicker]) s.pos[1][kicker] = { x: 50, y: 50 };
+      }
       if (b.phase === 'held' && !active[b.side].includes(b.index))
         b.index = active[b.side].find((index) => index > 0) ?? active[b.side][0] ?? 0;
-      // Movimento com inércia e velocidade máxima.
+      const presser: number[] = [];
+      const cover: number[] = [];
+      for (const side of [0, 1] as Side[]) {
+        const ranked = b.side !== side && b.phase !== 'reset' ? nearestOf(s, side, b.pos) : [];
+        presser[side] = ranked[0] ?? -1;
+        cover[side] = ranked[1] ?? -1;
+      }
       for (const side of [0, 1] as Side[]) {
         for (let i = 0; i < counts[side]; i++) {
           if (!active[side].includes(i)) continue;
           const p = s.pos[side][i];
           if (!p) continue;
           let goal = target(side, i, s);
-          const defending = b.side !== side && b.phase !== 'reset';
-          if (defending && i > 0) {
-            // O marcador mais próximo pressiona o portador.
-            const nearest = active[side]
-              .filter((j) => j > 0)
-              .sort((j, k) => dist(s.pos[side][j], b.pos) - dist(s.pos[side][k], b.pos))[0];
-            if (nearest === i)
-              goal = { x: (goal.x + b.pos.x * 2) / 3, y: (goal.y + b.pos.y * 2) / 3 };
+          if (i === presser[side]) goal = { x: b.pos.x, y: b.pos.y };
+          else if (i === cover[side]) {
+            // Cobertura: fica entre a bola e o próprio gol.
+            const ownGoal = abs(side, { x: 0, y: 50 });
+            goal = { x: b.pos.x * 0.75 + ownGoal.x * 0.25, y: b.pos.y * 0.8 + 50 * 0.2 };
           }
+          const sprint =
+            (b.phase === 'pass' && b.side === side && b.index === i) || i === presser[side];
           const dx = goal.x - p.x;
           const dy = goal.y - p.y;
-          const want = 1 - Math.exp(-dt * 2.6);
+          const want = 1 - Math.exp(-dt * 3);
           const len = Math.hypot(dx, dy) * want;
-          const max = 16 * dt;
+          const max = (sprint ? 24 : 15) * dt;
           const k = len > max ? max / len : 1;
-          p.x += dx * want * k;
-          p.y += dy * want * k;
+          p.x = clamp(p.x + dx * want * k, 1, 99);
+          p.y = clamp(p.y + dy * want * k, 3, 97);
         }
       }
       if (b.phase === 'held') {
         const p = s.pos[b.side][b.index] || b.pos;
-        b.pos = { x: p.x + (b.side === 0 ? 1.4 : -1.4), y: p.y + 1.6 };
+        const dir = (b.side === 0) !== s.flipped ? 1 : -1;
+        b.pos = { x: p.x + dir * 1.3, y: p.y + 1.4 };
         b.held += dt;
         if (b.held >= b.hold) decide(s);
+        return;
+      }
+      b.t += dt;
+      const k = Math.min(1, b.t / b.dur);
+      const e = b.phase === 'shot' ? k : ease(k);
+      b.pos = { x: b.from.x + (b.to.x - b.from.x) * e, y: b.from.y + (b.to.y - b.from.y) * e };
+      if (k < 1) return;
+      if (b.phase === 'pass' && b.shoot) {
+        // Recebeu na área: finaliza no gol de ataque.
+        const type = b.shoot;
+        const other: Side = b.side === 0 ? 1 : 0;
+        const goalX = abs(b.side, { x: type === 'goal' ? 100.5 : 98.5, y: 50 }).x;
+        const y =
+          type === 'miss'
+            ? Math.random() < 0.5
+              ? 36
+              : 64
+            : type === 'goal'
+              ? 46 + Math.random() * 8
+              : 47 + Math.random() * 6;
+        Object.assign(b, {
+          phase: 'shot',
+          from: { ...b.pos },
+          to: { x: goalX, y },
+          t: 0,
+          dur: clamp(dist(b.pos, { x: goalX, y }) / 90, 0.25, 0.5),
+          shoot: undefined,
+          then: type === 'goal' ? undefined : { side: other, index: 0 },
+        });
+      } else if (b.phase === 'pass') Object.assign(b, { phase: 'held', held: 0, hold: pickHold() });
+      else if (b.phase === 'shot' && b.then) {
+        const keeper = s.pos[b.then.side][0];
+        pass(b, b.then.side, 0, { ...keeper }, 40);
+        b.then = undefined;
+      } else if (b.phase === 'shot') {
+        // Gol: comemora na rede e recomeça no meio-campo com quem sofreu.
+        const conceded: Side = b.side === 0 ? 1 : 0;
+        Object.assign(b, {
+          phase: 'reset',
+          side: conceded,
+          t: 0,
+          dur: 1.4,
+          from: { ...b.pos },
+          to: { ...b.pos },
+        });
       } else {
-        b.t += dt;
-        const k = Math.min(1, b.t / b.dur);
-        const e = b.phase === 'shot' ? k : ease(k);
-        b.pos = { x: b.from.x + (b.to.x - b.from.x) * e, y: b.from.y + (b.to.y - b.from.y) * e };
-        if (k >= 1) {
-          if (b.phase === 'pass') Object.assign(b, { phase: 'held', held: 0, hold: pickHold() });
-          else if (b.phase === 'shot' && b.then) {
-            const keeper = s.pos[b.then.side][0];
-            Object.assign(b, {
-              phase: 'pass',
-              side: b.then.side,
-              index: 0,
-              from: { ...b.pos },
-              to: { ...keeper },
-              t: 0,
-              dur: 0.25,
-              then: undefined,
-            });
-          } else if (b.phase === 'shot') {
-            // Gol: espera na rede e recomeça no meio-campo com quem sofreu.
-            const conceded: Side = b.to.x > 50 ? 1 : 0;
-            Object.assign(b, {
-              phase: 'reset',
-              side: conceded,
-              t: 0,
-              dur: 1.1,
-              from: { ...b.pos },
-              to: { ...b.pos },
-            });
-          } else {
-            const kicker = active[b.side].at(-1) ?? 0;
-            Object.assign(b, {
-              phase: 'held',
-              index: kicker,
-              held: 0,
-              hold: 0.9,
-              pos: { x: 50, y: 50 },
-            });
-            const p = s.pos[b.side][kicker];
-            if (p) Object.assign(p, { x: b.side === 0 ? 48 : 52, y: 50 });
-          }
-        }
+        const kicker = active[b.side].at(-1) ?? 0;
+        Object.assign(b, {
+          phase: 'held',
+          index: kicker,
+          held: 0,
+          hold: 0.9,
+          pos: { x: 50, y: 50 },
+        });
+        if (s.pos[b.side][kicker]) s.pos[b.side][kicker] = { x: 50, y: 50 };
       }
     };
 
-    const render = (s: NonNullable<typeof sim.current>) => {
+    const render = (s: Sim) => {
       for (const side of [0, 1] as Side[])
         dots.current[side].forEach((el, i) => {
           const p = s.pos[side][i];
@@ -307,13 +452,15 @@ export function LivePitch({
       const s = sim.current!;
       const dt = Math.min(0.05, (now - last) / 1000);
       last = now;
-      if (live.current.playing || s.ball.phase === 'shot')
+      const b = s.ball;
+      if (live.current.playing || b.phase === 'shot' || b.shoot || live.current.flipped !== s.flipped)
         step(s, dt * Math.max(0.5, Math.min(3, live.current.speed)));
       render(s);
       frame = requestAnimationFrame(loop);
     };
     frame = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(frame);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const teams = [home, away];
@@ -334,7 +481,7 @@ export function LivePitch({
       {teams.flatMap((team, side) =>
         team.ids.map((id, i) => {
           if (team.dismissed?.includes(id)) return null;
-          const p = sim.current!.pos[side]?.[i] || bases[side][i] || { x: 50, y: 50 };
+          const p = sim.current!.pos[side]?.[i] || { x: 50, y: 50 };
           return (
             <span
               className={`field-dot ${side ? 'away' : 'home'} ${i === 0 ? 'keeper' : ''}`}
