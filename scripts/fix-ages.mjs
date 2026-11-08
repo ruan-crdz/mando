@@ -120,4 +120,83 @@ for (const { p, t } of matches) {
 }
 console.log(`Pareados ${matches.length}/${world.players.length} · corrigidos ${fixed}`);
 for (const e of examples) console.log(e);
+
+// Quem não está no API-Football: Wikidata pelo nome, exigindo passagem pelo clube (P54).
+const keyword = {
+  'atletico-mg': 'atletico mineiro',
+  athletico: 'athletico paranaense',
+  'sao-paulo': 'sao paulo',
+  'atletico-go': 'atletico goianiense',
+  america: 'america futebol clube',
+  'vila-nova': 'vila nova',
+  operario: 'operario',
+  athletic: 'athletic club',
+  'botafogo-sp': 'botafogo',
+  'ponte-preta': 'ponte preta',
+  'sao-bernardo': 'sao bernardo',
+  bragantino: 'bragantino',
+  crb: 'regatas brasil',
+};
+const clubKey = (club) => keyword[club.id] || normalize(club.name).split(' ')[0];
+const matchedIds = new Set(matches.map((m) => m.p.id));
+const rest = world.players.filter((p) => !matchedIds.has(p.id));
+let wikiFixed = 0;
+let wikiFound = 0;
+const esc = (s) => s.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+for (let i = 0; i < rest.length; i += 30) {
+  const chunk = rest.slice(i, i + 30);
+  const values = chunk
+    .flatMap((p) => ['pt', 'en', 'es'].map((l) => `"${esc(p.name)}"@${l}`))
+    .join(' ');
+  const query = `SELECT ?n ?d (GROUP_CONCAT(DISTINCT ?tl; separator="|") AS ?teams) WHERE {
+    VALUES ?n { ${values} }
+    { ?p rdfs:label ?n } UNION { ?p skos:altLabel ?n }
+    ?p wdt:P106 wd:Q937857; wdt:P569 ?d; wdt:P54 ?t.
+    ?t rdfs:label ?tl. FILTER(LANG(?tl) IN ("pt","en"))
+  } GROUP BY ?p ?n ?d`;
+  let rows = [];
+  for (let attempt = 0; attempt < 4; attempt++) {
+    try {
+      const res = await fetch(
+        `https://query.wikidata.org/sparql?format=json&query=${encodeURIComponent(query)}`,
+        {
+          headers: {
+            Accept: 'application/sparql-results+json',
+            'User-Agent': 'MandoGame/1.0 (https://github.com/ruan-crdz/mando)',
+          },
+        },
+      );
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      rows = (await res.json()).results.bindings;
+      break;
+    } catch (e) {
+      console.warn(`Wikidata: ${e.message}`);
+      await new Promise((r) => setTimeout(r, 5000 * (attempt + 1)));
+    }
+  }
+  await new Promise((r) => setTimeout(r, 1200));
+  for (const p of chunk) {
+    const club = world.clubs.find((c) => c.id === p.clubId);
+    const key = clubKey(club);
+    const years = new Set(
+      rows
+        .filter(
+          (r) =>
+            normalize(r.n.value) === normalize(p.name) &&
+            r.teams.value.split('|').some((t) => normalize(t).includes(key)),
+        )
+        .map((r) => r.d.value.slice(0, 4)),
+    );
+    if (years.size !== 1) continue;
+    const [year] = years;
+    if (tokens(p.name).length < 2 || Number(year) < 1984) continue;
+    wikiFound++;
+    if (p.birthDate.slice(0, 4) === year) continue;
+    if (examples.length < 30) console.log(`wikidata · ${p.clubId} · ${p.name}: ${p.birthDate.slice(0, 4)} → ${year}`);
+    p.birthDate = `${year}${p.birthDate.slice(4)}`;
+    wikiFixed++;
+  }
+  process.stdout.write(`\rWikidata ${Math.min(i + 30, rest.length)}/${rest.length}`);
+}
+console.log(`\nWikidata: ${wikiFound}/${rest.length} encontrados · ${wikiFixed} corrigidos`);
 if (!process.argv.includes('--dry')) await writeFile(worldFile, `${JSON.stringify(world)}\n`, 'utf8');
