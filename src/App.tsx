@@ -444,7 +444,6 @@ function Game() {
       if (!latest || !z.string().uuid().safeParse(latest.worldId).success) return;
       sync(latest).catch((error: unknown) => {
         console.warn('cloud_backup_failed', error);
-        if (navigator.onLine) setNotice('Save local preservado. Backup na nuvem pendente.');
       });
     };
     const timer = window.setTimeout(backupLatest, 1200);
@@ -1004,20 +1003,10 @@ function Game() {
             </>
           )}
         </div>
-        {career && screen === 'career' && (
-          <span className={`save-status ${saveState}`} role="status" hidden={saveState !== 'error'}>
-            {saveState === 'saving' ? (
-              <LoaderCircle size={15} className="spin" />
-            ) : saveState === 'saved' ? (
-              <CheckCircle2 size={15} />
-            ) : (
-              <X size={15} />
-            )}
-            {saveState === 'saving'
-              ? 'SALVANDO LOCAL'
-              : saveState === 'saved'
-                ? 'SALVO LOCAL'
-                : 'ERRO NO SAVE LOCAL'}
+        {career && screen === 'career' && saveState === 'error' && (
+          <span className="save-status error" role="alert">
+            <X size={15} />
+            ERRO NO SAVE LOCAL
           </span>
         )}
       </footer>
