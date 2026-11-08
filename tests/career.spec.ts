@@ -72,6 +72,7 @@ test('criação, todas as abas, negociação, avanço e save/load persistente', 
     return [...rows.values()];
   });
   expect(pitchRows).toEqual([1, 4, 3, 3]);
+  await page.getByRole('button', { name: 'Escalação', exact: true }).click();
   const benchPlayer = page
     .locator('[data-bench-player]:not(:disabled):not([aria-label*=", GK,"])')
     .first();
