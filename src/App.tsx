@@ -33,7 +33,7 @@ import { AudioDirector } from './components/AudioDirector';
 import { audioState, subscribeAudio, toggleMusic, toggleCrowd } from './audio/sound';
 import { PRIMARY_TABS, TAB } from './navigation';
 import { MatchScreen } from './screens/Match';
-import { loadWorld2026 } from './game/realWorld';
+import { loadWorld2026, refreshPlayerBirthYears } from './game/realWorld';
 import {
   advanceDay,
   startNextSeason,
@@ -340,13 +340,21 @@ function Game() {
     };
   }, [fail]);
 
-  const continueCareer = useCallback((record: SavedCareer) => {
-    validateCareerForWorld(record.career, record.world);
-    const restored = ensureAcademy(structuredClone(record.career), record.world);
-    validateCareerForWorld(restored, record.world);
+  const continueCareer = useCallback(async (record: SavedCareer) => {
+    let restoredWorld = record.world;
+    if (navigator.onLine) {
+      try {
+        restoredWorld = refreshPlayerBirthYears(record.world, await loadWorld2026());
+      } catch (e) {
+        setNotice(`Não foi possível atualizar os dados dos jogadores: ${readableError(e)}.`);
+      }
+    }
+    validateCareerForWorld(record.career, restoredWorld);
+    const restored = ensureAcademy(structuredClone(record.career), restoredWorld);
+    validateCareerForWorld(restored, restoredWorld);
     revisions.current.set(record.career.id, record.cloudRevision);
     setCareer(restored);
-    setWorld(record.world);
+    setWorld(restoredWorld);
     setScreen('career');
     setPopup(
       record.career.onboarding?.contractSigned === false
