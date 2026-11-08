@@ -475,6 +475,8 @@ describe('playoffs da Série B', () => {
     expect(playoffs[0].awayId).toBe(table[2].clubId);
     expect(playoffs[2].homeId).toBe(table[2].clubId);
     for (const f of playoffs) f.result = { ...career.fixtures[0].result!, fixtureId: f.id };
+    // Avisos de fim de contrato exigem resposta antes de seguir o calendário.
+    for (const m of c.messages) if (m.contract) m.resolved = true;
     c.date = '2026-11-28';
     const final = advanceDay(c, world);
     expect(final.promoted).toEqual(table.slice(0, 4).map((r) => r.clubId));
