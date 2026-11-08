@@ -77,7 +77,7 @@ const listeners = new Set<() => void>();
 let state = {
   music: localStorage.getItem('mando-music') !== 'off',
   crowd: localStorage.getItem('mando-crowd') !== 'off',
-  track: 0,
+  track: Math.floor(Math.random() * 10),
   sequence: 0,
   speaking: false,
   error: '',
@@ -166,27 +166,56 @@ function noiseHit(
   };
 }
 
-function drums(time: number, count: number) {
+// Cada faixa tem sua identidade: groove da bateria, linha de baixo, timbre e arpejo.
+const kickPatterns = [
+  [0, 2, 4, 6, 8, 10, 12, 14],
+  [0, 3, 6, 10, 11],
+  [0, 6, 8, 11, 14],
+  [0, 8],
+  [0, 4, 7, 10, 12],
+];
+const snarePatterns = [[4, 12], [4, 12, 15], [6, 14], [8], [4, 10, 12]];
+const bassPatterns = [
+  [0, 0, 7, 0, 0, 3, 7, 3],
+  [0, 12, 0, 12, 7, 12, 10, 12],
+  [0, 0, 0, 3, 5, 5, 7, 10],
+  [0, -2, 0, 3, 0, 5, 3, 7],
+  [0, 7, 12, 7, 0, 7, 10, 7],
+];
+const leadWaves: OscillatorType[] = ['sawtooth', 'square', 'triangle', 'square', 'sawtooth'];
+
+function kick(time: number) {
   if (!context) return;
-  if (count % 2 === 0) {
-    const oscillator = context.createOscillator();
-    const gain = context.createGain();
-    oscillator.type = 'sine';
-    oscillator.frequency.setValueAtTime(145, time);
-    oscillator.frequency.exponentialRampToValueAtTime(42, time + 0.12);
-    gain.gain.setValueAtTime(0.3, time);
-    gain.gain.exponentialRampToValueAtTime(0.001, time + 0.16);
-    oscillator.connect(gain).connect(musicBus);
-    oscillator.start(time);
-    oscillator.stop(time + 0.17);
-    oscillator.onended = () => {
-      oscillator.disconnect();
-      gain.disconnect();
-    };
+  const oscillator = context.createOscillator();
+  const gain = context.createGain();
+  oscillator.type = 'sine';
+  oscillator.frequency.setValueAtTime(145, time);
+  oscillator.frequency.exponentialRampToValueAtTime(42, time + 0.12);
+  gain.gain.setValueAtTime(0.3, time);
+  gain.gain.exponentialRampToValueAtTime(0.001, time + 0.16);
+  oscillator.connect(gain).connect(musicBus);
+  oscillator.start(time);
+  oscillator.stop(time + 0.17);
+  oscillator.onended = () => {
+    oscillator.disconnect();
+    gain.disconnect();
+  };
+}
+
+function drums(time: number, count: number, style: number, section: number) {
+  if (!context) return;
+  const step = count % 16;
+  if (section === 3 && count % 64 < 48) {
+    if (step % 4 === 2) noiseHit(time, 0.04, 0.03, 7800, 'highpass');
+    return;
   }
-  if (count % 8 === 2 || count % 8 === 6) noiseHit(time, 0.12, 0.11, 2200, 'bandpass');
-  if (count % 2 === 1) noiseHit(time, 0.04, 0.035, 7800, 'highpass');
-  if (count % 16 === 15) noiseHit(time, 0.1, 0.065, 6500, 'highpass');
+  if (kickPatterns[style % kickPatterns.length].includes(step)) kick(time);
+  if (snarePatterns[(style + 2) % snarePatterns.length].includes(step))
+    noiseHit(time, 0.12, 0.11, 2200, 'bandpass');
+  if (style % 3 === 1 ? step % 2 === 0 : count % 2 === 1)
+    noiseHit(time, 0.04, 0.035, 7800, 'highpass');
+  if (style % 2 === 0 && step % 4 === 3) noiseHit(time, 0.03, 0.03, 4200, 'bandpass');
+  if (count % 64 === 63) noiseHit(time, 0.3, 0.07, 6500, 'highpass');
 }
 
 function levels() {
@@ -310,26 +339,36 @@ export async function unlockAudio() {
         while (nextBeat < context.currentTime + 0.15) {
           if (beat === 0) patch({ sequence: state.sequence + 1 });
           const song = soundtrack[state.track];
+          const style = state.track % 5;
+          const section = Math.floor(beat / 64) % 4;
           const step = 60 / song.bpm / 2;
           const root = song.roots[Math.floor(beat / 16) % 4];
-          const bassPattern = [0, 0, 7, 0, 0, 3, 7, 3];
+          const bassPattern = bassPatterns[(state.track * 3) % bassPatterns.length];
           tone(musicBus, nextBeat, root - 12 + bassPattern[beat % 8], step * 0.9, 0.13, 'sawtooth');
-          tone(
-            musicBus,
-            nextBeat,
-            root + 24 + song.motif[beat % 8],
-            step * 0.72,
-            0.075,
-            'sawtooth',
-          );
+          // Seções: A, A' uma oitava acima e de trás pra frente, B com arpejo, breakdown.
+          const motifStep = section === 1 ? 7 - (beat % 8) : beat % 8;
+          if (section !== 3 || beat % 2 === 0)
+            tone(
+              musicBus,
+              nextBeat,
+              root + 24 + (section === 1 ? 12 : 0) + song.motif[motifStep],
+              step * (style === 2 ? 1.1 : 0.72),
+              section === 1 ? 0.06 : 0.075,
+              leadWaves[style],
+            );
+          const third = state.track % 2 ? 3 : 4;
+          if (section === 2 || style === 4) {
+            const arp = [0, third, 7, 12][beat % 4];
+            tone(musicBus, nextBeat, root + 24 + arp, step * 0.5, 0.035, 'triangle');
+          }
           if (beat % 2 === 1) {
-            for (const interval of [0, state.track % 2 ? 3 : 4, 7])
+            for (const interval of [0, third, 7])
               tone(musicBus, nextBeat, root + 12 + interval, step * 1.6, 0.045, 'square');
           }
-          drums(nextBeat, beat);
+          drums(nextBeat, beat, style, section);
           nextBeat += step;
           beat++;
-          if (beat === 512) {
+          if (beat === 384) {
             beat = 0;
             patch({ track: (state.track + 1) % soundtrack.length });
           }
