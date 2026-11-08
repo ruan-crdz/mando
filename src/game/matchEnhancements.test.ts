@@ -1,6 +1,12 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { createCareer } from './engine';
-import { beginMatch, shoutFromSideline, stepMatch, substitute } from './matches';
+import {
+  assistantSubstitutionSuggestion,
+  beginMatch,
+  shoutFromSideline,
+  stepMatch,
+  substitute,
+} from './matches';
 import { careerSchema, type Career, type Fixture, type Manager } from './types';
 import { createDemoWorld } from './world';
 
@@ -25,6 +31,42 @@ beforeEach(() => {
 });
 
 describe('decisões durante a partida', () => {
+  it('prioriza lesão, explica o ganho e respeita banco, ignorados e trocas restantes', () => {
+    const outgoing = career.lineup[1];
+    career.activeMatch!.injured.push(outgoing);
+    const suggestion = assistantSubstitutionSuggestion(career, world);
+    expect(suggestion?.outgoing).toBe(outgoing);
+    expect(career.bench).toContain(suggestion?.incoming);
+    expect(suggestion?.detail).toContain('Ganho estimado');
+    expect(suggestion?.contextKey).toBeTruthy();
+    expect(assistantSubstitutionSuggestion(career, world, new Set([outgoing]))).toBeNull();
+    career.activeMatch!.usedSubs = 5;
+    expect(assistantSubstitutionSuggestion(career, world)).toBeNull();
+  });
+
+  it('preserva a última troca antes dos 75 minutos, exceto em lesão', () => {
+    const outgoing = career.lineup[1];
+    career.activeMatch!.minute = 68;
+    career.activeMatch!.usedSubs = 4;
+    career.activeMatch!.energySpent[outgoing] = 16;
+    career.players[outgoing].fitness = 65;
+    expect(assistantSubstitutionSuggestion(career, world)).toBeNull();
+    career.activeMatch!.injured.push(outgoing);
+    expect(assistantSubstitutionSuggestion(career, world)?.outgoing).toBe(outgoing);
+  });
+
+  it('rejeita substituto fora do banco configurado', () => {
+    const unselected = world.players.find(
+      (player) =>
+        career.players[player.id]?.clubId === career.clubId &&
+        !career.lineup.includes(player.id) &&
+        !career.bench.includes(player.id),
+    )!;
+    expect(() => substitute(career, world, career.lineup[1], unselected.id)).toThrow(
+      'Substituição inválida',
+    );
+  });
+
   it('aplica a instrução de pressão e respeita o intervalo entre comandos', () => {
     const original = career;
     career = shoutFromSideline(career, 'pressionar');

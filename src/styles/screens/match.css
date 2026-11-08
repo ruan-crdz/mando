@@ -2,6 +2,17 @@
 .match-screen {
   gap: 10px;
 }
+.match-screen > .assistant-substitution-modal {
+  padding: 10px 16px;
+  border-left: 4px solid var(--lime);
+}
+.assistant-substitution-modal p {
+  margin: 5px 0;
+}
+.match-assistant-actions {
+  display: flex;
+  gap: 10px;
+}
 .match-strip {
   display: flex;
   justify-content: space-between;

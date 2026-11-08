@@ -15,6 +15,7 @@ Apresentar classificação, calendário, estatísticas e histórico da carreira.
 
 - Cabeçalho identifica temporada e subárea; no modo Escritório há ação para voltar.
 - Navegação por controles segmentados.
+- L2/R2 ou LT/RT alternam subáreas. □/X e △/Y escolhem mês anterior/próximo no calendário e competição anterior/próxima na classificação; os botões também são focáveis. O analógico direito só rola.
 - Tabelas e listas devem manter competição, posição, escudos, nomes e números alinhados.
 - Selecionar uma data pode abrir os jogos correspondentes no calendário; estatísticas e histórico refletem os dados persistidos.
 

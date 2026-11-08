@@ -11,7 +11,11 @@ import {
   type Manager,
   type World,
 } from '../game/types';
-import { useControllerActions, useGamepad } from '../controller/GamepadProvider';
+import {
+  useControllerActions,
+  useControllerFocus,
+  useGamepad,
+} from '../controller/GamepadProvider';
 import { ChipGroup, OptionCycler } from '../components/controls';
 import { ageAt } from '../game/random';
 
@@ -140,20 +144,23 @@ export function CreateManager({
       setGenerating(false);
     }
   };
-  useControllerActions({
-    back: () => {
-      if (!camera) back();
+  const controllerRoot = useControllerFocus(`create:${step}`);
+  useControllerActions(
+    {
+      back: () => {
+        if (!camera) back();
+      },
+      previousTab: back,
+      nextTab: () => {
+        if (step < 2 && !camera) next();
+      },
+      ...(step === 0 && !generating && !camera ? { info: openCamera } : {}),
     },
-    previousTab: back,
-    nextTab: () => {
-      if (step < 2 && !camera) next();
-    },
-    info: () => {
-      if (step === 0 && !generating && !camera) openCamera();
-    },
-  });
+    { previousTab: 'Etapa anterior', nextTab: 'Próxima etapa', info: 'Câmera / retrato' },
+    controllerRoot,
+  );
   return (
-    <div className="screen creation">
+    <div ref={controllerRoot} className="screen creation">
       <div className="creation-top">
         <div className="step-track">
           {['MANAGER', 'CLUBE', 'DESAFIO'].map((label, i) => (

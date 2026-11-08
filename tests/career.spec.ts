@@ -373,6 +373,10 @@ test('controle Xbox e DualSense navegam, teclado virtual confirma sem mouse', as
   });
   await press(15);
   await expect(page.locator('.control-hint').first()).toContainText('✕');
+  await press(11);
+  await expect(page.getByRole('dialog', { name: 'Comandos do controle' })).toBeVisible();
+  await press(1);
+  await expect(page.getByRole('dialog', { name: 'Comandos do controle' })).toHaveCount(0);
   await press(1);
   await expect(page.getByRole('heading', { name: /O clube é seu/ })).toBeVisible();
 });
@@ -420,6 +424,10 @@ test('controle define data de nascimento na criação e no perfil do manager', a
     await expect(year.locator('strong')).toHaveText('1989');
     await press(1);
     await expect(year).toHaveAttribute('aria-pressed', 'false');
+    await expect(year.locator('strong')).toHaveText('1988');
+    await press(0);
+    await press(15);
+    await press(0);
     await expect(page.locator('.portrait-caption p')).toContainText('37 anos');
   });
   await page
@@ -442,6 +450,10 @@ test('controle define data de nascimento na criação e no perfil do manager', a
   await expect(year.locator('strong')).toHaveText('1990');
   await press(1);
   await expect(year).toHaveAttribute('aria-pressed', 'false');
+  await expect(year.locator('strong')).toHaveText('1989');
+  await press(0);
+  await press(15);
+  await press(0);
   await expect(
     page.getByRole('group', { name: 'Data de nascimento' }).locator('.control-hint').first(),
   ).toContainText('✕');

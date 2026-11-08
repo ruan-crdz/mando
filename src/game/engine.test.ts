@@ -193,10 +193,12 @@ describe('engine matemática da partida', () => {
     career.activeMatch = beginMatch(career, world, f);
     const out = career.lineup[3];
     const reserve = world.players.find(
-      (p) => p.clubId === career.clubId && p.position !== 'GK' && !career.lineup.includes(p.id),
+      (p) => career.bench.includes(p.id) && p.position !== 'GK' && !career.lineup.includes(p.id),
     )!;
     career = substitute(career, world, out, reserve.id);
     expect(career.activeMatch!.usedSubs).toBe(1);
+    expect(career.bench).not.toContain(reserve.id);
+    expect(career.bench).toContain(out);
     expect(() => substitute(career, world, reserve.id, out)).toThrow('inválida');
     career.activeMatch!.usedSubs = 5;
     expect(() => substitute(career, world, reserve.id, out)).toThrow('cinco');
@@ -206,7 +208,7 @@ describe('engine matemática da partida', () => {
     career.activeMatch = beginMatch(career, world, fixture);
     const outgoing = career.lineup[3];
     const incoming = world.players.find(
-      (p) => p.clubId === career.clubId && p.position !== 'GK' && !career.lineup.includes(p.id),
+      (p) => career.bench.includes(p.id) && p.position !== 'GK' && !career.lineup.includes(p.id),
     )!.id;
     for (let i = 0; i < 30; i++) {
       career.activeMatch = stepMatch(career, world, career.activeMatch);

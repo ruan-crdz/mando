@@ -1,6 +1,7 @@
 import { ArrowRight, FolderOpen, Plus, Trash2 } from 'lucide-react';
 import { Badge, dateLabel, ManagerPortrait } from '../components/ui';
 import { type SavedCareer } from '../services/storage';
+import { useControllerActions, useControllerFocus } from '../controller/GamepadProvider';
 
 const clubOf = (s: SavedCareer) => s.world.clubs.find((c) => c.id === s.career.clubId)!;
 
@@ -15,9 +16,15 @@ export function MainMenu({
   onNew: () => void;
   onLoad: () => void;
 }) {
+  const controllerRoot = useControllerFocus('menu');
+  useControllerActions(
+    { secondary: onNew, info: onLoad },
+    { secondary: 'Nova carreira', info: 'Carregar carreira' },
+    controllerRoot,
+  );
   const recent = saves.length === 1 ? saves[0] : undefined;
   return (
-    <div className="screen menu-screen">
+    <div ref={controllerRoot} className="screen menu-screen">
       <div className="menu-heading">
         <img className="menu-logo" src={`${import.meta.env.BASE_URL}logo-mando.png`} alt="Mando" />
         <div className="menu-intro">

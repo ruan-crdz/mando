@@ -1,5 +1,4 @@
 import { useGamepad } from '../controller/GamepadProvider';
-import { ControllerButtonHint } from '../controller/ControllerButtonHint';
 import { ageAt } from '../game/random';
 import { overall } from '../game/ratings';
 import { knownPositions } from '../game/positions';
@@ -50,9 +49,7 @@ export function PlayerStatsPanel({
   return (
     <section className="panel player-stats" data-stick-scroll aria-label="Ficha do jogador">
       {(input === 'xbox' || input === 'playstation') && (
-        <span className="stats-scroll-hint">
-          <ControllerButtonHint action="stick" label="Rolar ficha" />
-        </span>
+        <span className="stats-scroll-hint">Analógico direito · Rolar ficha</span>
       )}
       <div className="stats-head">
         <div className={`hub-card ${cardTier(overall(player, player.position, state))}`}>

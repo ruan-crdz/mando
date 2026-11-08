@@ -75,7 +75,7 @@ e mapa de calor com o mesmo comportamento de rolagem por RS.
 
 - `p.eyebrow`: **`TIME / GESTÃO DO ELENCO`**.
 - `h1` em caixa alta: **`Onze nomes. Uma ideia.`** — como termina em ponto, o `title-dot` não é acrescentado.
-- Botão à direita: **Autoescalar titulares e banco**, com atalho □/X nas abas Escalação e Tática. A ação escolhe titulares pelo overall na função e condição física, respeita o mínimo de três sub-23 no desafio Só a base e monta até nove reservas para cobrir goleiro e as funções da formação antes de completar por qualidade. Não altera formação nem tática.
+- Botão à direita: **Autoescalar titulares e banco**, com □/X em Escalação/Tática. Um matching maximiza o conjunto dos onze por função e condição, sem gastar prematuramente um versátil. Mantém goleiro e desafio de três sub-23. O banco inclui goleiro disponível e até oito atletas de linha, avaliando ganho marginal de cobertura, profundidade por quantidade de vagas, versatilidade, qualidade e desgaste dos titulares. Não altera formação nem tática.
 
 ### Barra de sub-abas (`.segmented`)
 
@@ -317,7 +317,7 @@ Campinho à esquerda (igual à Escalação, reflete a formação em tempo real) 
 
 - D-pad navega entre chips e sliders sem alterar nada.
 - **✕/A** num chip = seleciona.
-- No slider: **✕/A** ou **□/X** entram no modo edição; **←/→** (D-pad/analógico esquerdo) ajustam 1 passo (limitado 1–5, aplica na hora); **✕/A** ou **□/X** saem; **○/B** sai da edição (com `aria-pressed=true`, o B é consumido pelo slider). Perder o foco também sai.
+- No slider: **✕/A** entra em edição; **←/→** ajusta o rascunho (limitado 1–5); **✕/A** confirma e **○/B** cancela sem aplicar. Os atalhos da tela não disparam durante a edição. Perder o foco descarta o rascunho.
 - L2/R2 troca sub-aba; o campinho à esquerda continua focável (clicar nele leva à Escalação).
 
 ## Classes CSS e visual atual
@@ -595,23 +595,23 @@ Editor "Posições e treino" (dentro da linha expandida no painel direito):
 - Clique na linha aberta → fecha.
 - Clique numa ação → abre/fecha o painel da ação na linha.
 - Clique no `sort-pill` → próximo modo de ordenação.
-- Teclas `,` e `.` → modo anterior/próximo (mesmo evento do analógico direito).
+- □/X → próximo modo de ordenação com lista fechada; o botão de ordenação também continua disponível.
 - `Esc` = Voltar (recolhe a linha aberta / fecha o editor de posições).
 
 **Controle (PS5 / Xbox)**
 
 - **D-pad / analógico esquerdo ↑↓**: percorre as linhas; cada foco atualiza o painel de stats (via `onFocus`). Ao abrir/fechar uma linha, ela recebe foco e `scrollIntoView({block:'nearest'})`.
-- **Analógico direito ←/→** (`useStickX`, intervalo 360 ms): **troca a ordenação** (anterior/próxima) e o pill mostra **"Ordenando por OVERALL/POSIÇÃO/IDADE/VALOR/CONTRATO"**. Ativo **somente** com a lista visível, **sem linha aberta** e **sem editor de posições**.
+- **□/X** troca a ordenação somente com a lista visível, sem linha aberta e sem editor. **△/Y** abre a ficha do atleta focado. O analógico direito é apenas rolagem.
 - **Analógico direito ↑/↓**: rola a lista.
 - **✕ / A** na linha: expande; de novo: recolhe.
 - Com linha aberta: **↓** entra na barra de ações; **←/→** entre botões; **✕/A** ativa a ação (ou fecha se já ativa); **↓** desce para o conteúdo da ação.
 - **○ / B** com linha aberta: o App fecha `detail` (linha recolhe; foco volta à linha). Com editor de posições aberto: **○/B** = **Fechar editor**; outro **○/B** recolhe a linha.
 - Com linha aberta, **L1/R1 ficam bloqueados** (não muda de aba principal); **L2/R2** ainda mudam sub-aba (a linha continua aberta no estado).
-- `NumberStepper` (preço/multa): **✕/A** abre o teclado numérico virtual; **□/X** liga o modo ajuste (←/→ mudam pelo passo; □ ou ○ saem); fora do modo as setas navegam.
-- `ChipGroup`: D-pad + ✕/A. `OptionCycler`: ✕/A entra em edição, ←/→ trocam, ✕/A ou ○/B saem.
-- `ShirtNumberDial`: ✕/A ou □/X entra em edição; ←/→ percorrem 1–99 (circular); ✕/A salva; ○/B (ou `Esc`) cancela o rascunho.
+- `NumberStepper` (preço/multa): **✕/A** edita, ←/→ ajusta, L1/R1 ou LB/RB usa passo ×10, △/Y abre teclado; ✕/A confirma e ○/B cancela.
+- `ChipGroup`: D-pad + ✕/A. `OptionCycler`: ✕/A edita e confirma; ○/B descarta o rascunho.
+- `ShirtNumberDial`: ✕/A edita; ←/→ percorrem 1–99; ✕/A salva; ○/B ou `Esc` cancela.
 - Grade de números (ação Número da camisa): D-pad navega por 99 células; ✕/A escolhe.
-- **□ / X** fora de controles editáveis = avançar dia (global!).
+- **□/X** autoescala em Escalação/Tática e ordena na lista fechada; nunca avança dias fora da Central. **△/Y** abre a ficha do atleta focado. Campo, banco e não relacionados possuem rotas explícitas de foco.
 
 ## Classes CSS e visual atual
 
@@ -627,7 +627,7 @@ Editor "Posições e treino" (dentro da linha expandida no painel direito):
 
 - **Nada de modal**: clicar expande a linha com as ações (trocar, dispensar, colocar à venda, mudar numeração, emprestar, renovar — e também conversar, evolução/função, posições e treino); o conteúdo da ação aparece inline.
 - **Painel esquerdo de stats do jogador focado** (foto em card, nome, número, posição, overall, potencial, idade, estilo/função, personalidade, todos os atributos, mapa de calor) **atualizando ao rolar** a lista com o controle ou o mouse.
-- Ordenação por **botão/analógico do controle** com indicador visível **"Ordenando por …"** e os 5 modos (OVERALL, POSIÇÃO, IDADE, VALOR, CONTRATO); bloqueada com linha aberta.
+- Ordenação por **□/X ou botão na tela** com indicador visível **"Ordenando por …"** e os 5 modos; bloqueada com linha aberta.
 - Uma linha aberta por vez; B fecha; foco retorna à linha.
 - Dispensa em dois passos com custo exibido; venda exige preço; empréstimo tem condições configuráveis para três clubes sugeridos; renovação mostra salário/luvas/término antes de confirmar.
 - Troca de número com permuta automática com o dono atual.
@@ -652,7 +652,7 @@ Editor "Posições e treino" (dentro da linha expandida no painel direito):
 ## Ajustes pós-Ato 7: aba Jogadores
 
 - O ícone da aba Jogadores (e do link "Ver elenco completo") trocou de `Hash` (#) para `Users`.
-- A ficha do jogador (`.player-stats`) tem `data-stick-scroll`: o **RS rola apenas a ficha**, enquanto LS/D-pad continuam percorrendo a lista de jogadores à direita. Com controle conectado aparece a dica "RS Rolar ficha".
+- A rolagem do analógico direito prioriza o painel focado. R3/RS abre o mapa de comandos, não rola a ficha.
 - O `GamepadProvider` passou a priorizar qualquer área visível e rolável marcada com `data-stick-scroll` no rolar vertical do RS.
 
 ## Fase 3: auxiliares por setor

@@ -47,6 +47,7 @@ import { ChipGroup, NumberStepper, OptionCycler } from '../components/controls';
 import { byPosition, PlayerCard } from '../components/PlayerCard';
 import { PlayerFace } from '../components/PlayerFace';
 import { cardTier } from '../components/cardTier';
+import { useControllerActions, useControllerFocus } from '../controller/GamepadProvider';
 
 type Filters = {
   name: string;
@@ -395,12 +396,54 @@ function ChatPanel({
     m.from === 'me' ? mine.name : m.from === 'agent' ? agentLabel : other.name;
   const stillThere = c.players[p.id]?.clubId === offer.toClubId;
   const locked = offer.lockedUntil && offer.lockedUntil > c.date;
+  const [confirmAccept, setConfirmAccept] = useState(false);
+  const counter = () => (offer.incoming ? onAsk(offer.id, ask) : onCounter());
+  const actionable = offer.incoming ? offer.status === 'pending' : offer.status === 'countered';
+  const canCounter =
+    actionable ||
+    (!offer.incoming &&
+      stillThere &&
+      (offer.status === 'rejected' || (offer.status === 'declined' && !locked)));
+  useControllerActions(
+    inside
+      ? {
+          ...(actionable ? { secondary: () => setConfirmAccept(true) } : {}),
+          ...(canCounter ? { info: counter } : {}),
+        }
+      : {},
+    { secondary: 'Revisar aceite', info: 'Contraproposta' },
+    root,
+  );
+  const accept = () => {
+    if (offer.incoming) onAnswer(offer.id, true);
+    else onRespond(offer.id, true);
+    setConfirmAccept(false);
+  };
   return (
     <section
       ref={root}
       className={`panel chat-panel ${inside ? 'inside' : ''}`}
       data-focus-trap={inside ? '' : undefined}
     >
+      {confirmAccept && (
+        <Modal
+          title="Confirmar acordo"
+          onClose={() => setConfirmAccept(false)}
+          controllerActions={{ secondary: accept, info: () => setConfirmAccept(false) }}
+          controllerLabels={{ secondary: 'Confirmar acordo', info: 'Voltar à negociação' }}
+        >
+          <p>
+            {p.name} · taxa {money(offer.fee, false)} · salário {money(offer.wage, false)}/mês.
+          </p>
+          <p>
+            Luvas: {money(offer.bonus ?? 0, false)}. Confira os termos da conversa antes de
+            confirmar.
+          </p>
+          <button className="primary" onClick={accept}>
+            Confirmar acordo
+          </button>
+        </Modal>
+      )}
       <header className="chat-head">
         <Badge club={other} />
         <PlayerFace player={p} size="sm" />
@@ -470,7 +513,7 @@ function ChatPanel({
       <footer className="chat-actions">
         {!offer.incoming && offer.status === 'countered' && (
           <>
-            <button className="primary" onClick={() => onRespond(offer.id, true)}>
+            <button className="primary" onClick={() => setConfirmAccept(true)}>
               <Check size={16} /> Aceitar
             </button>
             <button onClick={onCounter}>
@@ -508,7 +551,7 @@ function ChatPanel({
           ))}
         {offer.incoming && offer.status === 'pending' && (
           <>
-            <button className="primary" onClick={() => onAnswer(offer.id, true)}>
+            <button className="primary" onClick={() => setConfirmAccept(true)}>
               <Check size={16} /> Aceitar {money(offer.fee)}
             </button>
             <div className="chat-ask">
@@ -580,10 +623,12 @@ export function Transfers({
   onClause: (id: string) => void;
 }) {
   const [view, setView] = useState<'market' | 'shortlist' | 'negotiations' | 'accounts'>('market');
+  const controllerRoot = useControllerFocus(`transfers:${view}`);
   const [selected, setSelected] = useState('');
   const [inside, setInside] = useState(false);
   const [filters, setFilters] = useState(initialFilters);
   const [deal, setDeal] = useState<Deal | null>(null);
+  const [reviewDeal, setReviewDeal] = useState(false);
   const [step, setStep] = useState<'club' | 'player'>('club');
   const [pickExchange, setPickExchange] = useState(false);
   const [page, setPage] = useState(0);
@@ -628,6 +673,7 @@ export function Transfers({
     setPage(0);
   };
   const startDeal = (p: Player, previous?: Partial<Deal>) => {
+    setReviewDeal(false);
     const thread = activeThread(c, p.id);
     const last = thread && thread.status !== 'completed' ? thread : undefined;
     const mode = previous?.mode ?? (last?.loan ? 'loan' : 'buy');
@@ -752,9 +798,55 @@ export function Transfers({
     (claim) => claim.clubId === c.clubId || c.players[claim.playerId]?.clubId === c.clubId,
   );
   const update = (patch: Partial<Deal>) => setDeal((d) => (d ? { ...d, ...patch } : d));
+  const focusedPlayer = view === 'shortlist' ? shortlistPlayer : marketPlayer;
+  useControllerActions(
+    {
+      ...((view === 'market' || view === 'shortlist') && focusedPlayer
+        ? {
+            secondary: () => startDeal(focusedPlayer),
+            info: () => onShortlist(focusedPlayer.id),
+          }
+        : {}),
+      ...(view === 'negotiations' && current && !inside
+        ? {
+            secondary: () => setInside(true),
+            ...(!current.incoming && needsAction(current)
+              ? { info: () => openCounter(current) }
+              : {}),
+          }
+        : {}),
+    },
+    {
+      secondary: view === 'negotiations' ? 'Entrar na negociação' : 'Negociar atleta',
+      info:
+        view === 'negotiations'
+          ? 'Contraproposta'
+          : focusedPlayer && c.shortlist.includes(focusedPlayer.id)
+            ? 'Parar de observar'
+            : 'Observar atleta',
+    },
+    controllerRoot,
+  );
+  const submitDeal = () => {
+    if (!deal) return;
+    const sent = loanReq
+      ? onLoan(deal.player.id, loanReq)
+      : onOffer(deal.player.id, deal.fee, deal.wage, deal.exchange || undefined, {
+          years: deal.years,
+          bonus: deal.bonus,
+          rights: deal.rights,
+          sellOn: deal.sellOn,
+        });
+    if (sent) {
+      setReviewDeal(false);
+      setDeal(null);
+      setSelected(deal.player.id);
+      setView('negotiations');
+    }
+  };
 
   return (
-    <div className="screen-enter transfers-screen">
+    <div ref={controllerRoot} className="screen-enter transfers-screen">
       <SectionTitle
         kicker="TRANSFERÊNCIAS / O MERCADO SE MOVE"
         title="A próxima peça do seu plano."
@@ -763,7 +855,7 @@ export function Transfers({
           {open ? 'JANELA ABERTA' : 'JANELA FECHADA'} · {money(finance.transferBudget)} disponíveis
         </span>
       </SectionTitle>
-      <div className="segmented">
+      <div className="segmented" data-controller-tabs="">
         <button className={view === 'market' ? 'active' : ''} onClick={() => setView('market')}>
           <Search size={16} /> Mercado
         </button>
@@ -799,6 +891,22 @@ export function Transfers({
           onClose={() => setDeal(null)}
           wide
           className="deal-desk"
+          controllerActions={{
+            secondary: () => (pickExchange ? setPickExchange(false) : setReviewDeal(true)),
+            previousView: () => {
+              setStep('club');
+              setPickExchange(false);
+            },
+            nextView: () => {
+              setStep('player');
+              setPickExchange(false);
+            },
+          }}
+          controllerLabels={{
+            secondary: pickExchange ? 'Concluir escolha' : 'Revisar proposta',
+            previousView: 'Acordo com o clube',
+            nextView: 'Contrato do jogador',
+          }}
         >
           <div className="deal-room">
             <aside className="deal-target">
@@ -1255,24 +1363,7 @@ export function Transfers({
               </dl>
               <LikelihoodMeter label="Clube" value={outlook.club} />
               <LikelihoodMeter label="Jogador" value={outlook.player} />
-              <button
-                className="primary send-offer"
-                onClick={() => {
-                  const sent = loanReq
-                    ? onLoan(deal.player.id, loanReq)
-                    : onOffer(deal.player.id, deal.fee, deal.wage, deal.exchange || undefined, {
-                        years: deal.years,
-                        bonus: deal.bonus,
-                        rights: deal.rights,
-                        sellOn: deal.sellOn,
-                      });
-                  if (sent) {
-                    setDeal(null);
-                    setSelected(deal.player.id);
-                    setView('negotiations');
-                  }
-                }}
-              >
+              <button className="primary send-offer" onClick={() => setReviewDeal(true)}>
                 <Send size={17} />{' '}
                 {dealThread
                   ? 'Enviar contraproposta'
@@ -1286,6 +1377,60 @@ export function Transfers({
               </small>
             </aside>
           </div>
+        </Modal>
+      )}
+      {deal && reviewDeal && (
+        <Modal
+          title="Revisar proposta"
+          onClose={() => setReviewDeal(false)}
+          controllerActions={{ secondary: submitDeal, info: () => setReviewDeal(false) }}
+          controllerLabels={{ secondary: 'Enviar proposta', info: 'Editar valores' }}
+        >
+          <p>
+            {deal.player.name} ·{' '}
+            {deal.mode === 'loan'
+              ? `Empréstimo de ${deal.months} meses`
+              : `Contrato de ${deal.years} anos`}
+          </p>
+          <dl>
+            <div>
+              <dt>Taxa</dt>
+              <dd>{money(deal.fee, false)}</dd>
+            </div>
+            <div>
+              <dt>Luvas</dt>
+              <dd>{money(deal.bonus, false)}</dd>
+            </div>
+            <div>
+              <dt>Comissão</dt>
+              <dd>{money(commission, false)}</dd>
+            </div>
+            <div>
+              <dt>Salários do período</dt>
+              <dd>
+                {money(deal.mode === 'loan' ? loanWages : deal.wage * 12 * deal.years, false)}
+              </dd>
+            </div>
+            <div>
+              <dt>Custo total contratado</dt>
+              <dd>{money(totalCost, false)}</dd>
+            </div>
+          </dl>
+          {exchangePlayer && <p>Atleta em troca: {exchangePlayer.name}.</p>}
+          {loanReq?.option !== undefined && (
+            <p>Compra opcional futura: {money(loanReq.option, false)}.</p>
+          )}
+          {loanReq?.obligation && (
+            <p>
+              Obrigação futura: {money(loanReq.obligation.fee, false)} após{' '}
+              {loanReq.obligation.games} jogos.
+            </p>
+          )}
+          {!open && <p>Janela fechada: chegada adiada para a próxima janela.</p>}
+          <button className="primary" data-autofocus="" onClick={submitDeal}>
+            Confirmar e enviar
+          </button>
+          <button onClick={() => setReviewDeal(false)}>Editar proposta</button>
         </Modal>
       )}
       {view === 'market' && (
@@ -1453,6 +1598,7 @@ export function Transfers({
                   className={`market-row ${marketPlayer?.id === p.id ? 'focused' : ''}`}
                   key={p.id}
                   data-market-player={p.id}
+                  data-focus-id={p.id}
                   aria-current={marketPlayer?.id === p.id ? 'true' : undefined}
                   onFocus={() => setMarketFocus(p.id)}
                   onMouseEnter={() => setMarketFocus(p.id)}

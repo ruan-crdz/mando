@@ -18,6 +18,7 @@ import { standings } from '../game/engine';
 import { overall } from '../game/ratings';
 import { type Career, type World } from '../game/types';
 import { TAB } from '../navigation';
+import { useControllerFocus } from '../controller/GamepadProvider';
 
 export function CareerCentral({
   career: c,
@@ -40,6 +41,7 @@ export function CareerCentral({
   onPreferences: () => void;
   busy: boolean;
 }) {
+  const controllerRoot = useControllerFocus('central');
   const club = world.clubs.find((club) => club.id === c.clubId)!;
   const fixture = nextFixture(c);
   const home = fixture && clubById(world, fixture.homeId);
@@ -66,7 +68,7 @@ export function CareerCentral({
           ? onMatch
           : onAdvance;
   return (
-    <div className="screen central">
+    <div ref={controllerRoot} className="screen central">
       <div className="central-strip">
         <div>
           <p className="eyebrow">{club.name} · CENTRAL DO CLUBE</p>

@@ -23,6 +23,13 @@ import {
 type Action = keyof typeof xboxMapping;
 type Input = 'mouse' | 'keyboard' | 'xbox' | 'playstation';
 type Actions = Partial<Record<Action, () => void>>;
+type ActionLabels = Partial<Record<Action, string>>;
+type Binding = {
+  actions: Actions;
+  labels: () => ActionLabels;
+  scope?: RefObject<HTMLElement | null>;
+  priority: number;
+};
 export type RumbleKind =
   'move' | 'confirm' | 'back' | 'tab' | 'goal' | 'concede' | 'whistle' | 'error';
 const rumblePatterns: Record<RumbleKind, [number, number, number][]> = {
@@ -68,7 +75,10 @@ type ControllerContext = {
   /** DualSense conectado direto (WebHID): vibração real no Chrome/Edge. */
   hid: { supported: boolean; connected: boolean; pair: () => Promise<boolean> };
   hints: Record<Action, string>;
-  register: (actions: Actions) => () => void;
+  register: (binding: Binding) => () => void;
+  actionLabels: ActionLabels;
+  helpOpen: boolean;
+  showHelp: () => void;
 };
 type Editing = {
   element: HTMLInputElement | HTMLTextAreaElement;
@@ -91,7 +101,7 @@ const topModal = () =>
 /** LT/RT switch the sub-tabs (`.segmented`) of the screen in focus, like FIFA's sub-menus. */
 function cycleView(delta: number) {
   const group = (topModal() || document.querySelector('main'))?.querySelector<HTMLElement>(
-    '.segmented:not(.compact)',
+    '[data-controller-tabs]',
   );
   if (!group) return;
   const buttons = [...group.querySelectorAll<HTMLButtonElement>('button:not(:disabled)')];
@@ -112,18 +122,9 @@ const scrollable = (el: HTMLElement, axis: 'x' | 'y') => {
     : el.scrollWidth > el.clientWidth + 4 && /(auto|scroll)/.test(style.overflowX);
 };
 
-/**
- * Área rolável do analógico direito. Um painel marcado com `data-stick-scroll` tem prioridade:
- * o RS rola esse painel enquanto o LS/D-pad seguem movendo o foco em outra lista.
- */
+/** A rolagem acompanha o painel focado antes de procurar uma área maior. */
 function scrollTarget(axis: 'x' | 'y') {
   const scope = topModal() || document.querySelector('main');
-  if (axis === 'y' && scope) {
-    const pinned = [...scope.querySelectorAll<HTMLElement>('[data-stick-scroll]')].find(
-      (node) => node.getClientRects().length > 0 && scrollable(node, 'y'),
-    );
-    if (pinned) return pinned;
-  }
   let el = document.activeElement as HTMLElement | null;
   while (el && el !== document.body) {
     if (scrollable(el, axis) && (!scope || scope.contains(el))) return el;
@@ -151,7 +152,82 @@ export function GamepadProvider({ children }: { children: ReactNode }) {
   const [editing, setEditing] = useState<Editing | null>(null);
   const [caps, setCaps] = useState(false);
   const [specials, setSpecials] = useState(false);
-  const actions = useRef<Actions>({});
+  const bindings = useRef(new Map<symbol, Binding>());
+  const [actionLabels, setActionLabels] = useState<ActionLabels>({});
+  const [help, setHelp] = useState(false);
+  const helpRef = useRef(help);
+  helpRef.current = help;
+  const helpOrigin = useRef<HTMLElement | null>(null);
+  const showHelp = useCallback(() => {
+    helpOrigin.current = document.activeElement as HTMLElement;
+    setHelp(true);
+  }, []);
+  const resolveBinding = useCallback((action: Action) => {
+    const modal = topModal();
+    const trap = document.querySelector<HTMLElement>('[data-focus-trap]');
+    return [...bindings.current.values()]
+      .filter((binding) => {
+        const scope = binding.scope?.current;
+        if (modal) return Boolean(scope && modal.contains(scope));
+        if (trap) return Boolean(scope && trap.contains(scope));
+        return (!binding.scope || Boolean(scope?.isConnected)) && Boolean(binding.actions[action]);
+      })
+      .sort((a, b) => b.priority - a.priority)
+      .find((binding) => binding.actions[action]);
+  }, []);
+  const shortcutButton = useCallback((action: Action) => {
+    const scope =
+      topModal() || document.querySelector('[data-focus-trap]') || document.querySelector('main');
+    const buttons = [
+      ...(scope?.querySelectorAll<HTMLButtonElement>(`[data-controller-${action}]`) || []),
+    ].filter(
+      (button) =>
+        !button.disabled && !button.closest('[inert]') && button.getClientRects().length > 0,
+    );
+    const focused = document.activeElement;
+    const local = buttons.filter((button) =>
+      button.closest('[data-focus-region], .panel')?.contains(focused),
+    );
+    return local.length === 1 ? local[0] : buttons.length === 1 ? buttons[0] : undefined;
+  }, []);
+  const refreshLabels = useCallback(() => {
+    if (helpRef.current || editRef.current) return;
+    const active = document.activeElement;
+    let next: ActionLabels = {};
+    if (
+      active instanceof HTMLElement &&
+      active.getAttribute('aria-pressed') === 'true' &&
+      (active.hasAttribute('data-toggle-edit') || active.matches('input, select'))
+    ) {
+      next = {
+        confirm: 'Confirmar alteração',
+        back: 'Cancelar alteração',
+        previousTab: 'Passo maior −',
+        nextTab: 'Passo maior +',
+        ...(active.hasAttribute('data-keyboard-option') ? { info: 'Digitar valor' } : {}),
+      };
+    } else {
+      next = { confirm: 'Selecionar', back: 'Voltar', stick: 'Mapa dos comandos' };
+      if (
+        !topModal() &&
+        !document.querySelector('[data-focus-trap]') &&
+        document.querySelector('main [data-controller-tabs]')
+      ) {
+        next.previousView = 'Submenu anterior';
+        next.nextView = 'Próximo submenu';
+      }
+      for (const action of Object.keys(xboxMapping) as Action[]) {
+        const binding = resolveBinding(action);
+        const label = binding?.labels()[action];
+        const button = shortcutButton(action);
+        if (label) next[action] = label;
+        else if (button)
+          next[action] = button.dataset.controllerLabel || button.textContent?.trim() || action;
+      }
+      if (topModal()) next.back = 'Fechar janela';
+    }
+    setActionLabels((old) => (JSON.stringify(old) === JSON.stringify(next) ? old : next));
+  }, [resolveBinding, shortcutButton]);
   const editRef = useRef(editing);
   editRef.current = editing;
   const [vibration, setVibration] = useState(
@@ -192,13 +268,18 @@ export function GamepadProvider({ children }: { children: ReactNode }) {
       delay += duration + 60;
     }
   }, []);
-  const register = useCallback((value: Actions) => {
-    if (Object.keys(value).length === 0) return () => {};
-    actions.current = value;
-    return () => {
-      if (actions.current === value) actions.current = {};
-    };
-  }, []);
+  const register = useCallback(
+    (value: Binding) => {
+      const token = Symbol();
+      bindings.current.set(token, value);
+      refreshLabels();
+      return () => {
+        bindings.current.delete(token);
+        refreshLabels();
+      };
+    },
+    [refreshLabels],
+  );
   const type = useCallback((text: string) => {
     setEditing((e) => {
       if (!e) return e;
@@ -243,6 +324,7 @@ export function GamepadProvider({ children }: { children: ReactNode }) {
     let held = new Set<number>();
     let activeIndex: number | null = null;
     let priorId: string | null = null;
+    const nativeDrafts = new WeakMap<HTMLInputElement | HTMLSelectElement, string>();
     /** Botões do controle enquanto o teclado virtual está aberto. */
     const keyboardAction = (action: Action | 'r3') => {
       const edit = editRef.current;
@@ -263,6 +345,15 @@ export function GamepadProvider({ children }: { children: ReactNode }) {
     const activate = (action: Action) => {
       window.dispatchEvent(new Event('mando:audio-unlock'));
       if (keyboardAction(action)) return;
+      if (action === 'stick') {
+        if (helpRef.current) setHelp(false);
+        else showHelp();
+        return;
+      }
+      if (helpRef.current) {
+        if (action === 'back' || action === 'confirm') setHelp(false);
+        return;
+      }
       // Simulação em andamento: □, X, ○ ou START param o avanço, em qualquer tela.
       const stopRun = document.querySelector<HTMLButtonElement>('[data-stop-run]');
       if (stopRun && ['secondary', 'confirm', 'back', 'menu'].includes(action)) {
@@ -271,13 +362,44 @@ export function GamepadProvider({ children }: { children: ReactNode }) {
         return;
       }
       const active = document.activeElement;
-      // Controles editáveis (ex.: sliders de tática) aceitam X para editar/salvar e B para sair da edição.
+      if (
+        (active instanceof HTMLSelectElement ||
+          (active instanceof HTMLInputElement && active.type === 'range')) &&
+        nativeDrafts.has(active)
+      ) {
+        if (action === 'confirm' || action === 'back') {
+          if (action === 'back') active.value = nativeDrafts.get(active)!;
+          else {
+            active.dispatchEvent(new Event('input', { bubbles: true }));
+            active.dispatchEvent(new Event('change', { bubbles: true }));
+          }
+          nativeDrafts.delete(active);
+          active.removeAttribute('aria-pressed');
+          refreshLabels();
+        }
+        return;
+      }
+      // A edição tem prioridade sobre qualquer comando da tela.
       if (
         active instanceof HTMLElement &&
-        active.dataset.toggleEdit !== undefined &&
-        (action === 'secondary' ||
-          (action === 'back' && active.getAttribute('aria-pressed') === 'true'))
+        active.getAttribute('aria-pressed') === 'true' &&
+        active.dataset.toggleEdit !== undefined
       ) {
+        if (action === 'previousTab' || action === 'nextTab') {
+          active.dispatchEvent(
+            new CustomEvent(STEP_EVENT, { detail: action === 'nextTab' ? 10 : -10 }),
+          );
+          return;
+        }
+        if (
+          action === 'info' &&
+          active instanceof HTMLInputElement &&
+          active.hasAttribute('data-keyboard-option')
+        ) {
+          openKeyboard(active);
+          return;
+        }
+        if (action !== 'confirm' && action !== 'back') return;
         const cancel = new CustomEvent(CANCEL_EVENT, { cancelable: true });
         if (action === 'back') active.dispatchEvent(cancel);
         if (cancel.defaultPrevented) {
@@ -295,6 +417,12 @@ export function GamepadProvider({ children }: { children: ReactNode }) {
           rumble('back');
           return;
         }
+        const binding = resolveBinding('back');
+        if (binding?.scope) {
+          binding.actions.back?.();
+          rumble('back');
+          return;
+        }
         const screenBack =
           !topModal() &&
           (document.querySelector<HTMLElement>('[data-focus-trap] [data-trap-exit]') ||
@@ -305,14 +433,20 @@ export function GamepadProvider({ children }: { children: ReactNode }) {
           return;
         }
       }
-      if (action === 'secondary' || action === 'info') {
-        const scope = topModal() || document.querySelector('main');
-        const shortcut = [
-          ...(scope?.querySelectorAll<HTMLButtonElement>(`[data-controller-${action}]`) ?? []),
-        ].find(
-          (button) =>
-            !button.disabled && !button.closest('[inert]') && button.getClientRects().length > 0,
-        );
+      if (resolveBinding(action)) {
+        const binding = resolveBinding(action)!;
+        binding.actions[action]?.();
+        rumble(action === 'back' ? 'back' : 'confirm');
+        refreshLabels();
+        return;
+      }
+      if (
+        action === 'secondary' ||
+        action === 'info' ||
+        action === 'previousTab' ||
+        action === 'nextTab'
+      ) {
+        const shortcut = shortcutButton(action);
         if (shortcut) {
           shortcut.click();
           rumble('confirm');
@@ -321,65 +455,91 @@ export function GamepadProvider({ children }: { children: ReactNode }) {
       }
       if (topModal() && ['previousTab', 'nextTab', 'secondary', 'info', 'menu'].includes(action))
         return;
+      if (
+        document.querySelector('[data-focus-trap]') &&
+        [
+          'previousTab',
+          'nextTab',
+          'previousView',
+          'nextView',
+          'secondary',
+          'info',
+          'menu',
+        ].includes(action)
+      )
+        return;
       if (action === 'previousView' || action === 'nextView') {
-        if (actions.current[action]) actions.current[action]!();
-        else cycleView(action === 'nextView' ? 1 : -1);
+        cycleView(action === 'nextView' ? 1 : -1);
         rumble('tab');
         return;
       }
       if (action === 'confirm') {
         focus.ensure();
         const el = document.activeElement;
-        if (isTextField(el)) openKeyboard(el);
-        else if (el instanceof HTMLSelectElement) {
-          el.selectedIndex = (el.selectedIndex + 1) % el.options.length;
-          el.dispatchEvent(new Event('change', { bubbles: true }));
+        if (el instanceof HTMLInputElement && el.hasAttribute('data-toggle-edit'))
+          el.dispatchEvent(new CustomEvent(TOGGLE_EVENT));
+        else if (isTextField(el)) openKeyboard(el);
+        else if (
+          el instanceof HTMLSelectElement ||
+          (el instanceof HTMLInputElement && el.type === 'range')
+        ) {
+          nativeDrafts.set(el, el.value);
+          el.setAttribute('aria-pressed', 'true');
+          refreshLabels();
         } else if (el instanceof HTMLElement) el.click();
         rumble('confirm');
       } else {
-        actions.current[action]?.();
+        resolveBinding(action)?.actions[action]?.();
         rumble(action === 'back' ? 'back' : 'tab');
       }
     };
     const move = (dx: number, dy: number) => {
       const el = document.activeElement;
+      if (
+        !dx &&
+        el instanceof HTMLElement &&
+        el.getAttribute('aria-pressed') === 'true' &&
+        (el.hasAttribute('data-toggle-edit') || el.matches('input, select'))
+      )
+        return;
       if (dx && el instanceof HTMLElement && el.dataset.stepper !== undefined) {
         el.dispatchEvent(new CustomEvent(STEP_EVENT, { detail: dx }));
-      } else if (dx && el instanceof HTMLSelectElement) {
+      } else if (
+        dx &&
+        el instanceof HTMLSelectElement &&
+        el.getAttribute('aria-pressed') === 'true'
+      ) {
         el.selectedIndex = Math.max(0, Math.min(el.options.length - 1, el.selectedIndex + dx));
-        el.dispatchEvent(new Event('change', { bubbles: true }));
-      } else if (dx && el instanceof HTMLInputElement && el.type === 'range') {
+      } else if (
+        dx &&
+        el instanceof HTMLInputElement &&
+        el.type === 'range' &&
+        el.getAttribute('aria-pressed') === 'true'
+      ) {
         const value = Number(el.value) + dx * Number(el.step || 1);
         Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set?.call(
           el,
           String(value),
         );
-        el.dispatchEvent(new Event('input', { bubbles: true }));
-        el.dispatchEvent(new Event('change', { bubbles: true }));
       } else focus.move(dx, dy);
       if (padIndex.current !== null) rumble('move');
     };
-    /** Analógico direito: vertical rola a tela; horizontal é entregue à tela ou rola carrosséis. */
+    /** Analógico direito é exclusivamente rolagem. */
     const rightStick = (pad: Gamepad, now: number) => {
       if (editRef.current) return;
       const sx = pad.axes[2] || 0;
       const sy = pad.axes[3] || 0;
       if (Math.abs(sy) > 0.3 && Math.abs(sy) >= Math.abs(sx)) {
         if (scrollEl && !scrollEl.isConnected) scrollEl = null;
-        scrollEl ??= scrollTarget('y');
+        scrollEl = scrollTarget('y');
         scrollEl?.scrollBy({ top: Math.sign(sy) * (sy * sy) * 26 });
       } else scrollEl = null;
       if (Math.abs(sx) > 0.6 && Math.abs(sx) > Math.abs(sy)) {
         if (now - lastStickX < 360) return;
         lastStickX = now;
         const dir = Math.sign(sx);
-        const handled = !window.dispatchEvent(
-          new CustomEvent(STICK_X_EVENT, { detail: dir, cancelable: true }),
-        );
-        if (!handled) {
-          const target = scrollTarget('x');
-          target?.scrollBy({ left: dir * target.clientWidth * 0.6, behavior: 'smooth' });
-        }
+        const target = scrollTarget('x');
+        target?.scrollBy({ left: dir * target.clientWidth * 0.6, behavior: 'smooth' });
         rumble('tab');
       } else if (Math.abs(sx) < 0.3) lastStickX = 0;
     };
@@ -429,7 +589,9 @@ export function GamepadProvider({ children }: { children: ReactNode }) {
         for (const [action, index] of Object.entries(standardButtons)) {
           if (index < 12 && buttons.has(index) && !held.has(index)) activate(action as Action);
         }
-        if (buttons.has(R3) && !held.has(R3)) keyboardAction('r3');
+        if (buttons.has(R3) && !held.has(R3)) {
+          if (!keyboardAction('r3')) activate('stick');
+        }
         rightStick(pad, now);
         held = buttons;
       } else held = new Set();
@@ -470,7 +632,23 @@ export function GamepadProvider({ children }: { children: ReactNode }) {
       } else if (e.key === 'Escape') {
         e.preventDefault();
         activate('back');
-      } else if (!inField && ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+      } else if (!inField && e.key === 'F1') {
+        e.preventDefault();
+        activate('stick');
+      } else if (
+        e.key === 'Enter' &&
+        (!inField || (target instanceof HTMLElement && target.hasAttribute('data-toggle-edit')))
+      ) {
+        e.preventDefault();
+        activate('confirm');
+      } else if (!inField && (e.key === 'x' || e.key === 'y')) {
+        e.preventDefault();
+        activate(e.key === 'x' ? 'secondary' : 'info');
+      } else if (
+        (!inField ||
+          (target instanceof HTMLElement && target.getAttribute('aria-pressed') === 'true')) &&
+        ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)
+      ) {
         e.preventDefault();
         move(
           e.key === 'ArrowLeft' ? -1 : e.key === 'ArrowRight' ? 1 : 0,
@@ -484,9 +662,8 @@ export function GamepadProvider({ children }: { children: ReactNode }) {
         activate(e.key === 'q' ? 'previousView' : 'nextView');
       } else if (!inField && (e.key === ',' || e.key === '.')) {
         e.preventDefault();
-        window.dispatchEvent(
-          new CustomEvent(STICK_X_EVENT, { detail: e.key === ',' ? -1 : 1, cancelable: true }),
-        );
+        const target = scrollTarget('x');
+        target?.scrollBy({ left: (e.key === ',' ? -1 : 1) * target.clientWidth * 0.6 });
       }
     };
     const pointer = () => {
@@ -499,20 +676,52 @@ export function GamepadProvider({ children }: { children: ReactNode }) {
         !document.activeElement.isConnected
       )
         focus.ensure();
+      refreshLabels();
     });
-    observer.observe(document.body, { childList: true, subtree: true });
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ['aria-pressed', 'data-focus-scope', 'disabled'],
+    });
     frame = requestAnimationFrame(tick);
     window.addEventListener('keydown', keydown);
     window.addEventListener('pointermove', pointer);
     window.addEventListener('pointerdown', pointer);
+    window.addEventListener('focusin', refreshLabels);
+    window.addEventListener('mando:controller-context', refreshLabels);
     return () => {
       cancelAnimationFrame(frame);
       observer.disconnect();
       window.removeEventListener('keydown', keydown);
       window.removeEventListener('pointermove', pointer);
       window.removeEventListener('pointerdown', pointer);
+      window.removeEventListener('focusin', refreshLabels);
+      window.removeEventListener('mando:controller-context', refreshLabels);
     };
-  }, [applyEdit, erase, openKeyboard, rumble, type]);
+  }, [
+    applyEdit,
+    erase,
+    openKeyboard,
+    rumble,
+    type,
+    resolveBinding,
+    shortcutButton,
+    refreshLabels,
+    showHelp,
+  ]);
+  useEffect(() => {
+    if (help) requestAnimationFrame(() => focus.ensure());
+    else if (helpOrigin.current) {
+      const origin = helpOrigin.current;
+      helpOrigin.current = null;
+      requestAnimationFrame(() => {
+        if (origin.isConnected) origin.focus({ preventScroll: true });
+        else focus.ensure();
+        refreshLabels();
+      });
+    }
+  }, [help, refreshLabels]);
   useEffect(() => {
     if (editing) requestAnimationFrame(() => focus.ensure());
   }, [editing, specials]);
@@ -546,9 +755,42 @@ export function GamepadProvider({ children }: { children: ReactNode }) {
         },
         register,
         hints,
+        actionLabels,
+        helpOpen: help,
+        showHelp,
       }}
     >
-      <div inert={editing ? true : undefined}>{children}</div>
+      <div inert={editing || help ? true : undefined}>{children}</div>
+      {help && (
+        <div className="modal-backdrop">
+          <section
+            className="dialog controller-help"
+            data-focus-scope="modal"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Comandos do controle"
+          >
+            <div className="dialog-heading">
+              <h2>Comandos desta tela</h2>
+              <button data-autofocus="" onClick={() => setHelp(false)}>
+                Voltar
+              </button>
+            </div>
+            <div className="dialog-body">
+              <p>Direcional / analógico esquerdo: navegar · Analógico direito: rolar</p>
+              {Object.entries(actionLabels).map(([action, label]) => (
+                <p key={action}>
+                  <kbd>{hints[action as Action]}</kbd> {label}
+                </p>
+              ))}
+              <p>
+                Ao editar: confirmar salva, voltar cancela. L1/R1 ou LB/RB ajustam em passos
+                maiores.
+              </p>
+            </div>
+          </section>
+        </div>
+      )}
       {editing && (
         <div className="modal-backdrop">
           <section
@@ -659,9 +901,80 @@ export function useGamepad() {
   return value;
 }
 
-export function useControllerActions(actions: Actions) {
+export function useControllerActions(
+  actions: Actions,
+  labels: ActionLabels = {},
+  scope?: RefObject<HTMLElement | null>,
+) {
   const { register } = useGamepad();
-  useEffect(() => register(actions), [actions, register]);
+  const latest = useRef({ actions, labels });
+  latest.current = { actions, labels };
+  const keys = Object.keys(actions).sort().join(',');
+  const labelKey = JSON.stringify(labels);
+  useEffect(() => {
+    window.dispatchEvent(new Event('mando:controller-context'));
+  }, [labelKey]);
+  useEffect(() => {
+    const proxies: Actions = {};
+    for (const action of keys.split(',').filter(Boolean) as Action[])
+      proxies[action] = () => latest.current.actions[action]?.();
+    return register({
+      actions: proxies,
+      labels: () => latest.current.labels,
+      scope,
+      priority: scope ? 10 : 0,
+    });
+  }, [keys, register, scope]);
+}
+
+export function ControllerHints() {
+  const { actionLabels, hints, input, showHelp } = useGamepad();
+  const pad = input === 'xbox' || input === 'playstation';
+  return (
+    <div className="context-controller-hints">
+      {Object.entries(actionLabels)
+        .filter(([key]) => key !== 'stick')
+        .map(([action, label]) => (
+          <span className="control-hint" key={action}>
+            {pad && <kbd>{hints[action as Action]}</kbd>}
+            {label}
+          </span>
+        ))}
+      <button className="text-button" onClick={showHelp}>
+        {pad ? hints.stick : 'F1'} · Comandos
+      </button>
+    </div>
+  );
+}
+
+export function useControllerFocus(key: string) {
+  const ref = useRef<HTMLDivElement>(null);
+  const { input } = useGamepad();
+  const inputRef = useRef(input);
+  inputRef.current = input;
+  useEffect(() => {
+    const root = ref.current;
+    if (!root) return;
+    root.dataset.focusMemory = key;
+    let restoring = true;
+    const remember = () => {
+      if (!restoring) focus.remember(root, key);
+    };
+    root.addEventListener('focusin', remember);
+    const frame = requestAnimationFrame(() => {
+      if (inputRef.current !== 'mouse') {
+        if (!focus.restoreScope(root, key)) focus.ensure();
+      }
+      restoring = false;
+      remember();
+    });
+    return () => {
+      cancelAnimationFrame(frame);
+      remember();
+      root.removeEventListener('focusin', remember);
+    };
+  }, [key]);
+  return ref;
 }
 
 /**

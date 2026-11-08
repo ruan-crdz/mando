@@ -17,6 +17,10 @@ import {
 } from './squadManagement';
 import { ageAt } from './random';
 import { assistantPayroll, salaryBudgets, setAssistantSalaryBudget, staffPayroll } from './staff';
+import { autoSelectSquad, bestLineup, available } from './matches';
+import { formations } from './types';
+import { overall } from './ratings';
+import { conditionFactor } from './fatigue';
 
 const world = createDemoWorld();
 const manager: Manager = {
@@ -30,6 +34,55 @@ const manager: Manager = {
 const start = () => createCareer(world, manager, 'sao-paulo', 'Amador', 'Realista', 42);
 
 describe('gestão do elenco', () => {
+  it('otimiza o conjunto dos titulares sem duplicatas nem goleiros na linha', () => {
+    const career = start();
+    for (const formation of Object.keys(formations) as (keyof typeof formations)[]) {
+      const roles = formations[formation];
+      const lineup = bestLineup(career, world, career.clubId, formation);
+      expect(lineup).toHaveLength(11);
+      expect(new Set(lineup).size).toBe(11);
+      const player = (id: string) => world.players.find((item) => item.id === id)!;
+      const score = (id: string, role: string) =>
+        (role === 'GK') !== (player(id).position === 'GK')
+          ? -1000000
+          : overall(player(id), role, career.players[id]) *
+            conditionFactor(career.players[id].fitness);
+      expect(player(lineup[0]).position).toBe('GK');
+      expect(lineup.slice(1).every((id) => player(id).position !== 'GK')).toBe(true);
+      for (let a = 0; a < 11; a++) {
+        for (let b = a + 1; b < 11; b++) {
+          const current = score(lineup[a], roles[a]) + score(lineup[b], roles[b]);
+          const swapped = score(lineup[b], roles[a]) + score(lineup[a], roles[b]);
+          expect(current + 0.001).toBeGreaterThanOrEqual(swapped);
+        }
+      }
+    }
+  });
+
+  it('monta banco disponível com goleiro e sem repetir titulares ou modificar a carreira original', () => {
+    const career = start();
+    const original = structuredClone(career);
+    const selected = autoSelectSquad(career, world);
+    expect(selected.bench).toHaveLength(9);
+    expect(selected.benchConfigured).toBe(true);
+    expect(new Set([...selected.lineup, ...selected.bench]).size).toBe(20);
+    expect(selected.bench.every((id) => available(selected, id))).toBe(true);
+    expect(
+      selected.bench.filter(
+        (id) => world.players.find((player) => player.id === id)?.position === 'GK',
+      ),
+    ).toHaveLength(1);
+    expect(career).toEqual(original);
+  });
+
+  it('não improvisa atleta de linha no gol quando nenhum goleiro está disponível', () => {
+    const career = start();
+    for (const player of world.players)
+      if (career.players[player.id]?.clubId === career.clubId && player.position === 'GK')
+        career.players[player.id].injuryDays = 3;
+    expect(bestLineup(career, world)).toEqual([]);
+  });
+
   it('preenche valores seguros ao carregar uma carreira antiga', () => {
     const career = start();
     const legacySave = Object.fromEntries(

@@ -2,6 +2,7 @@ import { type ReactNode, useEffect, useRef } from 'react';
 import { ArrowUpRight, ChevronLeft } from 'lucide-react';
 import { type Club, type Manager } from '../game/types';
 import { clubLogo } from '../game/realWorld';
+import { useControllerActions } from '../controller/GamepadProvider';
 
 export const money = (value: number, compact = true) =>
   new Intl.NumberFormat('pt-BR', {
@@ -104,16 +105,31 @@ export function Modal({
   onClose,
   wide = false,
   className = '',
+  controllerActions = {},
+  controllerLabels = {},
 }: {
   title: string;
   children: ReactNode;
   onClose: () => void;
   wide?: boolean;
   className?: string;
+  controllerActions?: Parameters<typeof useControllerActions>[0];
+  controllerLabels?: Parameters<typeof useControllerActions>[1];
 }) {
   const ref = useRef<HTMLElement>(null);
+  useControllerActions(controllerActions, controllerLabels, ref);
   useEffect(() => {
     const previous = document.activeElement as HTMLElement;
+    const origin = previous?.closest<HTMLElement>('[data-focus-memory]');
+    const identity = [
+      'data-focus-id',
+      'data-slot',
+      'data-reserve-player',
+      'data-role',
+      'aria-label',
+    ]
+      .map((attribute) => [attribute, previous?.getAttribute(attribute)])
+      .find(([, value]) => value);
     const root = ref.current;
     (
       root?.querySelector<HTMLElement>('[data-autofocus]') ||
@@ -124,6 +140,11 @@ export function Modal({
     )?.focus();
     return () => {
       if (previous?.isConnected) previous.focus();
+      else if (origin?.isConnected && identity) {
+        origin
+          .querySelector<HTMLElement>(`[${identity[0]}="${CSS.escape(identity[1]!)}"]`)
+          ?.focus();
+      }
     };
   }, []);
   return (

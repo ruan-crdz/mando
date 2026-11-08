@@ -11,6 +11,43 @@ const boxOf = (el: HTMLElement) =>
 
 export class FocusManager {
   private last: HTMLElement | null = null;
+  private memories = new Map<string, string>();
+
+  remember(root: HTMLElement, key: string) {
+    const current = document.activeElement as HTMLElement;
+    if (!root.contains(current)) return;
+    const elements = this.elements().filter((element) => root.contains(element));
+    const identity = this.identity(current);
+    if (identity) this.memories.set(key, identity);
+    else this.memories.set(key, `index:${elements.indexOf(current)}`);
+  }
+
+  private identity(element: HTMLElement) {
+    for (const name of [
+      'data-focus-id',
+      'data-slot',
+      'data-reserve-player',
+      'data-role',
+      'aria-label',
+      'id',
+    ]) {
+      const value = element.getAttribute(name);
+      if (value) return `${name}:${value}`;
+    }
+    return element.textContent?.trim() ? `text:${element.textContent.trim()}` : '';
+  }
+
+  restoreScope(root: HTMLElement, key: string) {
+    const identity = this.memories.get(key);
+    if (!identity) return false;
+    const elements = this.elements().filter((element) => root.contains(element));
+    const target = identity.startsWith('index:')
+      ? elements[Number(identity.slice(6))]
+      : elements.find((element) => this.identity(element) === identity);
+    target?.focus({ preventScroll: true });
+    target?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    return Boolean(target);
+  }
 
   elements(): HTMLElement[] {
     const dialogs = [...document.querySelectorAll<HTMLElement>('[data-focus-scope="modal"]')];
@@ -27,12 +64,15 @@ export class FocusManager {
 
   ensure() {
     const elements = this.elements();
-    if (!elements.includes(document.activeElement as HTMLElement))
+    if (!elements.includes(document.activeElement as HTMLElement)) {
+      const root = document.querySelector<HTMLElement>('[data-focus-memory]');
+      if (root && this.restoreScope(root, root.dataset.focusMemory!)) return;
       (
         elements.find((el) => el.dataset.autofocus !== undefined) ||
         elements.find((el) => el.closest('main')) ||
         elements[0]
       )?.focus();
+    }
   }
 
   move(dx: number, dy: number) {
@@ -88,11 +128,31 @@ export class FocusManager {
       .sort((a, b) => a.tier - b.tier || a.score - b.score);
     this.last = current;
     const next = candidates[0]?.el;
-    if (next) {
-      next.focus({ preventScroll: true });
-      next.scrollIntoView({
+    const direction = dx ? (dx > 0 ? 'right' : 'left') : dy > 0 ? 'down' : 'up';
+    const ownRegion = current.closest<HTMLElement>('[data-focus-region]');
+    const route = ownRegion?.getAttribute(`data-focus-${direction}`);
+    const localAligned = candidates.find(
+      (candidate) =>
+        regionOf(candidate.el) === region && lineUp(candidate.el.getBoundingClientRect()),
+    );
+    const targetRegion =
+      route &&
+      elements
+        .find(
+          (element) =>
+            element.closest<HTMLElement>('[data-focus-region]')?.dataset.focusRegion === route,
+        )
+        ?.closest<HTMLElement>('[data-focus-region]');
+    const target =
+      !localAligned && targetRegion
+        ? candidates.find((candidate) => targetRegion.contains(candidate.el))?.el ||
+          elements.find((element) => targetRegion.contains(element))
+        : next;
+    if (target) {
+      target.focus({ preventScroll: true });
+      target.scrollIntoView({
         block: 'nearest',
-        inline: next.closest('.carousel') ? 'center' : 'nearest',
+        inline: target.closest('.carousel') ? 'center' : 'nearest',
         behavior: 'smooth',
       });
     }

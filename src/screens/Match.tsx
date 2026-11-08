@@ -34,7 +34,11 @@ import { FinalIntro } from '../components/FinalIntro';
 import { matchKits } from '../game/kits';
 import { byPosition, PlayerCard, PlayerPicker, roleFits } from '../components/PlayerCard';
 import { PlayerFace } from '../components/PlayerFace';
-import { useGamepad } from '../controller/GamepadProvider';
+import {
+  useControllerActions,
+  useControllerFocus,
+  useGamepad,
+} from '../controller/GamepadProvider';
 import { ControllerButtonHint } from '../controller/ControllerButtonHint';
 import { crowdGoal, setCrowdPlaying } from '../audio/sound';
 
@@ -71,10 +75,13 @@ export function MatchScreen({
   const [assistantSuggestion, setAssistantSuggestion] =
     useState<AssistantSubstitutionSuggestion | null>(null);
   const { rumble } = useGamepad();
+  const controllerRoot = useControllerFocus('match');
   const latest = useRef(c);
   const finishButton = useRef<HTMLButtonElement>(null);
-  const ignoredAssistantSuggestions = useRef(new Set<string>());
-  const resumeAfterAssistantSuggestion = useRef(false);
+  const ignoredAssistantSuggestions = useRef(
+    new Map<string, { minute: number; contextKey: string }>(),
+  );
+  const lastAssistantDecision = useRef(-10);
   latest.current = c;
   const match = c.activeMatch!;
   const scoreRef = useRef({ home: match.homeGoals, away: match.awayGoals, minute: match.minute });
@@ -142,25 +149,96 @@ export function MatchScreen({
   const isLive = playing && !sub && !tactic && !shout && !paused && match.minute < 90;
   useEffect(() => {
     if (!isLive || assistantSuggestion) return;
-    const suggestion = assistantSubstitutionSuggestion(
-      c,
-      world,
-      ignoredAssistantSuggestions.current,
-    );
+    const ignored = new Set<string>();
+    const reconsider = assistantSubstitutionSuggestion(c, world);
+    for (const [id, decision] of ignoredAssistantSuggestions.current) {
+      if (
+        (!match.injured.includes(id) && match.minute - decision.minute < 8) ||
+        (reconsider?.outgoing === id && reconsider.contextKey === decision.contextKey)
+      )
+        ignored.add(id);
+    }
+    const suggestion = assistantSubstitutionSuggestion(c, world, ignored);
     if (!suggestion) return;
-    resumeAfterAssistantSuggestion.current = true;
-    setPlaying(false);
+    if (
+      !match.injured.includes(suggestion.outgoing) &&
+      match.minute - lastAssistantDecision.current < 8
+    )
+      return;
     setAssistantSuggestion(suggestion);
-  }, [isLive, assistantSuggestion, c, world]);
+  }, [isLive, assistantSuggestion, c, world, match]);
+  useEffect(() => {
+    if (
+      assistantSuggestion &&
+      (match.minute >= 90 ||
+        match.usedSubs >= 5 ||
+        !ownLineup.includes(assistantSuggestion.outgoing) ||
+        match.dismissed.includes(assistantSuggestion.outgoing) ||
+        !bench.some((player) => player.id === assistantSuggestion.incoming))
+    )
+      setAssistantSuggestion(null);
+  }, [assistantSuggestion, match, ownLineup, bench]);
   const decideAssistantSuggestion = (accept: boolean) => {
     const suggestion = assistantSuggestion;
     if (!suggestion) return;
-    ignoredAssistantSuggestions.current.add(suggestion.outgoing);
+    ignoredAssistantSuggestions.current.set(suggestion.outgoing, {
+      minute: match.minute,
+      contextKey: suggestion.contextKey,
+    });
+    lastAssistantDecision.current = match.minute;
     if (accept) onSubstitute(suggestion.outgoing, suggestion.incoming);
     setAssistantSuggestion(null);
-    if (resumeAfterAssistantSuggestion.current && match.minute < 90) setPlaying(true);
-    resumeAfterAssistantSuggestion.current = false;
   };
+  useControllerActions(
+    {
+      secondary: () => {
+        if (intro) return;
+        if (assistantSuggestion) decideAssistantSuggestion(true);
+        else if (match.minute === 90) onFinish();
+        else setPlaying((value) => !value);
+      },
+      ...(match.minute < 90
+        ? {
+            info: () => {
+              if (intro || match.minute === 90) return;
+              if (assistantSuggestion) decideAssistantSuggestion(false);
+              else {
+                setPlaying(false);
+                setSub(true);
+              }
+            },
+            previousView: () => {
+              if (!intro && match.minute < 90) {
+                setPlaying(false);
+                setTactic(true);
+              }
+            },
+          }
+        : {}),
+      ...(match.minute < 90
+        ? {
+            nextView: () => {
+              if (!intro) setSpeed((value) => (value === 1 ? 2 : value === 2 ? 4 : 1));
+            },
+          }
+        : {}),
+      previousTab: () => {},
+      nextTab: () => {},
+    },
+    {
+      secondary: assistantSuggestion
+        ? 'Aceitar troca do auxiliar'
+        : match.minute === 90
+          ? 'Confirmar resultado'
+          : playing
+            ? 'Pausar partida'
+            : 'Jogar',
+      info: assistantSuggestion ? 'Recusar sugestão' : 'Substituições',
+      previousView: 'Tática',
+      nextView: `Velocidade: ${speed}×`,
+    },
+    controllerRoot,
+  );
   useEffect(() => {
     setCrowdPlaying(isLive);
     return () => setCrowdPlaying(false);
@@ -214,7 +292,7 @@ export function MatchScreen({
     return () => clearInterval(timer);
   }, [playing, speed, sub, tactic, shout, paused, world, onChange, onError]);
   return (
-    <div className="screen match-screen">
+    <div ref={controllerRoot} className="screen match-screen">
       {intro && (
         <FinalIntro
           competition={label.name}
@@ -236,11 +314,12 @@ export function MatchScreen({
         />
       )}
       {assistantSuggestion && (
-        <Modal
-          title="Sugestão do auxiliar técnico"
-          onClose={() => decideAssistantSuggestion(false)}
-          className="assistant-substitution-modal"
+        <section
+          className="panel assistant-substitution-modal"
+          aria-label="Sugestão do auxiliar"
+          role="status"
         >
+          <strong>Auxiliar técnico · sugestão de substituição</strong>
           <p>
             Aos {match.minute}', o auxiliar recomenda tirar{' '}
             <strong>{findPlayer(world, assistantSuggestion.outgoing)?.name}</strong> e colocar{' '}
@@ -252,25 +331,20 @@ export function MatchScreen({
             {assistantSuggestion.detail}
           </p>
           <div className="match-assistant-actions">
-            <button
-              className="primary"
-              data-controller-secondary
-              data-autofocus=""
-              onClick={() => decideAssistantSuggestion(true)}
-            >
+            <button className="primary" onClick={() => decideAssistantSuggestion(true)}>
               <Check size={17} /> Aceitar
               <span aria-hidden="true">
                 <ControllerButtonHint action="secondary" label="" />
               </span>
             </button>
-            <button data-controller-info onClick={() => decideAssistantSuggestion(false)}>
+            <button onClick={() => decideAssistantSuggestion(false)}>
               <X size={17} /> Recusar
               <span aria-hidden="true">
                 <ControllerButtonHint action="info" label="" />
               </span>
             </button>
           </div>
-        </Modal>
+        </section>
       )}
       <div className="match-strip">
         <span>
@@ -348,7 +422,6 @@ export function MatchScreen({
           <div className="match-controls">
             <button
               className="primary"
-              data-controller-secondary
               disabled={match.minute === 90}
               onClick={() => setPlaying(!playing)}
             >
@@ -370,7 +443,6 @@ export function MatchScreen({
             ))}
             <button
               disabled={match.minute === 90}
-              data-controller-info
               onClick={() => {
                 setPlaying(false);
                 setSub(true);
@@ -405,7 +477,6 @@ export function MatchScreen({
               ref={finishButton}
               className="primary finish-match"
               data-autofocus=""
-              data-controller-secondary
               onClick={onFinish}
             >
               <Check size={18} /> Confirmar resultado e voltar à central
@@ -551,11 +622,23 @@ export function MatchScreen({
                 : 'Quem sai?'
           }
           onClose={() => {
+            if (outgoing || incoming) {
+              setOut('');
+              setIn('');
+              return;
+            }
             setSub(false);
             setOut('');
             setIn('');
           }}
           className="match-subs-modal"
+          controllerActions={{
+            previousView: () => {
+              setSub(false);
+              setTactic(true);
+            },
+          }}
+          controllerLabels={{ previousView: 'Abrir tática' }}
           wide
         >
           <p className="muted">
@@ -673,6 +756,14 @@ export function MatchScreen({
           title="Ajustar o plano de jogo"
           onClose={() => setTactic(false)}
           className="match-tactic-modal"
+          controllerActions={{
+            secondary: () => setTactic(false),
+            nextView: () => {
+              setTactic(false);
+              setSub(true);
+            },
+          }}
+          controllerLabels={{ secondary: 'Concluir ajustes', nextView: 'Substituições' }}
           wide
         >
           <p className="muted">As mudanças afetam os próximos minutos. O jogo permanece pausado.</p>

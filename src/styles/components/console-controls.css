@@ -1,4 +1,23 @@
 /* ---------- Controles de console (substituem select/number) ---------- */
+.context-controller-hints {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+}
+.context-controller-hints kbd,
+.controller-help kbd {
+  display: inline-block;
+  padding: 2px 7px;
+  margin-right: 5px;
+  border-radius: 4px;
+  background: var(--ink);
+  color: #fff;
+}
+.controller-help .dialog-body {
+  overflow-y: auto;
+  max-height: 65vh;
+}
 .control-label {
   display: flex;
   align-items: center;

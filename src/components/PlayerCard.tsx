@@ -70,6 +70,7 @@ export function PlayerCard({
       onClick={onClick}
       disabled={disabled}
       data-player={player.id}
+      data-focus-id={player.id}
       data-autofocus={autoFocus ? '' : undefined}
       aria-label={`${player.name}, ${player.position}${role && role !== player.position ? `, na função ${role}` : ''}, overall ${ovr}${status ? `, ${status}` : ''}${accessibilityNote ? `, ${accessibilityNote}` : ''}`}
     >

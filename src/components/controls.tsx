@@ -1,13 +1,18 @@
 import { useState, type ReactNode } from 'react';
 import { ChevronLeft, ChevronRight, Minus, Plus } from 'lucide-react';
 import { ControllerButtonHint } from '../controller/ControllerButtonHint';
-import { useCancelEdit, useStepper, useToggleEdit } from '../controller/GamepadProvider';
+import {
+  useCancelEdit,
+  useGamepad,
+  useStepper,
+  useToggleEdit,
+} from '../controller/GamepadProvider';
 
 export type Option<T extends string> = { value: T; label: string };
 
 /**
  * Substitui o `<select>`. Navegar passa por ele sem alterar nada;
- * A (✕) entra no modo edição, ←/→ trocam a opção e A (✕) ou B saem.
+ * A (✕) edita e confirma; B descarta o rascunho.
  */
 export function OptionCycler<T extends string>({
   label,
@@ -22,14 +27,24 @@ export function OptionCycler<T extends string>({
   onChange: (value: T) => void;
   className?: string;
 }) {
+  const { helpOpen } = useGamepad();
   const index = Math.max(
     0,
     options.findIndex((o) => o.value === value),
   );
-  const step = (dir: number) =>
-    onChange(options[(index + dir + options.length) % options.length].value);
-  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState<number | null>(null);
+  const editing = draft !== null;
+  const shown = draft ?? index;
+  const step = (dir: number) => {
+    const next = (((shown + dir) % options.length) + options.length) % options.length;
+    if (editing) setDraft(next);
+    else onChange(options[next].value);
+  };
   const ref = useStepper<HTMLButtonElement>(step);
+  useCancelEdit(ref, () => {
+    setDraft(null);
+    return true;
+  });
   return (
     <div className={`option-cycler ${editing ? 'editing' : ''} ${className}`}>
       {label && <span className="control-label">{label}</span>}
@@ -39,9 +54,17 @@ export function OptionCycler<T extends string>({
         data-stepper={editing ? '' : undefined}
         data-toggle-edit=""
         aria-pressed={editing}
-        aria-label={`${label ? `${label}: ` : ''}${options[index]?.label}. ${editing ? 'Esquerda e direita trocam, confirme para sair' : 'Confirme para editar'}`}
-        onClick={() => setEditing((e) => !e)}
-        onBlur={() => setEditing(false)}
+        aria-label={`${label ? `${label}: ` : ''}${options[shown]?.label}. ${editing ? 'Esquerda e direita trocam, confirmar salva, voltar cancela' : 'Confirme para editar'}`}
+        onClick={() => {
+          if (!editing) setDraft(index);
+          else {
+            onChange(options[shown].value);
+            setDraft(null);
+          }
+        }}
+        onBlur={() => {
+          if (!helpOpen) setDraft(null);
+        }}
       >
         <ChevronLeft
           size={18}
@@ -51,10 +74,10 @@ export function OptionCycler<T extends string>({
             step(-1);
           }}
         />
-        <span className="cycler-value">{options[index]?.label}</span>
+        <span className="cycler-value">{options[shown]?.label}</span>
         <span className="cycler-dots" aria-hidden="true">
           {options.length <= 12 &&
-            options.map((o) => <i key={o.value} className={o.value === value ? 'on' : ''} />)}
+            options.map((o, i) => <i key={o.value} className={i === shown ? 'on' : ''} />)}
         </span>
         <ChevronRight
           size={18}
@@ -72,7 +95,7 @@ export function OptionCycler<T extends string>({
 /**
  * Slider de 1 a N para o controle: navegar passa por ele sem alterar nada.
  * A (✕) entra no modo edição, ←/→ ajustam o valor e A (✕) de novo encerra.
- * As alterações são aplicadas imediatamente.
+ * B descarta o rascunho sem alterar o plano.
  */
 export function TacticSlider({
   label,
@@ -87,10 +110,16 @@ export function TacticSlider({
   max?: number;
   onChange: (value: number) => void;
 }) {
-  const [editing, setEditing] = useState(false);
+  const { helpOpen } = useGamepad();
+  const [draft, setDraft] = useState<number | null>(null);
+  const editing = draft !== null;
+  const shown = draft ?? value;
   const ref = useStepper<HTMLButtonElement>((dir) => {
-    const next = Math.max(min, Math.min(max, value + dir));
-    if (next !== value) onChange(next);
+    setDraft(Math.max(min, Math.min(max, shown + dir)));
+  });
+  useCancelEdit(ref, () => {
+    setDraft(null);
+    return true;
   });
   const steps = Array.from({ length: max - min + 1 }, (_, i) => min + i);
   return (
@@ -101,15 +130,23 @@ export function TacticSlider({
       data-stepper={editing ? '' : undefined}
       data-toggle-edit=""
       aria-pressed={editing}
-      aria-label={`${label}: ${value} de ${max}. ${editing ? 'Esquerda e direita ajustam, confirme para sair da edição' : 'Confirme para editar'}`}
-      onClick={() => setEditing((e) => !e)}
-      onBlur={() => setEditing(false)}
+      aria-label={`${label}: ${shown} de ${max}. ${editing ? 'Esquerda e direita ajustam, confirmar salva, voltar cancela' : 'Confirme para editar'}`}
+      onClick={() => {
+        if (!editing) setDraft(value);
+        else {
+          onChange(shown);
+          setDraft(null);
+        }
+      }}
+      onBlur={() => {
+        if (!helpOpen) setDraft(null);
+      }}
     >
       <span className="ts-head">
         <span className="ts-label">{label}</span>
         <span className="ts-value">
           {editing && <ChevronLeft size={16} />}
-          {value} / {max}
+          {shown} / {max}
           {editing && <ChevronRight size={16} />}
         </span>
       </span>
@@ -117,11 +154,10 @@ export function TacticSlider({
         {steps.map((s) => (
           <i
             key={s}
-            className={s <= value ? 'on' : ''}
+            className={s <= shown ? 'on' : ''}
             onClick={(e) => {
               e.stopPropagation();
-              if (editing) onChange(s);
-              else setEditing(true);
+              setDraft(s);
             }}
           />
         ))}
@@ -130,7 +166,7 @@ export function TacticSlider({
         {editing ? (
           <>
             ← → ajustar · <ControllerButtonHint action="confirm" label="Concluir" /> ·{' '}
-            <ControllerButtonHint action="back" label="Sair" />
+            <ControllerButtonHint action="back" label="Cancelar" />
           </>
         ) : (
           <ControllerButtonHint action="confirm" label="Editar" />
@@ -178,8 +214,8 @@ export const niceStep = (value: number) =>
   Math.max(1, 10 ** Math.max(0, Math.floor(Math.log10(Math.max(1, Math.abs(value)))) - 1));
 
 /**
- * Campo numérico para controle: A abre o teclado numérico; □ entra no modo
- * ajuste (←/→ mudam o valor) e □ ou B saem. Fora do modo, as setas navegam.
+ * A edita/confirma, B cancela; Y abre o teclado numérico durante a edição.
+ * Setas ajustam; L1/R1 ou LB/RB multiplicam o passo por dez.
  * Nunca exibe zeros à esquerda ("0123") e aceita apagar tudo.
  */
 export function NumberStepper({
@@ -204,16 +240,33 @@ export function NumberStepper({
   /** Quando verdadeiro, o campo vazio significa "sem filtro" (null). */
   optional?: boolean;
 }) {
+  const { helpOpen } = useGamepad();
   const [draft, setDraft] = useState<string | null>(null);
   const clampValue = (n: number) => Math.min(max, Math.max(min, Math.round(n)));
   const bump = (dir: number) => {
-    setDraft(null);
-    const base = value ?? (dir > 0 ? min : max === Number.MAX_SAFE_INTEGER ? min : max);
-    onChange(clampValue(value === null ? base : base + dir * (step ?? niceStep(base))));
+    const base = draft !== null && draft !== '' ? Number(draft) : (value ?? min);
+    const next = clampValue(base + dir * (step ?? niceStep(base)));
+    if (editing) setDraft(String(next));
+    else onChange(next);
   };
   const [editing, setEditing] = useState(false);
   const ref = useStepper<HTMLInputElement>(bump);
-  useToggleEdit(ref, () => setEditing((e) => !e));
+  const confirm = () => {
+    if (editing) {
+      onChange(!draft && optional ? null : clampValue(Number(draft ?? value ?? min)));
+      setDraft(null);
+      setEditing(false);
+    } else {
+      setDraft(value === null ? '' : String(value));
+      setEditing(true);
+    }
+  };
+  useToggleEdit(ref, confirm);
+  useCancelEdit(ref, () => {
+    setDraft(null);
+    setEditing(false);
+    return true;
+  });
   const shown = draft ?? (value === null ? '' : String(value));
   return (
     <div className={`number-stepper ${editing ? 'editing' : ''}`}>
@@ -228,6 +281,7 @@ export function NumberStepper({
           inputMode="numeric"
           data-stepper={editing ? '' : undefined}
           data-toggle-edit=""
+          data-keyboard-option=""
           aria-pressed={editing}
           aria-label={label}
           placeholder={placeholder ?? (optional ? 'Qualquer' : String(min))}
@@ -235,10 +289,13 @@ export function NumberStepper({
           onChange={(e) => {
             const digits = e.target.value.replace(/\D/g, '').replace(/^0+(?=\d)/, '');
             setDraft(digits);
-            if (!digits) onChange(optional ? null : clampValue(min));
-            else onChange(Math.min(max, Number(digits)));
+            if (!editing) {
+              if (!digits) onChange(optional ? null : clampValue(min));
+              else onChange(Math.min(max, Number(digits)));
+            }
           }}
           onBlur={() => {
+            if (helpOpen) return;
             setEditing(false);
             setDraft(null);
             if (value !== null && value < min) onChange(min);
@@ -248,8 +305,12 @@ export function NumberStepper({
           <Plus size={15} />
         </button>
       </div>
-      {format && value !== null && <small className="stepper-format">{format(value)}</small>}
-      {editing && <small className="stepper-hint">← → ajustar · □/B sair</small>}
+      {format && shown !== '' && <small className="stepper-format">{format(Number(shown))}</small>}
+      <small className="stepper-hint">
+        {editing
+          ? '← → ajustar · L1/R1 ou LB/RB ×10 · confirmar salva · voltar cancela · △/Y digitar'
+          : 'Confirmar para ajustar ou digitar'}
+      </small>
     </div>
   );
 }
@@ -267,6 +328,7 @@ export function ShirtNumberDial({
   onSave: (value: number) => void;
   conflict?: (value: number) => string | undefined;
 }) {
+  const { helpOpen } = useGamepad();
   const [draft, setDraft] = useState<number | null>(null);
   const editing = draft !== null;
   const ref = useStepper<HTMLButtonElement>((dir) =>
@@ -294,7 +356,9 @@ export function ShirtNumberDial({
             setDraft(null);
           }
         }}
-        onBlur={() => setDraft(null)}
+        onBlur={() => {
+          if (!helpOpen) setDraft(null);
+        }}
         onKeyDown={(e) => {
           if (e.key === 'Escape' && editing) {
             e.stopPropagation();

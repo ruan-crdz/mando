@@ -94,18 +94,20 @@ Todos passam por `act()`: qualquer `throw` vira **toast vermelho** com a mensage
 
 | Ação | Xbox | PS5 | Teclado | Efeito |
 |---|---|---|---|---|
-| confirm | A | ✕ | Enter / clique | Ativa o elemento focado; em campo de texto/numérico abre o **teclado virtual** |
+| confirm | A | ✕ | Enter / clique | Ativa o foco; campos numéricos entram em edição e confirmam, campos de texto abrem teclado |
 | back | B | ○ | Esc | Sai do modo edição → fecha modal (`[data-dialog-close]`) → sai da conversa (`[data-trap-exit]`) → senão abre a pausa |
-| secondary | X | □ | — | Em `NumberStepper`/`OptionCycler`: liga/desliga modo ajuste. **Fora deles: "Avançar dia"** |
-| info | Y | △ | — | Vai para a área NOTIFICAÇÕES |
+| secondary | X | □ | X | Negocia atleta focado; entra na conversa; revisa proposta/aceite na janela correspondente |
+| info | Y | △ | Y | Observa/deixa de observar o atleta; contrapropõe na conversa; volta para editar na revisão |
 | previousTab / nextTab | LB / RB | L1 / R1 | `[` / `]` | Aba principal anterior/seguinte |
-| previousView / nextView | LT / RT | L2 / R2 | `q` / `e` | Cicla **Mercado ↔ Observados ↔ Negociações** (primeiro `.segmented` do `main`; dentro do modal não faz nada) |
+| previousView / nextView | LT / RT | L2 / R2 | `q` / `e` | Alterna Mercado, Observados, Negociações e Contas. Na mesa, escolhe acordo com o clube/contrato do jogador |
 | menu | ☰ | Options | — | Pausa |
 | D-pad / analógico esq. | | | setas | Foco espacial (`FocusManager.move`) ou ←/→ ajusta o controle em modo edição |
 | analógico dir. vertical | | | — | Rola a área rolável mais próxima do foco |
 | analógico dir. horizontal | | | `,` / `.` | Rola carrosséis horizontalmente (não usado aqui) |
 
-Dicas fixas no rodapé do App: `A Selecionar · B Voltar · X Avançar dia · RT Sub-menu · ☰ Pausa` (ícones conforme controle).
+O rodapé mostra os comandos do contexto atual, com os mesmos registros usados pelo despacho. R3/RS abre o mapa. Conversas e janelas bloqueiam ações do fundo.
+
+Valores numéricos seguem A para editar/confirmar e B para cancelar. Setas usam o passo normal; L1/R1 ou LB/RB multiplica por dez; Y/△ abre teclado numérico durante a edição. Envio e aceite passam por revisão com valores completos antes de confirmar.
 
 ---
 
@@ -665,7 +667,7 @@ CLUBE                                   POSSÍVEL
 
 ### Interações
 - Mouse: −/+/digitação, chips, botões.
-- Controle: D-pad entre controles; taxa → **A** teclado numérico / **□** modo ajuste (←/→); chips + **A**; "Incluir atleta" + **A** abre o seletor; abas de etapa com **A**.
+- Controle: D-pad entre controles; taxa → **A** edita/confirma, **B** cancela, ←/→ ajusta, LB/RB ou L1/R1 usa passo ×10 e **Y/△** abre teclado; chips + **A**; "Incluir atleta" + **A** abre o seletor. LT/RT ou L2/R2 escolhe a etapa; X/□ revisa a proposta antes de enviar.
 
 ### Classes CSS e visual atual
 `.deal-table` (painel com textura de linhas ciano e borda ciano 35%, raio 6), `.deal-steps`/`> button(.active)`/`span`, `.deal-step` (coluna gap 12; `> .primary` à direita no fim), `.call-bubble`, `.quick-chips > button` (5×10, 13px), `.exchange-slot`, `.likelihood`, `.likelihood-bar i(.on)`, `.likelihood.good/.mid/.bad`.

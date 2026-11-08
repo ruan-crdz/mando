@@ -24,7 +24,11 @@ import {
 import { cupGroups, cupTies } from '../game/competitions';
 import { clubById } from '../game/npc';
 import { type Career, type Fixture, type TableRow, type World } from '../game/types';
-import { useGamepad, useStickX } from '../controller/GamepadProvider';
+import {
+  useControllerActions,
+  useControllerFocus,
+  useGamepad,
+} from '../controller/GamepadProvider';
 
 function StandingsTable({
   rows,
@@ -137,6 +141,7 @@ export function Season({
   const { input, hints } = useGamepad();
   const [comp, setComp] = useState<string>(c.leagues[c.clubId] || club.league);
   const [view, setView] = useState<SeasonView>(initialView || 'table');
+  const controllerRoot = useControllerFocus(`season:${view}`);
   const [month, setMonth] = useState(c.date.slice(0, 7));
   const [day, setDay] = useState(c.date);
   const [simTarget, setSimTarget] = useState<string | null>(null);
@@ -153,34 +158,19 @@ export function Season({
     setMonth(next);
     setDay(`${next}-01`);
   };
-  useStickX((dir) => {
-    if (view === 'calendar') {
-      cycleMonth(dir);
-      return;
-    }
-    if (view === 'table') {
-      cycleComp(dir);
-      return;
-    }
-    const selector = view === 'stats' ? '.stats-grid' : '.legacy-layout';
-    const viewTarget = document.querySelector<HTMLElement>(`.season-screen ${selector}`);
-    const target =
-      viewTarget &&
-      (view === 'legacy'
-        ? viewTarget.scrollHeight > viewTarget.clientHeight
-        : view === 'stats' && window.innerWidth <= 700
-          ? viewTarget.scrollHeight > viewTarget.clientHeight
-          : viewTarget.scrollWidth > viewTarget.clientWidth)
-        ? viewTarget
-        : document.querySelector<HTMLElement>('main.stage');
-    if (!target) return;
-    const vertical = view === 'legacy' || (view === 'stats' && window.innerWidth <= 700);
-    target.scrollBy(
-      vertical
-        ? { top: dir * target.clientHeight * 0.6, behavior: 'smooth' }
-        : { left: dir * target.clientWidth * 0.6, behavior: 'smooth' },
-    );
-  });
+  useControllerActions(
+    view === 'calendar' || view === 'table'
+      ? {
+          secondary: () => (view === 'calendar' ? cycleMonth(-1) : cycleComp(-1)),
+          info: () => (view === 'calendar' ? cycleMonth(1) : cycleComp(1)),
+        }
+      : {},
+    {
+      secondary: view === 'calendar' ? 'Mês anterior' : 'Competição anterior',
+      info: view === 'calendar' ? 'Próximo mês' : 'Próxima competição',
+    },
+    controllerRoot,
+  );
   const pad = input === 'xbox' || input === 'playstation';
   const isLeague = comp === 'A' || comp === 'B';
   const statsLeague = isLeague ? (comp as 'A' | 'B') : club.league;
@@ -205,7 +195,7 @@ export function Season({
   const stages = [...new Set(ties.map((t) => t.stage))];
   const switcher = (label: string, onPrev: () => void, onNext: () => void, dots?: string[]) => (
     <div className="stick-switcher" aria-live="polite">
-      <button type="button" tabIndex={-1} aria-label="Anterior" onClick={onPrev}>
+      <button type="button" aria-label="Anterior" onClick={onPrev}>
         <ChevronLeft size={20} />
       </button>
       <div>
@@ -218,10 +208,19 @@ export function Season({
           </span>
         )}
       </div>
-      <button type="button" tabIndex={-1} aria-label="Próximo" onClick={onNext}>
+      <button type="button" aria-label="Próximo" onClick={onNext}>
         <ChevronRight size={20} />
       </button>
-      <small>{pad ? <kbd>{hints.stick}</kbd> : ', .'} ◄ ► trocar</small>
+      <small>
+        {pad ? (
+          <>
+            <kbd>{hints.secondary}</kbd> / <kbd>{hints.info}</kbd>
+          </>
+        ) : (
+          'Anterior / Próximo'
+        )}{' '}
+        · trocar
+      </small>
     </div>
   );
 
@@ -241,7 +240,7 @@ export function Season({
   );
 
   return (
-    <div className="screen-enter season-screen">
+    <div ref={controllerRoot} className="screen-enter season-screen">
       {!embedded && (
         <SectionTitle
           kicker={`${officeMode ? 'ESCRITÓRIO / DADOS DA TEMPORADA' : 'TEMPORADA'} / ${c.season}`}
@@ -255,7 +254,12 @@ export function Season({
         </SectionTitle>
       )}
       {!embedded && (
-        <div className="segmented" role="group" aria-label="Áreas da Temporada">
+        <div
+          className="segmented"
+          data-controller-tabs=""
+          role="group"
+          aria-label="Áreas da Temporada"
+        >
           {(
             [
               ['table', isLeague ? 'Classificação' : 'Chaves e grupos', Trophy],

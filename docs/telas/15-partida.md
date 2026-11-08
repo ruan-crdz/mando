@@ -31,7 +31,7 @@ Partida 2D jogável da carreira, aberta a partir do popup Dia de jogo. O manager
 ### Ações do manager
 
 - **Substituir:** escolhe um titular para sair e um reserva disponível para entrar. Respeita limite de cinco substituições, disponibilidade e posição de goleiro.
-- **Sugestão do auxiliar:** durante o jogo, recomenda uma troca quando detecta lesão, desgaste elevado, nota baixa ou risco de expulsão por cartão. A partida pausa; □/X aceita e Y/△ recusa. A decisão é sempre do manager.
+- **Sugestão do auxiliar:** recomenda trocas por lesão, condição/desgaste real, nota baixa, cartão ou necessidade do placar. Considera encaixe, ganho de rendimento e trocas restantes; preserva a última troca até 75' salvo lesão. Um card não modal aparece sem interromper o relógio: □/X aceita e Y/△ recusa. A decisão é sempre do manager. Há intervalo de oito minutos entre decisões ordinárias; uma recusa só é reconsiderada com mudança de contexto, e lesões novas podem furar o intervalo.
 - **Tática:** pausa a partida e permite alterar formação, mentalidade, pressão, ritmo, linha defensiva, largura e capitão.
 - **Instruções da beira do campo:** oferece comandos táticos com duração e intervalo mínimo entre instruções. A ação fica indisponível durante o intervalo de espera.
 
@@ -49,7 +49,7 @@ Partida 2D jogável da carreira, aberta a partir do popup Dia de jogo. O manager
 ## Controles e estados
 
 - Mouse/toque e controle podem acionar os botões visíveis; a navegação por controle mantém foco e dicas contextuais.
-- Jogar é interrompido ao chegar ao intervalo, ao fim do tempo, ao abrir substituição/tática/instruções ou ao surgir uma recomendação do auxiliar; essa pausa automática é retomada após aceitar ou recusar. Também para quando o app está pausado.
+- Jogar é interrompido no intervalo, no fim ou ao abrir substituição/tática/instruções. Sugestões não pausam o jogo nem prendem o foco. A pausa da aplicação também suspende o relógio.
 - A pausa da aplicação suspende o avanço do relógio.
 - A forma visual do campo não deve ser apresentada como uma simulação de movimento tático com precisão de coordenadas.
 
@@ -67,5 +67,7 @@ O objeto da partida guarda seed, minuto, placar, estatísticas, eventos, escala�
 - `src/game/matchRatings.ts` — notas e Craque do jogo.
 - Preservar avanço reproduzível, regras de substituição, pausa nos controles e registro correto do resultado antes de voltar à Central.
 - X/□ inicia/pausa/retoma o jogo e confirma o resultado; Y/△ abre substituições.
+- L2/LT abre tática; R2/RT alterna 1×, 2× e 4×. Com sugestão visível, X/□ aceita e Y/△ recusa; os botões de jogar/substituir continuam disponíveis por confirmação.
+- B na escolha de substituto volta à escolha de quem sai antes de fechar a janela. Na tática, X/□ conclui os ajustes e RT/R2 abre as substituições.
 - Torcida sintetizada acompanha a partida e reage aos gols; música de menu é silenciada.
 - Não reintroduzir coletivas, VAR, clima/gramado ou diálogos aleatórios na partida.

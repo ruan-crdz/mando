@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { ControllerButtonHint } from '../controller/ControllerButtonHint';
-import { useStepper } from '../controller/GamepadProvider';
+import { useCancelEdit, useGamepad, useStepper } from '../controller/GamepadProvider';
 
 function BirthDatePart({
   label,
@@ -15,12 +15,20 @@ function BirthDatePart({
   max: number;
   onChange: (value: number) => void;
 }) {
-  const [editing, setEditing] = useState(false);
+  const { helpOpen } = useGamepad();
+  const [draft, setDraft] = useState<number | null>(null);
+  const editing = draft !== null;
+  const shown = draft ?? value;
   const step = (direction: number) => {
-    const next = Math.max(min, Math.min(max, value + direction));
-    if (next !== value) onChange(next);
+    const next = Math.max(min, Math.min(max, shown + direction));
+    if (editing) setDraft(next);
+    else if (next !== value) onChange(next);
   };
   const ref = useStepper<HTMLButtonElement>(step);
+  useCancelEdit(ref, () => {
+    setDraft(null);
+    return true;
+  });
   return (
     <div className={`manager-date-part ${editing ? 'editing' : ''}`}>
       <span className="control-label">{label}</span>
@@ -30,13 +38,19 @@ function BirthDatePart({
         data-stepper={editing ? '' : undefined}
         data-toggle-edit=""
         aria-pressed={editing}
-        aria-label={`${label}: ${value}. ${
-          editing
-            ? 'Esquerda e direita alteram, confirme para concluir'
-            : 'Confirme para alterar'
+        aria-label={`${label}: ${shown}. ${
+          editing ? 'Esquerda e direita alteram, confirme para concluir' : 'Confirme para alterar'
         }`}
-        onClick={() => setEditing((current) => !current)}
-        onBlur={() => setEditing(false)}
+        onClick={() => {
+          if (!editing) setDraft(value);
+          else {
+            onChange(shown);
+            setDraft(null);
+          }
+        }}
+        onBlur={() => {
+          if (!helpOpen) setDraft(null);
+        }}
       >
         <span
           aria-hidden="true"
@@ -47,7 +61,7 @@ function BirthDatePart({
         >
           ‹
         </span>
-        <strong>{String(value).padStart(2, '0')}</strong>
+        <strong>{String(shown).padStart(2, '0')}</strong>
         <span
           aria-hidden="true"
           onClick={(event) => {
@@ -60,7 +74,7 @@ function BirthDatePart({
       </button>
       <small>
         {editing ? (
-          '← → alterar · confirmar concluir'
+          '← → alterar · confirmar salva · voltar cancela'
         ) : (
           <ControllerButtonHint action="confirm" label="Alterar" />
         )}

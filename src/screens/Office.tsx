@@ -36,6 +36,7 @@ import { overall } from '../game/ratings';
 import { PortraitCamera } from '../components/PortraitCamera';
 import { TrophyArt } from '../components/TrophyArt';
 import { dateLabel, ManagerPortrait, Metric, Modal, money, SectionTitle } from '../components/ui';
+import { useControllerActions, useControllerFocus } from '../controller/GamepadProvider';
 
 const scoutRegions = ['Brasil', 'América do Sul', 'Europa'] as const;
 
@@ -112,6 +113,8 @@ export function Office({
     area === 'academy' ? 'scouts' : area === 'office' ? (initialSeasonView ?? 'board') : 'inbox',
   );
   const audio = useSyncExternalStore(subscribeAudio, audioState);
+  const controllerRoot = useControllerFocus(`${area}:${view}`);
+  const [responseFocused, setResponseFocused] = useState(false);
   const [conversationPlayerId, setConversationPlayerId] = useState<string | null>(null);
   const [selectedId, setSelected] = useState(
     c.messages.find((m) => m.important && !m.resolved)?.id || c.messages[0]?.id,
@@ -159,6 +162,63 @@ export function Office({
     (memory) => memory.playerId === conversationPlayer?.id,
   );
   const awaitingMessage = conversationMessages.find((message) => !message.resolved);
+  const toggleReading = () => {
+    if (audio.speaking) stopReading();
+    else
+      readMailbox(
+        c.messages.filter((message) => !message.read),
+        (id) => {
+          setSelected(id);
+          onRead(id);
+        },
+      );
+  };
+  const responseMessage = view === 'conversations' ? awaitingMessage : m;
+  const canRespond =
+    responseMessage &&
+    !responseMessage.resolved &&
+    (responseMessage.important || responseMessage.kind === 'player');
+  const canApply =
+    view === 'inbox' && m?.tactic && JSON.stringify(m.tactic) !== JSON.stringify(c.tactic);
+  const respond = (choice: 'support' | 'firm') => {
+    if (!responseMessage) return;
+    const id = responseMessage.id;
+    onMessage(id, choice);
+    requestAnimationFrame(() =>
+      controllerRoot.current?.querySelector<HTMLElement>(`[data-focus-id="${id}"]`)?.focus(),
+    );
+  };
+  useControllerActions(
+    {
+      ...(area === 'notifications' && (view === 'inbox' || view === 'conversations')
+        ? {
+            ...(canRespond
+              ? { secondary: () => respond('support') }
+              : canApply
+                ? { secondary: () => onApplyPlan(m!.id) }
+                : {}),
+            info:
+              responseFocused && canRespond && responseMessage.kind === 'player'
+                ? () => respond('firm')
+                : toggleReading,
+          }
+        : {}),
+    },
+    {
+      secondary: canRespond
+        ? responseMessage?.kind === 'player'
+          ? 'Responder com apoio'
+          : 'Confirmar leitura'
+        : 'Aplicar plano',
+      info:
+        responseFocused && canRespond && responseMessage.kind === 'player'
+          ? 'Cobrar dedicação'
+          : audio.speaking
+            ? 'Parar leitura'
+            : 'Ouvir caixa postal',
+    },
+    controllerRoot,
+  );
   const conversationEntries = [
     ...conversationMessages.map((message) => ({
       id: message.id,
@@ -496,7 +556,13 @@ export function Office({
     </div>
   );
   return (
-    <div className="screen-enter office-screen">
+    <div
+      ref={controllerRoot}
+      className="screen-enter office-screen"
+      onFocusCapture={(event) =>
+        setResponseFocused(Boolean(event.target.closest('.response-area, .player-chat-actions')))
+      }
+    >
       <SectionTitle
         kicker={
           area === 'notifications'
@@ -522,6 +588,7 @@ export function Office({
       {area !== 'office' && (
         <div
           className="segmented"
+          data-controller-tabs=""
           role="group"
           aria-label={
             area === 'notifications'
@@ -564,7 +631,11 @@ export function Office({
         </div>
       )}
       {area === 'office' && (
-        <nav className="segmented office-route-links" aria-label="Atalhos do Escritório">
+        <nav
+          className="segmented office-route-links"
+          data-controller-tabs=""
+          aria-label="Atalhos do Escritório"
+        >
           {(
             [
               ['board', 'Objetivos', Target],
@@ -601,22 +672,12 @@ export function Office({
         )}
       {area === 'notifications' && view === 'inbox' && (
         <div className="office-inbox">
-          <section className="panel message-list">
-            <button
-              className="mailbox-play"
-              data-controller-info
-              onClick={() => {
-                if (audio.speaking) stopReading();
-                else
-                  readMailbox(
-                    c.messages.filter((message) => !message.read),
-                    (id) => {
-                      setSelected(id);
-                      onRead(id);
-                    },
-                  );
-              }}
-            >
+          <section
+            className="panel message-list"
+            data-focus-region="messages"
+            data-focus-right="message-reader"
+          >
+            <button className="mailbox-play" onClick={toggleReading}>
               <Volume2 size={18} />{' '}
               {audio.speaking
                 ? 'Parar leitura'
@@ -628,6 +689,7 @@ export function Office({
             {c.messages.map((msg) => (
               <button
                 key={msg.id}
+                data-focus-id={msg.id}
                 className={`${msg.id === selectedId ? 'selected' : ''} ${!msg.read ? 'unread' : ''}`}
                 onClick={() => {
                   setSelected(msg.id);
@@ -655,7 +717,13 @@ export function Office({
               </button>
             ))}
           </section>
-          <article className="panel message-reader">
+          <article
+            className="panel message-reader"
+            tabIndex={0}
+            aria-label="Mensagem selecionada"
+            data-focus-region="message-reader"
+            data-focus-left="messages"
+          >
             {m ? (
               <>
                 <div className="message-byline">
@@ -688,13 +756,13 @@ export function Office({
                     <p className="eyebrow">SUA DECISÃO</p>
                     {m.kind === 'player' ? (
                       <div className="button-row">
-                        <button className="primary" onClick={() => onMessage(m.id, 'support')}>
+                        <button className="primary" onClick={() => respond('support')}>
                           Ouvir e oferecer apoio
                         </button>
-                        <button onClick={() => onMessage(m.id, 'firm')}>Cobrar dedicação</button>
+                        <button onClick={() => respond('firm')}>Cobrar dedicação</button>
                       </div>
                     ) : (
-                      <button className="primary" onClick={() => onMessage(m.id, 'support')}>
+                      <button className="primary" onClick={() => respond('support')}>
                         Ciente. Continuar o trabalho.
                       </button>
                     )}
@@ -810,17 +878,11 @@ export function Office({
                       O atleta iniciou esta conversa. Cada mensagem admite uma única resposta.
                     </p>
                     <div className="button-row">
-                      <button
-                        className="primary"
-                        data-controller-secondary
-                        onClick={() => onMessage(awaitingMessage.id, 'support')}
-                      >
+                      <button className="primary" onClick={() => respond('support')}>
                         Responder com apoio{' '}
                         <ControllerButtonHint action="secondary" label="Responder" />
                       </button>
-                      <button onClick={() => onMessage(awaitingMessage.id, 'firm')}>
-                        Responder com firmeza
-                      </button>
+                      <button onClick={() => respond('firm')}>Responder com firmeza</button>
                     </div>
                   </section>
                 ) : (

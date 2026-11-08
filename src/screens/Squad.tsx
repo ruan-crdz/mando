@@ -17,7 +17,11 @@ import {
   UserMinus,
 } from 'lucide-react';
 import { autoSelectSquad, available, bestLineup, squad } from '../game/matches';
-import { useGamepad } from '../controller/GamepadProvider';
+import {
+  useControllerActions,
+  useControllerFocus,
+  useGamepad,
+} from '../controller/GamepadProvider';
 import { ControllerButtonHint } from '../controller/ControllerButtonHint';
 import { clubById } from '../game/npc';
 import { ageAt } from '../game/random';
@@ -32,7 +36,6 @@ import {
   renewalTerms,
   type LoanRequest,
 } from '../game/transfers';
-import { useStickX } from '../controller/GamepadProvider';
 import {
   LEARNED,
   TRAIN_CAP,
@@ -146,6 +149,7 @@ export function Squad({
 }) {
   const { input } = useGamepad();
   const [view, setView] = useState<'lineup' | 'tactics' | 'roles' | 'kit' | 'staff'>('lineup');
+  const controllerRoot = useControllerFocus(`squad:${view}`);
   const [rosterCategory, setRosterCategory] = useState<'stats' | 'qualities' | 'finances'>('stats');
   const [lineupName, setLineupName] = useState('');
   const [previewLineupIndex, setPreviewLineupIndex] = useState<number | null>(null);
@@ -172,6 +176,7 @@ export function Squad({
   const panel = useRef<HTMLElement>(null);
   const lineupFile = useRef<HTMLInputElement>(null);
   const returnFocus = useRef<string | null>(null);
+  const shortcutOrigin = useRef<typeof view | null>(null);
   const players = useMemo(() => squad(c, world), [c, world]);
   const loanDestinations = world.clubs
     .filter((club) => club.id !== c.clubId)
@@ -397,7 +402,55 @@ export function Squad({
   const listRoster = [...players].sort(mode.fn);
   const cycleSort = (dir: number) =>
     setSortMode((m) => (m + dir + sortModes.length) % sortModes.length);
-  useStickX(cycleSort, view === 'kit' && !kitId && !detail);
+  const autoSelect = () => {
+    const selected = autoSelectSquad(c, world);
+    if (selected.lineup.length !== 11)
+      onError('Não há onze atletas disponíveis, incluindo um goleiro.');
+    else if (
+      c.challenge === 'Só a base' &&
+      selected.lineup.filter((id) => ageAt(byId(id).birthDate, c.date) <= 23).length < 3
+    )
+      onError('Não há três atletas sub-23 disponíveis para cumprir o desafio.');
+    else {
+      onChange(selected);
+      setPicking(null);
+      setOutsideId(null);
+      setBenchOrderId(null);
+    }
+  };
+  useControllerActions(
+    {
+      ...(view === 'lineup' || view === 'tactics' ? { secondary: autoSelect } : {}),
+      ...(focusId && !detail && view !== 'staff'
+        ? {
+            info: () => {
+              shortcutOrigin.current = view === 'kit' ? null : view;
+              openDetail(byId(focusId));
+            },
+          }
+        : {}),
+      ...(detail && shortcutOrigin.current && !kitId
+        ? {
+            back: () => {
+              if (action !== 'summary') {
+                setAction('summary');
+                return;
+              }
+              const origin = shortcutOrigin.current;
+              shortcutOrigin.current = null;
+              setDetail(null);
+              if (origin) setView(origin);
+            },
+          }
+        : {}),
+      ...(view === 'kit' && !kitId && !detail ? { secondary: () => cycleSort(1) } : {}),
+    },
+    {
+      secondary: view === 'kit' ? 'Mudar ordenação' : 'Autoescalar titulares e banco',
+      info: 'Ficha do atleta',
+    },
+    controllerRoot,
+  );
   const slotPicking = picking?.kind === 'slot' ? picking : null;
   const reserveRole = slotPicking ? rolePositions[slotPicking.index] : null;
   const resetBenchSelection = () => {
@@ -518,7 +571,14 @@ export function Squad({
                 ? 'Escolha um titular, outro reserva ou um não relacionado para trocar com ele.'
                 : 'Selecione um atleta e depois quem vai trocar com ele: titular, reserva ou não relacionado.'}
       </p>
-      <div className="bench-player-grid" role="group" aria-label="Banco de reservas">
+      <div
+        className="bench-player-grid"
+        data-focus-region="bench"
+        data-focus-left="pitch"
+        data-focus-down="outside"
+        role="group"
+        aria-label="Banco de reservas"
+      >
         {c.bench.map((id) => reserveButton(byId(id), true))}
       </div>
       <div className="bench-divider">
@@ -547,6 +607,9 @@ export function Squad({
       </div>
       <div
         className="bench-player-grid outside-player-grid"
+        data-focus-region="outside"
+        data-focus-left="pitch"
+        data-focus-up="bench"
         role="group"
         aria-label="Atletas fora da relação"
       >
@@ -989,21 +1052,9 @@ export function Squad({
     <PlayerStatsPanel player={fp} career={c} shirtNumber={numbers[fp.id] ?? null} />
   ) : null;
   return (
-    <div className="screen-enter squad-screen">
+    <div ref={controllerRoot} className="screen-enter squad-screen">
       <SectionTitle kicker="TIME / GESTÃO DO ELENCO" title="Onze nomes. Uma ideia.">
-        <button
-          data-controller-secondary={view === 'lineup' || view === 'tactics' ? '' : undefined}
-          onClick={() => {
-            const selected = autoSelectSquad(c, world);
-            if (selected.lineup.length !== 11) onError('Não há onze atletas disponíveis.');
-            else if (
-              c.challenge === 'Só a base' &&
-              selected.lineup.filter((id) => ageAt(byId(id).birthDate, c.date) <= 23).length < 3
-            )
-              onError('Não há três atletas sub-23 disponíveis para cumprir o desafio.');
-            else onChange(selected);
-          }}
-        >
+        <button onClick={autoSelect}>
           <Sparkles size={17} /> Autoescalar titulares e banco
           <span aria-hidden="true">
             <ControllerButtonHint action="secondary" label="" />
@@ -1078,7 +1129,7 @@ export function Squad({
           </p>
         </Modal>
       )}
-      <div className="segmented">
+      <div className="segmented" data-controller-tabs="">
         <button
           className={view === 'lineup' ? 'active' : ''}
           onClick={() => {
@@ -1133,7 +1184,7 @@ export function Squad({
         {view === 'kit' && statsPanel ? (
           statsPanel
         ) : (
-          <section className="panel pitch-panel" data-focus-region="pitch">
+          <section className="panel pitch-panel" data-focus-region="pitch" data-focus-right="bench">
             <div className="panel-heading">
               <h2>{c.tactic.formation}</h2>
               <span className="pill">{c.tactic.mentality}</span>
@@ -1157,6 +1208,7 @@ export function Squad({
                     data-autofocus={i === 0 ? '' : undefined}
                     className={`pitch-player ${cardTier(ovr)} ${!available(c, id) ? 'unavailable' : ''} ${selected ? 'selected' : ''} ${swapping ? 'swap-target' : ''} ${fam < LEARNED ? 'out-of-position' : ''}`}
                     style={{ left: `${coordinates[i].x}%`, top: `${coordinates[i].y}%` }}
+                    onFocus={() => setFocusId(id)}
                     onClick={() => {
                       if (rolePicking) {
                         if (roleAllows(p)) setRole(rolePicking.role, id);

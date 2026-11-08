@@ -59,26 +59,67 @@ export function bestLineup(
   formation = career.tactic.formation,
 ) {
   const pool = squad(career, world, clubId).filter((p) => available(career, p.id));
-  const chosen: string[] = [];
+  const roles = formations[formation];
+  if (pool.length < roles.length || !pool.some((player) => player.position === 'GK')) return [];
   // Clubes controlados pela engine poupam atletas desgastados quando há alternativa.
   const rest = clubId !== career.clubId;
   const score = (p: Player, role: string) => {
+    if ((role === 'GK') !== (p.position === 'GK')) return -1000000;
     const s = stateOf(career, p.id)!;
     return (
       overall(p, role, s) * conditionFactor(s.fitness) -
-      (rest ? Math.max(0, 85 - s.fitness) * 0.5 : 0)
+      (rest ? Math.max(0, 85 - s.fitness) * 0.5 : 0) +
+      s.fitness * 0.00001
     );
   };
-  for (const role of formations[formation]) {
-    const best = pool
-      .filter((p) => !chosen.includes(p.id))
-      .sort(
-        (a, b) =>
-          score(b, role) - score(a, role) ||
-          stateOf(career, b.id)!.fitness - stateOf(career, a.id)!.fitness,
-      )[0];
-    if (best) chosen.push(best.id);
+  // Matching retangular: maximiza o onze inteiro sem desperdiçar atletas versáteis.
+  const rowPotential = Array(roles.length + 1).fill(0) as number[];
+  const columnPotential = Array(pool.length + 1).fill(0) as number[];
+  const assigned = Array(pool.length + 1).fill(0) as number[];
+  const previous = Array(pool.length + 1).fill(0) as number[];
+  const scores = roles.map((role) => pool.map((player) => score(player, role)));
+  for (let row = 1; row <= roles.length; row++) {
+    assigned[0] = row;
+    let column = 0;
+    const distance = Array(pool.length + 1).fill(Infinity) as number[];
+    const visited = Array(pool.length + 1).fill(false) as boolean[];
+    do {
+      visited[column] = true;
+      const currentRow = assigned[column];
+      let delta = Infinity;
+      let next = 0;
+      for (let candidate = 1; candidate <= pool.length; candidate++) {
+        if (visited[candidate]) continue;
+        const cost =
+          -scores[currentRow - 1][candidate - 1] -
+          rowPotential[currentRow] -
+          columnPotential[candidate];
+        if (cost < distance[candidate]) {
+          distance[candidate] = cost;
+          previous[candidate] = column;
+        }
+        if (distance[candidate] < delta) {
+          delta = distance[candidate];
+          next = candidate;
+        }
+      }
+      for (let candidate = 0; candidate <= pool.length; candidate++) {
+        if (visited[candidate]) {
+          rowPotential[assigned[candidate]] += delta;
+          columnPotential[candidate] -= delta;
+        } else distance[candidate] -= delta;
+      }
+      column = next;
+    } while (assigned[column] !== 0);
+    do {
+      const next = previous[column];
+      assigned[column] = assigned[next];
+      column = next;
+    } while (column !== 0);
   }
+  const chosen = Array<string>(roles.length);
+  for (let column = 1; column <= pool.length; column++)
+    if (assigned[column]) chosen[assigned[column] - 1] = pool[column - 1].id;
   return chosen;
 }
 
@@ -99,14 +140,13 @@ export function autoSelectSquad(
       const young = team.filter(
         (p) => ageAt(p.birthDate, career.date) <= 23 && !lineup.includes(p.id),
       );
-      let replacement:
-        | { id: string; slot: number; delta: number }
-        | undefined;
-      for (let slot = 1; slot < lineup.length; slot++) {
+      let replacement: { id: string; slot: number; delta: number } | undefined;
+      for (let slot = 0; slot < lineup.length; slot++) {
         const current = findPlayer(world, lineup[slot])!;
         if (ageAt(current.birthDate, career.date) <= 23) continue;
         const role = formations[formation][slot];
         for (const candidate of young) {
+          if ((role === 'GK') !== (candidate.position === 'GK')) continue;
           const delta =
             overall(candidate, role, stateOf(career, candidate.id)) *
               conditionFactor(stateOf(career, candidate.id)!.fitness) -
@@ -124,7 +164,6 @@ export function autoSelectSquad(
   const reserves = team.filter((p) => !lineup.includes(p.id));
   const bench: string[] = [];
   const roles = [...new Set(formations[formation])];
-  const needs = ['GK', ...roles.filter((role) => role !== 'GK')].slice(0, 9);
   const benchScore = (player: Player, role: string) => {
     const state = stateOf(career, player.id)!;
     return (
@@ -132,24 +171,39 @@ export function autoSelectSquad(
       (player.position === role ? 1.5 : 0)
     );
   };
-  for (const role of needs) {
-    const best = reserves
-      .filter(
-        (p) =>
-          !bench.includes(p.id) &&
-          (role === 'GK' ? p.position === 'GK' : p.position !== 'GK'),
-      )
-      .sort((a, b) => benchScore(b, role) - benchScore(a, role))[0];
-    if (best) bench.push(best.id);
-  }
+  const keeper = reserves
+    .filter((player) => player.position === 'GK')
+    .sort((a, b) => benchScore(b, 'GK') - benchScore(a, 'GK'))[0];
+  if (keeper) bench.push(keeper.id);
+  const outfieldRoles = roles.filter((role) => role !== 'GK');
+  const coverage = (ids: string[]) =>
+    outfieldRoles.reduce((sum, role) => {
+      const slots = formations[formation].filter((slot) => slot === role).length;
+      const scores = ids
+        .map((id) => findPlayer(world, id)!)
+        .filter((player) => player.position !== 'GK')
+        .map((player) => {
+          const fit = familiarity(player, role, stateOf(career, player.id));
+          return fit >= 60 ? benchScore(player, role) : 0;
+        })
+        .sort((a, b) => b - a);
+      const starters = lineup.filter((_, index) => formations[formation][index] === role);
+      const fatigueNeed = Math.max(...starters.map((id) => 100 - stateOf(career, id)!.fitness));
+      return (
+        sum +
+        ((scores[0] ?? 0) + (scores[1] ?? 0) * (slots > 1 ? 0.55 : 0.2)) *
+          (1 + slots * 0.15 + fatigueNeed * 0.01)
+      );
+    }, 0);
   while (bench.length < 9) {
+    const currentCoverage = coverage(bench);
+    const usefulness = (player: Player) => {
+      const quality = Math.max(...outfieldRoles.map((role) => benchScore(player, role)));
+      return coverage([...bench, player.id]) - currentCoverage + quality * 0.05;
+    };
     const next = reserves
-      .filter((p) => !bench.includes(p.id))
-      .sort((a, b) => {
-        const bestRole = (p: Player) =>
-          Math.max(...roles.map((role) => benchScore(p, role)));
-        return bestRole(b) - bestRole(a);
-      })[0];
+      .filter((p) => !bench.includes(p.id) && p.position !== 'GK')
+      .sort((a, b) => usefulness(b) - usefulness(a))[0];
     if (!next) break;
     bench.push(next.id);
   }
@@ -715,7 +769,11 @@ function aiSubstitutions(
   const window = [46, 58, 64, 70, 76, 82].includes(minute);
   if (!hurt && !window) return;
   const bench = squad(career, world, clubId).filter(
-    (p) => !lineup.includes(p.id) && !match.replaced.includes(p.id) && available(career, p.id),
+    (p) =>
+      career.players[p.id]?.clubId === career.clubId &&
+      !lineup.includes(p.id) &&
+      !match.replaced.includes(p.id) &&
+      available(career, p.id),
   );
   if (!bench.length) return;
   const attacking = ['ST', 'LW', 'RW', 'AM', 'LM', 'RM'];
@@ -851,6 +909,7 @@ export type AssistantSubstitutionSuggestion = {
   role: string;
   reason: string;
   detail: string;
+  contextKey: string;
 };
 
 /** Recomenda uma troca do banco do usuário sem aplicá-la automaticamente. */
@@ -878,17 +937,15 @@ export function assistantSubstitutionSuggestion(
   );
   const benchIds = career.benchConfigured
     ? career.bench
-    : squad(career, world).filter((p) => !lineup.includes(p.id)).map((p) => p.id);
+    : squad(career, world)
+        .filter((p) => !lineup.includes(p.id))
+        .map((p) => p.id);
   const bench = benchIds
     .map((id) => findPlayer(world, id))
-    .filter(
-      (p): p is Player =>
-        Boolean(
-          p &&
-            !lineup.includes(p.id) &&
-            !match.replaced.includes(p.id) &&
-            available(career, p.id),
-        ),
+    .filter((p): p is Player =>
+      Boolean(
+        p && !lineup.includes(p.id) && !match.replaced.includes(p.id) && available(career, p.id),
+      ),
     );
   const yellowed = new Set(
     match.events
@@ -896,6 +953,12 @@ export function assistantSubstitutionSuggestion(
       .map((event) => event.playerId),
   );
   const defensive = new Set(['GK', 'CB', 'LB', 'RB', 'DM']);
+  const ownHome = fixture.homeId === career.clubId;
+  const goalDifference = ownHome
+    ? match.homeGoals - match.awayGoals
+    : match.awayGoals - match.homeGoals;
+  const chasing = goalDifference < 0 && match.minute >= 65;
+  const protecting = goalDifference > 0 && match.minute >= 70;
   let best: (AssistantSubstitutionSuggestion & { score: number }) | null = null;
   for (let index = 0; index < lineup.length; index++) {
     const outgoingId = lineup[index];
@@ -907,24 +970,33 @@ export function assistantSubstitutionSuggestion(
     if (!outgoing || !outgoingState || !role) continue;
     const injured = match.injured.includes(outgoingId);
     const yellowRisk = yellowed.has(outgoingId) && defensive.has(role) && match.minute >= 60;
-    const tired = (match.energySpent[outgoingId] || 0) >= 34 && match.minute >= 58;
+    const spent = match.energySpent[outgoingId] || 0;
+    const energy = Math.max(0, outgoingState.fitness - spent);
+    const tired = (energy <= 72 || spent >= 12) && match.minute >= 58;
     const poorPerformance = (ratings.get(outgoingId) ?? 7) <= 5.8 && match.minute >= 62;
-    if (!injured && !yellowRisk && !tired && !poorPerformance) continue;
+    const tactical = chasing ? !defensive.has(role) : protecting && defensive.has(role);
+    if (!injured && !yellowRisk && !tired && !poorPerformance && !tactical) continue;
+    if (!injured && match.usedSubs >= 4 && match.minute < 75) continue;
     const reason = injured
       ? 'sentiu uma lesão'
       : yellowRisk
         ? 'já tem amarelo e corre risco de expulsão'
         : tired
           ? 'está sentindo o desgaste'
-          : 'faz uma partida abaixo do esperado';
+          : poorPerformance
+            ? 'faz uma partida abaixo do esperado'
+            : chasing
+              ? 'precisa de mais força para buscar o empate'
+              : 'precisa de pernas frescas para proteger a vantagem';
     const detail = injured
       ? 'A lesão reduz o rendimento e pode piorar. Recomendo a troca imediata.'
       : yellowRisk
         ? 'Uma nova falta pode deixar o time com um a menos.'
         : tired
-          ? `Já acumulou ${Math.round(match.energySpent[outgoingId] || 0)} de desgaste.`
-          : `A nota atual é ${(ratings.get(outgoingId) ?? 0).toFixed(1)}.`;
-    const spent = match.energySpent[outgoingId] || 0;
+          ? `Condição atual: ${Math.round(energy)}%; desgaste de ${Math.round(spent)} pontos.`
+          : poorPerformance
+            ? `A nota atual é ${(ratings.get(outgoingId) ?? 0).toFixed(1)}.`
+            : `Estamos ${chasing ? 'atrás no placar' : 'na frente'}; a troca mantém a função ${role}.`;
     const current =
       overall(outgoing, role, outgoingState) *
       conditionFactor(outgoingState.fitness - spent) *
@@ -933,13 +1005,32 @@ export function assistantSubstitutionSuggestion(
       if ((role === 'GK') !== (incoming.position === 'GK')) continue;
       const state = stateOf(career, incoming.id);
       if (!state) continue;
+      if (!injured && familiarity(incoming, role, state) < 65) continue;
       const fresh = overall(incoming, role, state) * conditionFactor(state.fitness);
       const gain = fresh - current;
-      if (!injured && gain < (yellowRisk ? -2 : poorPerformance ? -1 : 0.8)) continue;
+      if (!injured && gain < (yellowRisk ? -1 : poorPerformance ? 0 : tired ? 1 : 3)) continue;
       const priority = injured ? 100 : yellowRisk ? 35 : tired ? 20 : 10;
-      const score = priority + gain;
+      const attacking = (incoming.attributes.finishing + incoming.attributes.shortPass) / 2;
+      const defensiveQuality = (incoming.attributes.tackling + incoming.attributes.stamina) / 2;
+      const score =
+        priority +
+        gain +
+        (chasing && !defensive.has(role)
+          ? attacking * 0.04
+          : protecting && defensive.has(role)
+            ? defensiveQuality * 0.04
+            : 0);
+      const contextKey = `${goalDifference}:${injured}:${yellowRisk}:${Math.floor(energy / 5)}:${Math.floor((ratings.get(outgoingId) ?? 7) * 2)}`;
       if (!best || score > best.score)
-        best = { outgoing: outgoingId, incoming: incoming.id, role, reason, detail, score };
+        best = {
+          outgoing: outgoingId,
+          incoming: incoming.id,
+          role,
+          reason,
+          detail: `${detail} Ganho estimado: ${gain >= 0 ? '+' : ''}${gain.toFixed(1)}; ${5 - match.usedSubs} troca(s) restante(s).`,
+          contextKey,
+          score,
+        };
     }
   }
   if (!best) return null;
@@ -949,6 +1040,7 @@ export function assistantSubstitutionSuggestion(
     role: best.role,
     reason: best.reason,
     detail: best.detail,
+    contextKey: best.contextKey,
   };
 }
 
@@ -970,6 +1062,7 @@ export function substitute(
     lineup.includes(incoming) ||
     match.replaced.includes(incoming) ||
     !available(c, incoming) ||
+    (c.benchConfigured && !c.bench.includes(incoming)) ||
     c.players[incoming]?.clubId !== c.clubId
   )
     throw new Error('Substituição inválida. Escolha um titular e um reserva disponível.');
@@ -977,7 +1070,13 @@ export function substitute(
   if (index === 0 && world.players.find((p) => p.id === incoming)?.position !== 'GK')
     throw new Error('O substituto do goleiro precisa ser goleiro.');
   lineup[index] = incoming;
-  c.lineup[c.lineup.indexOf(outgoing)] = incoming;
+  Object.assign(
+    c,
+    syncBenchWithLineup(
+      c,
+      c.lineup.map((id) => (id === outgoing ? incoming : id)),
+    ),
+  );
   match.usedSubs++;
   match.replaced.push(outgoing);
   match.events.push({

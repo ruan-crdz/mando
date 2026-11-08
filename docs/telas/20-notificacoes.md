@@ -18,11 +18,11 @@ contextuais e têm cooldown global e individual.
 
 ## Caixa postal com voz
 
-- Y/△ inicia ou interrompe a leitura de todas as mensagens.
+- Y/△ inicia ou interrompe a leitura das mensagens ainda não lidas. Quando o foco está nas respostas de um atleta, Y/△ cobra dedicação; X/□ oferece apoio. O rodapé indica a ação exata.
 - Clique de conexão, tom telefônico e sinal curto anunciam a caixa postal;
   uma ambiência de linha telefônica acompanha a leitura.
 - Usa voz pt-BR do navegador, priorizando vozes naturais locais quando disponíveis.
-- Lê a 1,55× e agrupa frases sem cortar palavras para reduzir pausas artificiais.
+- Lê a 3,8× e agrupa frases sem cortar palavras para reduzir pausas artificiais.
 - A música abaixa durante a fala. A leitura continua ao navegar para outras áreas;
   o botão da caixa postal interrompe a reprodução.
 - Voz e ambiência encerram juntas ao parar ou concluir a última mensagem.
@@ -35,6 +35,7 @@ contextuais e têm cooldown global e individual.
 - A navegação superior, clique e L1/R1 (LB/RB) percorrem as seis áreas. L2/R2 (LT/RT) alternam as subáreas segmentadas.
 - Lista, ações e links são botões com rótulos textuais; foco e confirmação usam os comportamentos compartilhados de controle do app.
 - O estado de leitura permanece visível; erros de resposta continuam tratados pelos callbacks do jogo.
+- X/□ confirma leitura, oferece apoio ou aplica o plano disponível. As regiões lista/mensagem têm travessia lateral explícita. Após responder, o foco volta à mensagem de origem, não ao começo da lista.
 
 ## Limites atuais
 

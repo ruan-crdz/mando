@@ -22,7 +22,17 @@ As seis áreas, nesta ordem, são:
 5. Academia
 6. Escritório
 
-Mouse, teclado e controle podem navegar. L1/R1 ou LB/RB alternam áreas; o foco deve permanecer visível e previsível. O rodapé mostra apenas ações disponíveis no contexto. Durante a partida, permanecem selecionar/voltar.
+Mouse, teclado e controle podem navegar. L1/R1 ou LB/RB alternam áreas; L2/R2 ou LT/RT alternam o submenu explicitamente marcado da área. O foco é lembrado por tela/submenu e restaurado ao fechar janelas. Durante partidas, as áreas principais ficam bloqueadas.
+
+## Padrão de controle
+
+- ✕/A seleciona, entra em edição e confirma; ○/B cancela o rascunho ou volta um nível.
+- □/X executa a ação principal contextual; △/Y executa a alternativa.
+- Analógico direito apenas rola o painel focado; nunca troca ordenação, mês ou competição.
+- R3/RS (F1 no teclado) abre o mapa dos comandos atuais e devolve o foco ao fechar.
+- O rodapé e o mapa usam os mesmos registros de ações da tela/janela. Os comandos de fundo não atravessam janelas, conversas ou edição.
+- Na edição numérica: ←/→ ajusta; L1/R1 ou LB/RB usa um passo dez vezes maior; △/Y abre teclado numérico. Confirmar salva, voltar cancela.
+- Teclado: Enter confirma, Escape volta, X/Y acionam os atalhos fora dos campos, `[`/`]` mudam áreas e Q/E mudam submenus. Texto digitado em campos mantém seu comportamento normal.
 
 ## Cabeçalho e rodapé
 
@@ -47,7 +57,7 @@ Os modais compartilham foco preso, ação Voltar, restauração de foco e navega
 
 - Uma partida ativa abre diretamente a tela de Partida após carregar o save.
 - O avanço pode redirecionar para Notificações ou Dia de jogo quando houver decisão pendente ou compromisso na data.
-- Options/START abre Pausa fora da Central e Preferências de avanço na Central.
+- Options/START abre Pausa, inclusive na Central. Preferências continuam acessíveis pela interface e pela pausa.
 - Pausa, preferência e overlays de avanço não alteram por si só o resultado da simulação.
 
 ## Arquivos-fonte

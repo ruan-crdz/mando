@@ -19,7 +19,12 @@ import {
 } from 'lucide-react';
 import { type User } from '@supabase/supabase-js';
 import { ZodError, z } from 'zod';
-import { GamepadProvider, useControllerActions, useGamepad } from './controller/GamepadProvider';
+import {
+  ControllerHints,
+  GamepadProvider,
+  useControllerActions,
+  useGamepad,
+} from './controller/GamepadProvider';
 import { ControllerButtonHint } from './controller/ControllerButtonHint';
 import { Badge, dateLabel, Modal, money } from './components/ui';
 import { PlayerFace } from './components/PlayerFace';
@@ -549,45 +554,61 @@ function Game() {
           },
           previousTab: () => switchTab(-1),
           nextTab: () => switchTab(1),
-          secondary: () => {
-            if (running) return setRunning(false);
-            if (!career || screen !== 'career' || inMatch || popup || tab !== TAB.CENTRAL) return;
-            if (career.seasonEnded) {
-              act(() => setCareer(startNextSeason(career, live!)));
-            } else if (
-              career.prefs.advance !== 'auto' &&
-              career.messages.some((message) => blocks(career, message))
-            ) {
-              setTab(TAB.NOTIFICATIONS);
-            } else if (
-              career.prefs.advance !== 'auto' &&
-              nextFixture(career)?.date === career.date
-            ) {
-              setPopup('prematch');
-            } else advance();
-          },
-          info: () => {
-            if (screen === 'career' && tab === TAB.CENTRAL && !inMatch && !popup && !running)
-              setTab(TAB.NOTIFICATIONS);
-          },
+          ...(screen === 'career' && !inMatch && tab === TAB.CENTRAL
+            ? {
+                secondary: () => {
+                  if (running) return setRunning(false);
+                  if (!career || screen !== 'career' || inMatch || popup || tab !== TAB.CENTRAL)
+                    return;
+                  if (career.seasonEnded) {
+                    act(() => setCareer(startNextSeason(career, live!)));
+                  } else if (
+                    career.prefs.advance !== 'auto' &&
+                    career.messages.some((message) => blocks(career, message))
+                  ) {
+                    setTab(TAB.NOTIFICATIONS);
+                  } else if (
+                    career.prefs.advance !== 'auto' &&
+                    nextFixture(career)?.date === career.date
+                  ) {
+                    setPopup('prematch');
+                  } else advance();
+                },
+                info: () => {
+                  if (screen === 'career' && tab === TAB.CENTRAL && !inMatch && !popup && !running)
+                    setTab(TAB.NOTIFICATIONS);
+                },
+              }
+            : {}),
           menu: () => {
             if (screen !== 'career') return;
             if (running) return setRunning(false);
             if (popup === 'contract' || popup === 'tutorial') return;
-            // Na Central, START abre as preferências de avanço; nas demais telas, a pausa.
-            if (tab === TAB.CENTRAL && !inMatch && !popup) {
-              prefsFromPause.current = false;
-              setPopup('prefs');
-            } else
-              setPopup((p) =>
-                p === 'prefs' && prefsFromPause.current
-                  ? 'pause'
-                  : p === 'pause' || p === 'prefs'
-                    ? null
-                    : 'pause',
-              );
+            setPopup((p) =>
+              p === 'prefs' && prefsFromPause.current
+                ? 'pause'
+                : p === 'pause' || p === 'prefs'
+                  ? null
+                  : 'pause',
+            );
           },
         },
+    {
+      ...(screen === 'career' && !inMatch
+        ? { previousTab: 'Área anterior', nextTab: 'Próxima área' }
+        : {}),
+      ...(screen === 'career' ? { menu: 'Pausa' } : {}),
+      ...(screen === 'career' && !inMatch && tab === TAB.CENTRAL
+        ? {
+            secondary: running
+              ? 'Parar avanço'
+              : career?.seasonEnded
+                ? 'Próxima temporada'
+                : 'Avançar / jogar',
+            info: 'Caixa postal',
+          }
+        : {}),
+    },
   );
   const portrait = (manager: Career['manager'], photo?: string) => requestPortrait(manager, photo);
   const club = career && world?.clubs.find((club) => club.id === career.clubId);
@@ -992,17 +1013,7 @@ function Game() {
       </main>
       <footer className="app-footer">
         <div className="hints">
-          <ControllerButtonHint action="confirm" label="Selecionar" />
-          <ControllerButtonHint action="back" label="Voltar" />
-          {screen === 'career' && !inMatch && (
-            <>
-              {tab === TAB.CENTRAL && (
-                <ControllerButtonHint action="secondary" label="Avançar dia" />
-              )}
-              <ControllerButtonHint action="nextView" label="Sub-menu" />
-              <ControllerButtonHint action="menu" label="Pausa" />
-            </>
-          )}
+          <ControllerHints />
         </div>
         {career && screen === 'career' && (
           <span className={`save-status ${saveState}`} role="status" hidden={saveState !== 'error'}>
