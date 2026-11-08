@@ -7,6 +7,7 @@ type Pt = { x: number; y: number };
 export type PitchTeam = {
   formation: Formation;
   color: string;
+  text?: string;
   ids: string[];
   numbers: Record<string, number>;
   names: Record<string, string>;
@@ -490,7 +491,9 @@ export function LivePitch({
                 dots.current[side][i] = el;
               }}
               title={team.names[id]}
-              style={{ left: `${p.x}%`, top: `${p.y}%`, ['--dot' as string]: team.color }}
+              style={{ left: `${p.x}%`, top: `${p.y}%`, ['--dot' as string]: team.color,
+                ['--dot-text' as string]: team.text || '#fff',
+              }}
             >
               {team.numbers[id] ?? i + 1}
             </span>

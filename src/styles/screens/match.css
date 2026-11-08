@@ -131,16 +131,13 @@
   display: grid;
   place-items: center;
   font: 800 12px var(--display);
-  color: #fff;
+  color: var(--dot-text, #fff);
   background: var(--dot, #0a8dff);
-  border: 2px solid #fff;
+  border: 2px solid var(--dot-text, #fff);
   box-shadow: 0 3px 8px rgba(0, 0, 0, 0.4);
   transition:
     transform 0.2s ease,
     box-shadow 0.2s ease;
-}
-.field-dot.away {
-  border-color: #0b1a4a;
 }
 .field-dot.keeper {
   border-style: double;

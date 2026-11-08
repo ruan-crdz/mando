@@ -28,6 +28,7 @@ import { Badge, Modal } from '../components/ui';
 import { ChipGroup, TacticSlider } from '../components/controls';
 import { LivePitch, type PitchTeam } from '../components/LivePitch';
 import { FinalIntro } from '../components/FinalIntro';
+import { matchKits } from '../game/kits';
 import { byPosition, PlayerCard, PlayerPicker, roleFits } from '../components/PlayerCard';
 import { PlayerFace } from '../components/PlayerFace';
 import { useGamepad } from '../controller/GamepadProvider';
@@ -89,7 +90,9 @@ export function MatchScreen({
   const ownNumbers = useMemo(() => shirtNumbers(c, world), [c, world]);
   const outgoingPlayer = outgoing ? findPlayer(world, outgoing) : undefined;
   const outgoingRole = formations[c.tactic.formation][ownLineup.indexOf(outgoing)] || 'CM';
-  const teamFor = (clubId: string, ids: string[], color: string): PitchTeam => {
+  const kits = matchKits(home, away);
+  const teamFor = (clubId: string, ids: string[]): PitchTeam => {
+    const kit = clubId === fixture.homeId ? kits.home : kits.away;
     let numbers: Record<string, number>;
     try {
       numbers = clubId === c.clubId ? ownNumbers : shirtNumbers(c, world, clubId);
@@ -98,7 +101,8 @@ export function MatchScreen({
     }
     return {
       formation: sideFormation(c, match, clubId),
-      color,
+      color: kit.shirt,
+      text: kit.text,
       ids,
       numbers,
       names: Object.fromEntries(ids.map((id) => [id, findPlayer(world, id)?.name || ''])),
@@ -189,16 +193,16 @@ export function MatchScreen({
           stage={label.stage}
           stadium={home.stadium}
           home={{
-            club: home,
+            club: { ...home, color: kits.home.shirt },
             players: (fixture.homeId === c.clubId ? ownLineup : match.homeLineup).flatMap(
               (id) => findPlayer(world, id) ?? [],
             ),
-            numbers: teamFor(fixture.homeId, match.homeLineup, home.color).numbers,
+            numbers: teamFor(fixture.homeId, match.homeLineup).numbers,
           }}
           away={{
-            club: away,
+            club: { ...away, color: kits.away.shirt },
             players: match.awayLineup.flatMap((id) => findPlayer(world, id) ?? []),
-            numbers: teamFor(fixture.awayId, match.awayLineup, away.color).numbers,
+            numbers: teamFor(fixture.awayId, match.awayLineup).numbers,
           }}
           onDone={() => setIntro(false)}
         />
@@ -207,12 +211,15 @@ export function MatchScreen({
         <span>
           {label.name.toUpperCase()} · {label.stage.toUpperCase()}
         </span>
-        <span>{home.stadium}</span>
+        <span>
+          {home.short} UNIFORME {kits.home.number} · {away.short} UNIFORME {kits.away.number} ·{' '}
+          {home.stadium}
+        </span>
       </div>
       <section
         className="scoreboard"
         style={{
-          background: `linear-gradient(90deg, ${home.color}, rgba(8, 12, 24, 0.96) 36%, rgba(8, 12, 24, 0.96) 64%, ${away.color})`,
+          background: `linear-gradient(90deg, ${kits.home.shirt}, rgba(8, 12, 24, 0.96) 36%, rgba(8, 12, 24, 0.96) 64%, ${kits.away.shirt})`,
         }}
       >
         <div>
@@ -238,8 +245,8 @@ export function MatchScreen({
       <div className="match-layout">
         <section className="panel live-field-panel">
           <LivePitch
-            home={teamFor(fixture.homeId, match.homeLineup, home.color)}
-            away={teamFor(fixture.awayId, match.awayLineup, away.color)}
+            home={teamFor(fixture.homeId, match.homeLineup)}
+            away={teamFor(fixture.awayId, match.awayLineup)}
             playing={isLive}
             speed={speed}
             homePossession={match.home.possession || 50}
