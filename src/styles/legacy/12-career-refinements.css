@@ -190,6 +190,52 @@
   display: grid;
   gap: 8px;
 }
+.squad-screen .squad-controls.staff-controls {
+  overflow-y: auto;
+  align-items: stretch;
+}
+.staff-controls > .assistant-budget,
+.staff-controls > .muted.small,
+.staff-controls > .assistant-grid {
+  flex: 0 0 auto;
+}
+.staff-controls > .assistant-budget {
+  gap: 14px;
+  padding: 18px;
+}
+.staff-controls > .assistant-budget h3 {
+  margin: 0;
+  font-size: clamp(17px, 1.3vw, 21px);
+}
+.staff-controls > .assistant-budget p {
+  font-size: 14px;
+  line-height: 1.5;
+}
+.staff-controls .assistant-budget-values {
+  font-size: 14px;
+}
+.staff-controls .assistant-grid {
+  gap: 16px;
+}
+.staff-controls .assistant-sector {
+  gap: 14px;
+}
+.staff-controls .assistant-sector .assistant-card {
+  min-height: 210px;
+  padding: 18px;
+  gap: 12px;
+  font-size: 15px;
+}
+.staff-controls .assistant-sector .assistant-card h3 {
+  font-size: 20px;
+}
+.staff-controls .assistant-sector .assistant-card p {
+  margin: 0;
+  line-height: 1.45;
+}
+.staff-controls .assistant-sector .assistant-stars {
+  font-size: 13px;
+}
 .office-screen .staff-layout.manager-customization-layout {
   grid-template-columns: minmax(0, 1fr);
   width: 100%;

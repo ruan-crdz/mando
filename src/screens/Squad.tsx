@@ -1201,7 +1201,11 @@ export function Squad({
             </p>
           </section>
         )}
-        <section ref={panel} className="panel squad-controls" data-focus-region="panel">
+        <section
+          ref={panel}
+          className={`panel squad-controls ${view === 'staff' ? 'staff-controls' : ''}`}
+          data-focus-region="panel"
+        >
           {pickerContent ||
             (view === 'kit' ? (
               <>
