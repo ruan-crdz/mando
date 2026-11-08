@@ -1003,10 +1003,14 @@ function Game() {
             </>
           )}
         </div>
-        {career && screen === 'career' && saveState === 'error' && (
-          <span className="save-status error" role="alert">
-            <X size={15} />
-            ERRO NO SAVE LOCAL
+        {career && screen === 'career' && (
+          <span className={`save-status ${saveState}`} role="status" hidden={saveState !== 'error'}>
+            {saveState === 'error' && <X size={15} />}
+            {saveState === 'saving'
+              ? 'SALVANDO LOCAL'
+              : saveState === 'saved'
+                ? 'SALVO LOCAL'
+                : 'ERRO NO SAVE LOCAL'}
           </span>
         )}
       </footer>
