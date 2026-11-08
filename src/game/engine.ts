@@ -404,9 +404,72 @@ function monthlyReviews(c: Career, world: World) {
   }
 }
 
+/** Celebração de título do clube do usuário: presidência, elenco e torcida. */
+function celebrate(c: Career, world: World, honour: Career['honours'][number]) {
+  const club = clubById(world, c.clubId);
+  const name = competitionName(honour.competition);
+  const coach = c.manager.firstName;
+  const bonus = honour.competition === 'A' ? 8e6 : honour.competition === 'B' ? 3e6 : 4e6;
+  const finance = c.finances[c.clubId];
+  finance.cash += bonus;
+  finance.transferBudget += bonus;
+  finance.history.push({ date: c.date, income: bonus, expenses: 0, balance: finance.cash });
+  const money = (bonus / 1e6).toLocaleString('pt-BR', { maximumFractionDigits: 1 });
+  message(c, {
+    kind: 'board',
+    from: 'Presidência',
+    title: `Parabéns, campeão! ${name} ${honour.season}`,
+    body: `${coach}, em nome de toda a diretoria e do conselho, obrigado. Você colocou o ${club.name} no topo e escreveu seu nome na história do clube. Como reconhecimento, liberamos R$ ${money} mi de bônus, já somados ao caixa e ao orçamento de transferências. Seu cargo está mais forte do que nunca. Agora queremos mais taças.`,
+    important: true,
+  });
+  const leaders = squad(c, world)
+    .filter((p) => c.players[p.id] && !c.players[p.id].retired)
+    .sort((a, b) => overall(b) - overall(a))
+    .slice(0, 3);
+  const lines = [
+    (p: string) =>
+      `Professor, aqui é o ${p}, falando pelo grupo. Esse título é seu também. Você acreditou na gente quando ninguém acreditava. Obrigado por tudo, vamos atrás do próximo!`,
+    (p: string) =>
+      `Fala, ${coach}! ${p} aqui. Ainda não caiu a ficha. Obrigado pela confiança e pelas oportunidades. Que temporada, hein? Conte comigo pra repetir.`,
+    (p: string) =>
+      `${coach}, o ${p} passando só pra agradecer. Trabalhar com você fez eu evoluir muito. Foi o título mais especial da minha carreira.`,
+  ];
+  leaders.forEach((p, i) =>
+    message(c, {
+      kind: 'player',
+      from: p.name,
+      title: i === 0 ? `Obrigado, professor! Somos campeões` : `Valeu pelo título, ${coach}!`,
+      body: lines[i](p.name),
+    }),
+  );
+  message(c, {
+    kind: 'news',
+    from: 'Torcida organizada',
+    title: `Festa da torcida: é campeão!`,
+    body: `A cidade parou. Milhares de torcedores do ${club.name} tomaram as ruas para comemorar o título da ${name}. Faixas com o nome de ${coach} foram vistas por toda parte.`,
+  });
+  for (const p of squad(c, world)) c.players[p.id].morale = clamp(c.players[p.id].morale + 8);
+}
+
 function updateSeason(c: Career, world: World) {
   const y = c.season;
   const knownHonours = new Set(c.honours.map((h) => `${h.season}:${h.competition}`));
+  // Título garantido matematicamente antes da última rodada.
+  for (const league of ['A', 'B'] as const) {
+    if (c.honours.some((h) => h.season === y && h.competition === league)) continue;
+    const regular = c.fixtures.filter((f) => f.league === league && !f.playoff);
+    if (!regular.length || !regular.some((f) => f.result)) continue;
+    const left: Record<string, number> = {};
+    for (const f of regular)
+      if (!f.result) {
+        left[f.homeId] = (left[f.homeId] || 0) + 1;
+        left[f.awayId] = (left[f.awayId] || 0) + 1;
+      }
+    const rows = standings(c, world, league);
+    const chase = Math.max(...rows.slice(1).map((r) => r.points + 3 * (left[r.clubId] || 0)));
+    if (rows[0] && rows[0].points > chase)
+      c.honours.push({ season: y, competition: league, clubId: rows[0].clubId });
+  }
   const regularB = c.fixtures.filter((f) => f.league === 'B' && !f.playoff);
   if (regularB.length && regularB.every((f) => f.result) && !c.fixtures.some((f) => f.playoff)) {
     const table = standings(c, world, 'B');
@@ -491,6 +554,7 @@ function updateSeason(c: Career, world: World) {
     const titles = (c.living.managerTitles ??= { since: c.date, entries: [] });
     titles.entries.push({ ...honour, date: c.date });
     remember(c, 'titulo', `Campeão: ${competitionName(honour.competition)} ${honour.season}`);
+    celebrate(c, world, honour);
   }
 }
 
