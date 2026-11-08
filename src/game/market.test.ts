@@ -4,9 +4,12 @@ import { settleFee } from './market';
 import { addDays } from './random';
 import {
   createLoanOffer,
+  createOffer,
+  dealFactor,
   loanAsk,
   loanBlock,
   loanBonusAsk,
+  marketValue,
   processOffers,
 } from './transfers';
 import { careerSchema, type Career, type Manager } from './types';
@@ -98,6 +101,26 @@ describe('negociação de empréstimo', () => {
 });
 
 describe('direitos econômicos', () => {
+  it('comprar fatia parcial desconta só metade da parte retida pelo vendedor', () => {
+    expect(dealFactor(100)).toBe(1);
+    expect(dealFactor(50)).toBe(0.75);
+  });
+
+  it('recusa proposta irrisória mesmo comprando 50% dos direitos', () => {
+    career.finances[career.clubId].transferBudget = 2e8;
+    career.finances[career.clubId].cash = 4e8;
+    const player = [...world.players]
+      .filter((p) => career.players[p.id].clubId && career.players[p.id].clubId !== career.clubId)
+      .sort((a, b) => marketValue(career, b) - marketValue(career, a))[0];
+    career = createOffer(career, world, player.id, 50000, 2e6, undefined, { rights: 50 });
+    career.date = addDays(career.date, 1);
+    processOffers(career, world);
+
+    expect(career.offers[0].stage).toBe('club');
+    expect(career.offers[0].status).toBe('rejected');
+    expect(career.players[player.id].clubId).not.toBe(career.clubId);
+  });
+
   it('conserva os titulares anteriores ao comprar uma fatia', () => {
     const player = world.players.find((p) => p.clubId === 'palmeiras')!;
     career.players[player.id].rights = 60;

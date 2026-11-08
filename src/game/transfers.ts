@@ -68,9 +68,13 @@ export function requiredWage(c: Career, player: Player) {
   return c.players[player.id].wage * (c.difficulty === 'Profissional' ? 1.15 : 1.05) * agent;
 }
 
-/** Peso da pedida do vendedor: % dos direitos comprados e desconto pelo sell-on concedido. */
+/**
+ * Peso da pedida do vendedor: % dos direitos comprados e desconto pelo sell-on concedido.
+ * O atleta sai inteiro do clube mesmo com fatia parcial, então ficar com 50% dos direitos
+ * só desconta metade da fatia retida (50% dos direitos = 75% da pedida).
+ */
 export const dealFactor = (rights = 100, sellOn = 0) =>
-  (clamp(rights, 50, 100) / 100) * (1 - clamp(sellOn, 0, 30) / 200);
+  (0.5 + clamp(rights, 50, 100) / 200) * (1 - clamp(sellOn, 0, 30) / 200);
 
 /** Comissão do empresário sobre a taxa da operação (paga pelo clube comprador). */
 export const commissionOf = (playerId: string, fee: number) =>
@@ -471,7 +475,7 @@ function clubDecision(c: Career, world: World, offer: Offer) {
   const player = world.players.find((p) => p.id === offer.playerId)!;
   const exVal = exchangeValue(c, world, offer.exchangePlayerId);
   const amount = offer.fee + exVal;
-  const target = Math.max(Math.min(offer.minimum, offer.ask ?? Infinity), offer.minimum * 0.85);
+  const target = Math.min(offer.minimum, offer.ask ?? Infinity);
   const patience = offer.patience ?? startPatience(c);
   const seed = `${offer.id}:${threadOf(offer).length}:club`;
   if (amount >= target * 0.98) {
