@@ -151,22 +151,22 @@ uma variante vencerá todas as partidas, nem inventar percentuais antes da execu
 
 ### Resultados medidos
 
-Fonte: [execução da CI](https://github.com/ruan-crdz/mando/actions/runs/42392819093),
+Fonte: [execução da CI](https://github.com/ruan-crdz/mando/actions/runs/42439471433),
 nos testes de refinamentos, atributos e balanceamento que passaram. Essa execução
 teve uma falha separada no teste de segunda temporada; os números abaixo não
 representam aprovação daquela execução inteira.
 
 | Experimento pareado              | Resultado médio                              |
 | -------------------------------- | -------------------------------------------- |
-| Mentalidade defensiva → ofensiva | xG 1,28 → 1,59                               |
-| Pressão 1 → 5                    | desgaste 18,53 → 28,87; posse 48% → 50%      |
-| Largura 1 → 5                    | xG 1,24 → 1,65 neste adversário              |
-| Construção 1 → 5                 | xG 1,19 → 1,46; desgaste 21,97 → 25,42       |
-| Linha 1 → 5                      | xG 1,41 → 1,46 neste adversário              |
-| Formação 4-3-3 → 3-5-2           | xG 1,41 → 1,47 com os titulares adequados    |
-| Condição 40 → 95                 | xG 1,03 → 1,48; gols sofridos 2,75 → 1,56    |
-| Moral 40 → 95                    | xG 1,34 → 1,50                               |
-| Ritmo 40 → 95                    | xG 1,35 → 1,85                               |
+| Mentalidade defensiva → ofensiva | xG 1,12 → 1,40                               |
+| Pressão 1 → 5                    | desgaste 5,61 → 13,63; posse 49% → 51%       |
+| Largura 1 → 5                    | xG 1,12 → 1,44 neste adversário              |
+| Construção 1 → 5                 | xG 0,91 → 1,38; desgaste 8,02 → 11,22        |
+| Linha 1 → 5                      | xG 1,19 → 1,28 neste adversário              |
+| Formação 4-3-3 → 3-5-2           | xG 1,18 → 1,33 com os titulares adequados    |
+| Condição 40 → 95                 | xG 0,67 → 1,26; gols sofridos 3,63 → 1,84    |
+| Moral 40 → 95                    | xG 1,15 → 1,34                               |
+| Ritmo 40 → 95                    | xG 1,17 → 1,62                               |
 | Auxiliar ouro Pedro Santos       | crescimento diário 0,010781 → 0,014231: +32% |
 | Velocidade +35                   | xG 1,46 → 1,51                               |
 | Finalização +35                  | xG 1,46 → 1,57                               |
