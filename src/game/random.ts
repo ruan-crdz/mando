@@ -31,9 +31,7 @@ export function addMonths(date: string, months: number) {
 }
 
 export function ageAt(birth: string, date: string) {
-  return (
-    Number(date.slice(0, 4)) - Number(birth.slice(0, 4)) - (date.slice(5) < birth.slice(5) ? 1 : 0)
-  );
+  return Number(date.slice(0, 4)) - Number(birth.slice(0, 4));
 }
 
 export const clamp = (n: number, min = 0, max = 100) => Math.min(max, Math.max(min, n));

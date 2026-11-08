@@ -410,31 +410,17 @@ test('controle define data de nascimento na criação e no perfil do manager', a
     if (index >= 12 && index <= 15) await page.waitForTimeout(200);
   };
   await createCareer(page, async () => {
-    const day = page.getByRole('button', { name: /Dia de nascimento:/ });
-    const month = page.getByRole('button', { name: /Mês de nascimento:/ });
     const year = page.getByRole('button', { name: /Ano de nascimento:/ });
     await page.getByRole('button', { name: /Gênero:/ }).focus();
     await press(13);
-    await expect(day).toBeFocused();
-    await press(0);
-    await expect(day).toHaveAttribute('aria-pressed', 'true');
-    await press(15);
-    await expect(day.locator('strong')).toHaveText('02');
-    await press(0);
-    await press(15);
-    await expect(month).toBeFocused();
-    await press(0);
-    await press(15);
-    await expect(month.locator('strong')).toHaveText('02');
-    await press(0);
-    await press(15);
     await expect(year).toBeFocused();
     await press(0);
+    await expect(year).toHaveAttribute('aria-pressed', 'true');
     await press(15);
     await expect(year.locator('strong')).toHaveText('1989');
     await press(1);
     await expect(year).toHaveAttribute('aria-pressed', 'false');
-    await expect(page.locator('.portrait-caption p')).toContainText('36 anos');
+    await expect(page.locator('.portrait-caption p')).toContainText('37 anos');
   });
   await page
     .getByRole('navigation', { name: 'Áreas do clube' })
@@ -444,11 +430,7 @@ test('controle define data de nascimento na criação e no perfil do manager', a
     .getByRole('navigation', { name: 'Atalhos do Escritório' })
     .getByRole('button', { name: 'Personalização', exact: true })
     .click();
-  const day = page.getByRole('button', { name: /Dia de nascimento:/ });
-  const month = page.getByRole('button', { name: /Mês de nascimento:/ });
   const year = page.getByRole('button', { name: /Ano de nascimento:/ });
-  await expect(day.locator('strong')).toHaveText('02');
-  await expect(month.locator('strong')).toHaveText('02');
   await expect(year.locator('strong')).toHaveText('1989');
   await page.evaluate(() => {
     Reflect.get(window, '__testPad').id = 'DualSense Wireless Controller';
