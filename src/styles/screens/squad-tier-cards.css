@@ -1,0 +1,107 @@
+/* Cartinhas por nível (ouro/prata/bronze, com versão brilhante) no campo, banco e fora da relação. */
+.card-shiny:not(.pitch-player) {
+  position: relative;
+}
+.card-shiny:not(.pitch-player)::after,
+.squad-screen .pitch-player.card-rare > .pitch-player-face::after,
+.squad-screen .pitch-player.card-shiny > .pitch-player-face::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+  background: linear-gradient(
+    110deg,
+    transparent 35%,
+    rgba(255, 255, 255, 0.55) 50%,
+    transparent 65%
+  );
+  background-size: 250% 100%;
+  animation: card-shine 3.2s linear infinite;
+}
+.card-silver.card-shiny {
+  --card-bg: linear-gradient(160deg, #ffffff 0%, #c9d6df 35%, #8d9ba6 65%, #3f4b54 100%);
+  box-shadow:
+    0 0 0 1px rgba(235, 245, 255, 0.95),
+    0 0 12px rgba(200, 225, 255, 0.5);
+}
+.card-bronze.card-shiny {
+  --card-bg: linear-gradient(160deg, #ffd2a8 0%, #d48a4c 35%, #a2561f 65%, #4a2508 100%);
+  box-shadow:
+    0 0 0 1px rgba(255, 196, 140, 0.95),
+    0 0 12px rgba(230, 140, 60, 0.5);
+}
+
+/* Campo: a carta é a moldura da foto; o fundo azul/colorido da foto dá lugar ao nível. */
+.squad-screen .pitch-player[class*='card-'],
+.squad-screen .pitch-player[class*='card-']:hover:not(:disabled),
+.squad-screen .pitch-player[class*='card-']:focus {
+  background: transparent;
+  box-shadow: none;
+}
+.squad-screen .pitch-player[class*='card-']::after {
+  content: none;
+}
+.squad-screen .pitch-player[class*='card-'] > .pitch-player-face {
+  position: relative;
+  overflow: hidden;
+  background: var(--card-bg) !important;
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.35),
+    0 3px 8px rgba(0, 0, 0, 0.45);
+}
+.squad-screen .pitch-player.card-rare > .pitch-player-face {
+  box-shadow:
+    0 0 0 1px rgba(255, 230, 120, 0.95),
+    0 0 12px rgba(255, 200, 40, 0.6);
+}
+.squad-screen .pitch-player.card-silver.card-shiny > .pitch-player-face {
+  box-shadow:
+    0 0 0 1px rgba(235, 245, 255, 0.95),
+    0 0 10px rgba(200, 225, 255, 0.55);
+}
+.squad-screen .pitch-player.card-bronze.card-shiny > .pitch-player-face {
+  box-shadow:
+    0 0 0 1px rgba(255, 196, 140, 0.95),
+    0 0 10px rgba(230, 140, 60, 0.55);
+}
+.squad-screen .pitch-player[class*='card-'] .player-face.generated {
+  background: var(--card-bg) !important;
+}
+.squad-screen .pitch-player.selected > .pitch-player-face {
+  outline: 3px solid var(--mando-cyan);
+  outline-offset: 2px;
+}
+
+/* Banco e fora da relação: o quadradinho inteiro vira a carta. */
+.bench-player-square[class*='card-'] {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  background: var(--card-bg);
+  color: #fff;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.75);
+}
+.bench-player-square[class*='card-'] .player-face,
+.bench-player-square[class*='card-'] .player-face.generated {
+  background: rgba(0, 0, 0, 0.12) !important;
+}
+.bench-player-square[class*='card-'] b,
+.bench-player-square[class*='card-'] small {
+  color: #fff;
+}
+.bench-player-square[class*='card-'] strong {
+  width: 100%;
+  padding: 2px 4px;
+  background: var(--card-name);
+}
+.bench-player-square[class*='card-'].selected,
+.bench-player-square[class*='card-']:focus-visible {
+  outline: 3px solid var(--mando-cyan);
+  outline-offset: -3px;
+  border-color: var(--mando-cyan);
+  background: var(--card-bg);
+}
+.bench-player-square[class*='card-']:disabled {
+  filter: grayscale(0.85) brightness(0.6);
+}

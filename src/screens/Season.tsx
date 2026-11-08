@@ -1,10 +1,26 @@
 import { useMemo, useState } from 'react';
 import { PlayerFace } from '../components/PlayerFace';
 import { LegacyPanel } from '../components/LivingPanels';
-import { ArrowLeft, CalendarDays, ChevronLeft, ChevronRight, Medal, Trophy } from 'lucide-react';
-import { Badge, dateLabel, SectionTitle } from '../components/ui';
+import {
+  ArrowLeft,
+  CalendarDays,
+  ChevronLeft,
+  ChevronRight,
+  DoorClosed,
+  DoorOpen,
+  FastForward,
+  Medal,
+  Trophy,
+} from 'lucide-react';
+import { Badge, dateLabel, Modal, SectionTitle } from '../components/ui';
 import { standings } from '../game/engine';
-import { competitionName, fixtureCompetition, fixtureLabel, milestones } from '../game/calendar';
+import {
+  competitionName,
+  fixtureCompetition,
+  fixtureLabel,
+  milestones,
+  windowMark,
+} from '../game/calendar';
 import { cupGroups, cupTies } from '../game/competitions';
 import { clubById } from '../game/npc';
 import { type Career, type Fixture, type TableRow, type World } from '../game/types';
@@ -107,6 +123,7 @@ export function Season({
   officeMode = false,
   embedded = false,
   onBack,
+  onSimulateTo,
 }: {
   career: Career;
   world: World;
@@ -114,6 +131,7 @@ export function Season({
   officeMode?: boolean;
   embedded?: boolean;
   onBack?: () => void;
+  onSimulateTo?: (date: string) => void;
 }) {
   const club = world.clubs.find((club) => club.id === c.clubId)!;
   const { input, hints } = useGamepad();
@@ -121,6 +139,7 @@ export function Season({
   const [view, setView] = useState<SeasonView>(initialView || 'table');
   const [month, setMonth] = useState(c.date.slice(0, 7));
   const [day, setDay] = useState(c.date);
+  const [simTarget, setSimTarget] = useState<string | null>(null);
   const available = ['A', 'B', `EST-${club.state}`, 'CDB', 'SUP', 'LIB', 'SUL'].filter(
     (id) => id === 'A' || id === 'B' || c.fixtures.some((f) => f.cup === id),
   );
@@ -423,11 +442,30 @@ export function Season({
                     key={date}
                     type="button"
                     className={`day-cell ${f ? 'match' : ''} ${date === c.date ? 'today' : ''} ${date === day ? 'selected' : ''} ${date < c.date ? 'past' : ''} ${won !== undefined && won !== null && f?.result ? (won > 0 ? 'win' : won < 0 ? 'loss' : 'draw') : ''}`}
-                    onClick={() => setDay(date)}
+                    onClick={() => {
+                      setDay(date);
+                      if (onSimulateTo && date > c.date) setSimTarget(date);
+                    }}
                     onFocus={() => setDay(date)}
                     aria-label={`${dateLabel(date, true)}${f ? `: ${opponent!.name}, ${shortCompetition(fixtureCompetition(f))}` : ''}`}
                   >
                     <span className="day-number">{Number(date.slice(8))}</span>
+                    {windowMark(date) && (
+                      <span
+                        className={`window-mark ${windowMark(date)}`}
+                        title={
+                          windowMark(date) === 'open'
+                            ? 'Abre a janela de transferências'
+                            : 'Fecha a janela de transferências'
+                        }
+                      >
+                        {windowMark(date) === 'open' ? (
+                          <DoorOpen size={13} />
+                        ) : (
+                          <DoorClosed size={13} />
+                        )}
+                      </span>
+                    )}
                     {f && opponent && (
                       <>
                         <span className="day-side">{home ? 'CASA' : 'FORA'}</span>
@@ -488,6 +526,28 @@ export function Season({
             ))}
           </aside>
         </div>
+      )}
+      {simTarget && onSimulateTo && (
+        <Modal title="Simular até esta data?" onClose={() => setSimTarget(null)}>
+          <p>
+            Avançar o calendário até {dateLabel(simTarget, true)}. A simulação para antes se houver
+            jogo seu ou decisão importante no caminho.
+          </p>
+          <div className="button-row">
+            <button
+              className="primary"
+              data-autofocus
+              onClick={() => {
+                const target = simTarget;
+                setSimTarget(null);
+                onSimulateTo(target);
+              }}
+            >
+              <FastForward size={16} /> Simular
+            </button>
+            <button onClick={() => setSimTarget(null)}>Cancelar</button>
+          </div>
+        </Modal>
       )}
       {view === 'stats' && (
         <div className="stats-grid">

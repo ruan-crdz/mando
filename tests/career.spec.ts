@@ -222,7 +222,6 @@ test('banco compartilhado permite ordenar reservas e substituir titulares', asyn
   const incoming = outside.locator('button:not(:disabled)').first();
   const incomingId = await incoming.getAttribute('data-reserve-player');
   await incoming.click();
-  await page.getByRole('button', { name: /Enviar ao banco/ }).click();
   await bench.locator('button').nth(0).click();
   expect((await benchIds())[0]).toBe(incomingId);
   await expect(outside.locator(`[data-reserve-player="${reordered[0]}"]`)).toBeVisible();

@@ -15,7 +15,7 @@ Hub principal da carreira. Resume data e temporada, apresenta o próximo comprom
 7. **Série:** posição na tabela e caixa do clube; acesso à Classificação.
 8. **Mando News:** faixa inferior com a manchete mais recente.
 
-O calendário horizontal fica no topo, com navegação pelos dias. É a Central
+O calendário horizontal fica no topo, com navegação pelos dias (dias de abertura/fechamento da janela de transferências mostram o selo `ABRE JANELA`/`FECHA JANELA`). É a Central
 anterior à limpeza de escopo, sem os cards de recursos removidos (Seleção,
 demissão, mercado da IA e confiança da diretoria).
 

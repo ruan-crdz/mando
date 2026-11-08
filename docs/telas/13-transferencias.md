@@ -246,7 +246,7 @@ Detalhes dos controles:
 - **Paginação** (`div.pagination`, alinhada à direita): botão `Anterior` (desabilitado na página 1), texto `{página} / {total}` (mínimo `1 / 1`), botão `Próxima` (desabilitado na última).
 
 ## Estados e variações
-- **Janela fechada**: a lista funciona normalmente; o modal abre, mas o envio fica desabilitado ("Janela fechada").
+- **Janela fechada**: tudo funciona normalmente; propostas podem ser enviadas e o acordo fechado fica com status `Aguarda janela` até a abertura (o atleta chega/sai no primeiro dia da janela).
 - **Sem orçamento**: lista inalterada; restrições aparecem só no modal.
 - **Lista vazia**: mensagem acima + paginação `1 / 1` com os dois botões desabilitados.
 - **Atleta observado**: estrela amarela antes do nome.
@@ -446,9 +446,9 @@ Vazio (sem nenhuma oferta):
 
 | Caso | Conteúdo |
 |---|---|
-| Compra · `countered` (clube ou agente fez contraproposta) | `[✓ Aceitar]` (primário; desabilitado com janela fechada) · `[🤝 Contraproposta]` (desabilitado com janela fechada; abre a Sala de negociação já preenchida) · `[✕ Recusar]` (vermelho; encerra a conversa) |
+| Compra · `countered` (clube ou agente fez contraproposta) | `[✓ Aceitar]` (primário) · `[🤝 Contraproposta]` (abre a Sala de negociação já preenchida) · `[✕ Recusar]` (vermelho; encerra a conversa) |
 | Compra · `declined` e travada (`lockedUntil` > hoje) | Texto ciano `Conversas encerradas até {data}.` |
-| Compra · `declined` sem trava | `[🤝 Reabrir negociação]` (desabilitado se janela fechada ou o atleta já mudou de clube) → abre a Sala |
+| Compra · `declined` sem trava | `[🤝 Reabrir negociação]` (desabilitado se o atleta já mudou de clube) → abre a Sala |
 | Compra · `pending` | (vazio — só o "digitando…") |
 | Compra · `rejected` (recusa simples, ainda negociável) | (vazio — para reenviar é preciso abrir o atleta pelo Mercado/Observados) |
 | Venda · `pending` | `[✓ Aceitar {money(fee)}]` (primário) · bloco `Pedir` com `NumberStepper` (valor inicial = oferta × 1,2 arredondado a 50 mil; mínimo = oferta + R$ 50 mil; passo R$ 250 mil; mostra money) + `[🤝 Contraproposta]` · `[✕ Recusar]` (vermelho) |
@@ -462,7 +462,7 @@ Vazio (sem nenhuma oferta):
 
 ## Estados e variações
 - **Modo fora × dentro**: fora, o painel é só leitura e a lista recebe o foco; dentro (`.inside`), contorno amarelo 3px + brilho, o foco fica preso no painel (`data-focus-trap`), aparece "Sair da conversa" e o foco vai para o primeiro botão/campo de ação (ou para "Sair").
-- **Janela fechada**: Aceitar/Contraproposta (compra) e Reabrir ficam desabilitados; Recusar continua ativo. Na venda os botões não são desabilitados, mas aceitar fora da janela gera erro "Transferência fora da janela." (toast). Ao fechar a janela, todas as conversas pendentes/contrapropostas viram `Encerrada` com mensagem de sistema.
+- **Janela fechada**: negociações (compra, venda, empréstimo de entrada e saída) seguem normalmente. O acordo aceito vira `Aguarda janela` (mensagem de sistema com a data de abertura) e se concretiza automaticamente no primeiro dia da próxima janela.
 - **Negociação recusada com trava**: após paciência esgotada, o clube/agente encerra por **30 dias** (`Conversas encerradas até …`).
 - **Propostas do exterior**: chegam com mais chance para atletas OVR ≥ 70 (25% da chance; 45% a partir de julho), pagam 1,2–1,8× o valor de mercado; badge com sigla do país/clube. **Recusar** uma proposta do exterior por atleta "Ambicioso" ou de ≥ R$ 30 mi derruba moral (−15) e relação (−12), coloca o atleta à venda e gera mensagem "Quero jogar na Europa" — **nada disso é avisado na tela antes do clique**.
 - **Atletas à venda** (lista de venda definida na aba TIME) recebem propostas frequentes (30%/dia), entre 60% e 95% do preço pedido.
@@ -546,7 +546,7 @@ Modal largo (até 980 px) aberto ao clicar em um atleta (Mercado/Observados) ou 
 - Foco inicial: primeiro botão do corpo (o botão "Observar"), ou o elemento com `data-autofocus` (no seletor de troca, o card "Sem troca"). Ao fechar, o foco volta ao elemento anterior (linha/card/botão do chat).
 
 ## Estados e variações (gerais)
-- **Janela fechada**: botão de envio desabilitado com texto `Janela fechada`; o atalho "Acionar multa" some; "Assinar pré-contrato" continua (não depende da janela).
+- **Janela fechada**: o envio continua ativo, com o aviso "Janela fechada: o atleta só chega quando ela abrir."; "Acionar multa" também agenda a chegada para a abertura.
 - **Transfer ban / desafios / proposta já pendente / conversa travada / sem orçamento / elenco do vendedor curto**: o envio é permitido na UI e o motor responde com toast de erro (ex.: `Transfer ban da FIFA até 15/01/2027: o clube não pode contratar.`, `Esta proposta já está com o outro lado. Aguarde a resposta.`, `Palmeiras encerrou as conversas por X até 04/12.`, `Proposta acima do orçamento disponível.`, `Venda R$ 10 milhões em atletas antes de contratar.`, `Este desafio permite contratar apenas jogadores de até 23 anos.`, `A transferência deixaria o clube com menos de 18 atletas ou dois goleiros.`). O modal **não fecha** em caso de erro.
 - Responsivo ≤1100px: 2 colunas (alvo | mesa) e o resumo ocupa a linha inteira embaixo.
 
@@ -805,7 +805,7 @@ Coluna de conferência e envio.
 - `p.eyebrow` `RESUMO FINANCEIRO`.
 - `dl` com linhas: `Orçamento` (orçamento de transferências), `Caixa`, `Taxa`, `Luvas`, `Salários ({anos}a)` = salário × 12 × anos, **`Custo total`** = taxa + luvas + salários (linha com borda lima 2px e valor lima, 16px), `Saldo p/ contratar` = orçamento − taxa (valor **vermelho** se negativo).
 - Dois medidores: `Clube` e `Jogador`.
-- Botão primário grande `Send` 17 + texto: `Enviar proposta` (sem conversa) / `Enviar contraproposta` (conversa existente, inclusive reabrir) / `Janela fechada` (desabilitado).
+- Botão primário grande `Send` 17 + texto: `Enviar proposta` (sem conversa) / `Enviar contraproposta` (conversa existente, inclusive reabrir).
 - `small.muted`: `Resposta amanhã. B fecha a sala.`
 
 ### Estados e variações

@@ -345,20 +345,28 @@ export function MatchScreen({
           {match.minute === 90 && (
             <MatchAnalysis match={match} fixture={fixture} clubId={c.clubId} />
           )}
-          <div className="match-ratings">
-            <h3>{match.minute === 90 ? 'Melhores em campo' : 'Notas ao vivo'}</h3>
-            {[...ratings]
-              .sort((x, y) => y.rating - x.rating)
-              .slice(0, 4)
-              .map((r) => (
-                <div key={r.id}>
-                  <span>
-                    {r.id === mvp ? '★ ' : ''}
-                    {findPlayer(world, r.id)!.name}
-                  </span>
-                  <b className={`rating-badge ${ratingTone(r.rating)}`}>{r.rating.toFixed(1)}</b>
+          <div className="match-ratings match-ratings-all">
+            <h3>{match.minute === 90 ? 'Notas finais' : 'Notas ao vivo'}</h3>
+            <div className="match-ratings-cols">
+              {[fixture.homeId, fixture.awayId].map((clubId) => (
+                <div key={clubId}>
+                  <h4>{clubById(world, clubId).short}</h4>
+                  {ratings
+                    .filter((r) => r.clubId === clubId)
+                    .map((r) => (
+                      <div key={r.id}>
+                        <span>
+                          <small>{r.role}</small> {r.id === mvp ? '★ ' : ''}
+                          {findPlayer(world, r.id)!.name}
+                        </span>
+                        <b className={`rating-badge ${ratingTone(r.rating)}`}>
+                          {r.rating.toFixed(1)}
+                        </b>
+                      </div>
+                    ))}
                 </div>
               ))}
+            </div>
           </div>
         </aside>
         {match.minute === 90 ? (

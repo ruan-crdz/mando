@@ -10,7 +10,7 @@ do Escritório, sem trocar de área ou abrir outro submenu.
 
 Oito opções no mesmo nível, nesta ordem:
 
-1. Objetivos e mercado
+1. Objetivos
 2. Classificação
 3. Calendário
 4. Orçamento
@@ -31,7 +31,11 @@ O orçamento salarial dos auxiliares pode ser redistribuído a partir do limite
 mensal dos jogadores, sem movimentar caixa. O editor também aparece na Comissão;
 respeita salários contratados, empréstimos e pré-contratos reservados.
 
-## Objetivos e mercado
+## Objetivos
+
+No topo, a sala de troféus (`.trophy-hall.office-trophy-hall`): 7 troféus SVG (`TrophyArt`) em grade — Série A, Série B, estadual, Copa do Brasil, Supercopa, Libertadores e Sul-Americana — com placa dourada de títulos e anos conquistados. Abaixo, a lista de objetivos da temporada.
+
+No Calendário, dias de abertura/fechamento de janela têm ícone de porta (verde/vermelho), e clicar em um dia futuro pergunta `Simular até esta data?` (para em jogos e decisões).
 
 - Mostra os objetivos da Série A ou Série B e a posição/pontuação atual.
 - Lista competições da temporada, situação e última fase disputada.

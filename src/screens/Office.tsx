@@ -34,6 +34,7 @@ import { competitionName } from '../game/calendar';
 import { ageAt } from '../game/random';
 import { overall } from '../game/ratings';
 import { PortraitCamera } from '../components/PortraitCamera';
+import { TrophyArt } from '../components/TrophyArt';
 import { dateLabel, ManagerPortrait, Metric, Modal, money, SectionTitle } from '../components/ui';
 
 const scoutRegions = ['Brasil', 'América do Sul', 'Europa'] as const;
@@ -67,6 +68,7 @@ export function Office({
   onReviewAcademy,
   onAcceptJob,
   onDeclineJob,
+  onSimulateTo,
   aiAvailable,
   busy,
 }: {
@@ -89,6 +91,7 @@ export function Office({
   onReviewAcademy: (id: string, decision: 'promote' | 'release') => void;
   onAcceptJob: (id: string) => void;
   onDeclineJob: (id: string) => void;
+  onSimulateTo?: (date: string) => void;
   aiAvailable: boolean;
   busy: boolean;
 }) {
@@ -542,7 +545,7 @@ export function Office({
                 ] as const)
               : ([
                   ['finances', 'Orçamento', TrendingUp],
-                  ['board', 'Objetivos e mercado', Landmark],
+                  ['board', 'Objetivos', Landmark],
                   ['staff', 'Carreira e perfil', Users],
                 ] as const)
           ).map(([id, label, Icon]) => (
@@ -564,7 +567,7 @@ export function Office({
         <nav className="segmented office-route-links" aria-label="Atalhos do Escritório">
           {(
             [
-              ['board', 'Objetivos e mercado', Target],
+              ['board', 'Objetivos', Target],
               ['table', 'Classificação', Trophy],
               ['calendar', 'Calendário', CalendarDays],
               ['finances', 'Orçamento', TrendingUp],
@@ -587,7 +590,14 @@ export function Office({
       )}
       {area === 'office' &&
         (view === 'table' || view === 'calendar' || view === 'stats' || view === 'legacy') && (
-          <Season key={view} career={c} world={world} initialView={view} embedded />
+          <Season
+            key={view}
+            career={c}
+            world={world}
+            initialView={view}
+            embedded
+            onSimulateTo={onSimulateTo}
+          />
         )}
       {area === 'notifications' && view === 'inbox' && (
         <div className="office-inbox">
@@ -598,13 +608,21 @@ export function Office({
               onClick={() => {
                 if (audio.speaking) stopReading();
                 else
-                  readMailbox(c.messages, (id) => {
-                    setSelected(id);
-                    onRead(id);
-                  });
+                  readMailbox(
+                    c.messages.filter((message) => !message.read),
+                    (id) => {
+                      setSelected(id);
+                      onRead(id);
+                    },
+                  );
               }}
             >
-              <Volume2 size={18} /> {audio.speaking ? 'Parar leitura' : 'Ouvir caixa postal'}
+              <Volume2 size={18} />{' '}
+              {audio.speaking
+                ? 'Parar leitura'
+                : c.messages.some((message) => !message.read)
+                  ? `Ouvir caixa postal · ${c.messages.filter((message) => !message.read).length} nova(s)`
+                  : 'Caixa postal sem mensagens novas'}
               <ControllerButtonHint action="info" label="Caixa postal" />
             </button>
             {c.messages.map((msg) => (
@@ -948,6 +966,43 @@ export function Office({
                 );
               })}
             </section>
+          )}
+          {view === 'board' && (
+            <div className="trophy-hall office-trophy-hall">
+              <div className="trophy-shelf carousel">
+                {['A', 'B', `EST-${club.state}`, 'CDB', 'SUP', 'LIB', 'SUL'].map((id) => {
+                  const titles = c.honours.filter(
+                    (h) => h.clubId === c.clubId && h.competition === id,
+                  );
+                  const winner = c.honours.find(
+                    (h) => h.season === c.season && h.competition === id,
+                  )?.clubId;
+                  return (
+                    <button
+                      type="button"
+                      key={id}
+                      className={`trophy-stand ${titles.length ? 'won' : ''}`}
+                      aria-label={`${competitionName(id)}: ${titles.length} títulos`}
+                    >
+                      <span className="trophy-light" />
+                      <TrophyArt id={id} />
+                      <span className="trophy-plate">
+                        <strong>{titles.length}</strong>
+                        <small>{titles.length === 1 ? 'TÍTULO' : 'TÍTULOS'}</small>
+                      </span>
+                      <span className="trophy-name">{competitionName(id)}</span>
+                      <small className="trophy-years">
+                        {titles.length
+                          ? titles.map((t) => t.season).join(' · ')
+                          : winner
+                            ? `${c.season}: ${world.clubs.find((x) => x.id === winner)?.short ?? ''}`
+                            : 'Em disputa'}
+                      </small>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
           )}
           {view === 'board' && (
             <section className="panel objectives">

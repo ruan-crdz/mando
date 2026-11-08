@@ -307,6 +307,7 @@ function statusLabel(o: Offer) {
   if (o.status === 'pending') return o.incoming ? 'Responder' : 'Aguardando';
   if (o.status === 'countered') return 'Contraproposta';
   if (o.status === 'rejected') return 'Recusada';
+  if (o.status === 'accepted' && o.awaitingWindow) return 'Aguarda janela';
   if (o.status === 'completed' || o.status === 'accepted') return 'Concluída';
   return 'Encerrada';
 }
@@ -347,7 +348,6 @@ function ChatPanel({
   offer,
   career: c,
   world,
-  open,
   onRespond,
   onAnswer,
   onAsk,
@@ -358,7 +358,6 @@ function ChatPanel({
   offer: Offer;
   career: Career;
   world: World;
-  open: boolean;
   onRespond: (id: string, accept: boolean) => void;
   onAnswer: (id: string, accept: boolean) => void;
   onAsk: (id: string, fee: number) => void;
@@ -471,10 +470,10 @@ function ChatPanel({
       <footer className="chat-actions">
         {!offer.incoming && offer.status === 'countered' && (
           <>
-            <button className="primary" onClick={() => onRespond(offer.id, true)} disabled={!open}>
+            <button className="primary" onClick={() => onRespond(offer.id, true)}>
               <Check size={16} /> Aceitar
             </button>
-            <button onClick={onCounter} disabled={!open}>
+            <button onClick={onCounter}>
               <Handshake size={16} /> Contraproposta
             </button>
             <button className="danger" onClick={() => onRespond(offer.id, false)}>
@@ -484,7 +483,7 @@ function ChatPanel({
         )}
         {!offer.incoming && offer.status === 'rejected' && (
           <>
-            <button className="primary" onClick={onCounter} disabled={!open || !stillThere}>
+            <button className="primary" onClick={onCounter} disabled={!stillThere}>
               <Handshake size={16} /> Nova proposta
             </button>
             <button className="danger" onClick={() => onRespond(offer.id, false)}>
@@ -503,7 +502,7 @@ function ChatPanel({
           (locked ? (
             <p className="chat-wait">Conversas encerradas até {dateLabel(offer.lockedUntil!)}.</p>
           ) : (
-            <button onClick={onCounter} disabled={!open || !stillThere}>
+            <button onClick={onCounter} disabled={!stillThere}>
               <Handshake size={16} /> Reabrir negociação
             </button>
           ))}
@@ -530,10 +529,16 @@ function ChatPanel({
             </button>
           </>
         )}
-        {(offer.status === 'completed' || offer.status === 'accepted') && (
+        {offer.awaitingWindow && offer.status === 'accepted' ? (
           <p className="chat-wait done">
-            <Check size={16} /> Negócio concluído.
+            <Check size={16} /> Acordo fechado. A operação se concretiza quando a janela abrir.
           </p>
+        ) : (
+          (offer.status === 'completed' || offer.status === 'accepted') && (
+            <p className="chat-wait done">
+              <Check size={16} /> Negócio concluído.
+            </p>
+          )
         )}
         {offer.incoming && offer.status === 'declined' && (
           <p className="chat-wait">Conversa encerrada.</p>
@@ -574,9 +579,7 @@ export function Transfers({
   onPrecontract: (id: string, wage: number) => void;
   onClause: (id: string) => void;
 }) {
-  const [view, setView] = useState<'market' | 'shortlist' | 'negotiations' | 'accounts'>(
-    'market',
-  );
+  const [view, setView] = useState<'market' | 'shortlist' | 'negotiations' | 'accounts'>('market');
   const [selected, setSelected] = useState('');
   const [inside, setInside] = useState(false);
   const [filters, setFilters] = useState(initialFilters);
@@ -637,7 +640,10 @@ export function Transfers({
         previous?.fee ??
         (last && Boolean(last.loan) === (mode === 'loan') ? last.fee : undefined) ??
         (mode === 'loan' ? ask.fee : marketValue(c, p)),
-      wage: previous?.wage ?? (last?.loan ? undefined : last?.wage) ?? Math.round((c.players[p.id].wage * 1.15) / 1000) * 1000,
+      wage:
+        previous?.wage ??
+        (last?.loan ? undefined : last?.wage) ??
+        Math.round((c.players[p.id].wage * 1.15) / 1000) * 1000,
       years: previous?.years ?? last?.years ?? 3,
       bonus: previous?.bonus ?? last?.bonus ?? 0,
       exchange: previous?.exchange ?? last?.exchangePlayerId ?? '',
@@ -647,7 +653,8 @@ export function Transfers({
       months,
       wagePct: previous?.wagePct ?? loan?.wagePct ?? ask.wagePct,
       clause:
-        previous?.clause ?? (loan?.obligation ? 'obligation' : loan?.option !== undefined ? 'option' : 'none'),
+        previous?.clause ??
+        (loan?.obligation ? 'obligation' : loan?.option !== undefined ? 'option' : 'none'),
       option: previous?.option ?? loan?.option ?? ask.option,
       obligationFee: previous?.obligationFee ?? loan?.obligation?.fee ?? ask.obligation,
       obligationGames: previous?.obligationGames ?? loan?.obligation?.games ?? 15,
@@ -712,18 +719,18 @@ export function Transfers({
     deal &&
     (loanAssessment ??
       negotiationOutlook(
-          c,
-          world,
-          deal.player,
-          deal.fee,
-          deal.wage,
-          deal.exchange || undefined,
-          deal.years,
-          deal.bonus,
-          dealThread?.ask,
-          deal.rights,
-          deal.sellOn,
-        ));
+        c,
+        world,
+        deal.player,
+        deal.fee,
+        deal.wage,
+        deal.exchange || undefined,
+        deal.years,
+        deal.bonus,
+        dealThread?.ask,
+        deal.rights,
+        deal.sellOn,
+      ));
   const loanBase = deal && loanReq ? loanAsk(c, world, deal.player, deal.months) : undefined;
   const commission = deal ? commissionOf(deal.player.id, deal.fee) : 0;
   const dealAgent = deal ? agentOf(deal.player.id) : undefined;
@@ -782,10 +789,7 @@ export function Transfers({
             {actionCount ? ` · ${actionCount} !` : ''}
           </span>
         </button>
-        <button
-          className={view === 'accounts' ? 'active' : ''}
-          onClick={() => setView('accounts')}
-        >
+        <button className={view === 'accounts' ? 'active' : ''} onClick={() => setView('accounts')}>
           <Wallet size={16} /> Contas
         </button>
       </div>
@@ -845,16 +849,16 @@ export function Transfers({
               <div className="button-row">
                 {c.players[deal.player.id].contractEnd > c.date &&
                   c.players[deal.player.id].contractEnd <= addMonths(c.date, 6) && (
-                  <button
-                    onClick={() => {
-                      onPrecontract(deal.player.id, requiredWage(c, deal.player));
-                      setDeal(null);
-                    }}
-                  >
-                    Assinar pré-contrato · {money(requiredWage(c, deal.player))}/mês
-                  </button>
-                )}
-                {open && c.players[deal.player.id].clause && !c.players[deal.player.id].loanFrom && (
+                    <button
+                      onClick={() => {
+                        onPrecontract(deal.player.id, requiredWage(c, deal.player));
+                        setDeal(null);
+                      }}
+                    >
+                      Assinar pré-contrato · {money(requiredWage(c, deal.player))}/mês
+                    </button>
+                  )}
+                {c.players[deal.player.id].clause && !c.players[deal.player.id].loanFrom && (
                   <button
                     onClick={() => {
                       onClause(deal.player.id);
@@ -867,7 +871,11 @@ export function Transfers({
               </div>
             </aside>
             <section className="deal-table">
-              <div className="segmented compact deal-mode" role="group" aria-label="Tipo de operação">
+              <div
+                className="segmented compact deal-mode"
+                role="group"
+                aria-label="Tipo de operação"
+              >
                 <button
                   className={deal.mode === 'buy' ? 'active' : ''}
                   aria-pressed={deal.mode === 'buy'}
@@ -937,7 +945,8 @@ export function Transfers({
                     <p>
                       {loanAssessment?.blocked
                         ? `"${loanAssessment.blocked}"`
-                        : dealThread?.status === 'countered' && dealThread.counter?.fee !== undefined
+                        : dealThread?.status === 'countered' &&
+                            dealThread.counter?.fee !== undefined
                           ? `"Para emprestar: ${money(dealThread.counter.fee)} de taxa${dealThread.counter.loan ? ` · ${loanTermsLabel(dealThread.counter.loan)}` : ''}."`
                           : `"Emprestamos se pagarem ao menos ${loanBase.wagePct}% do salário e uma taxa justa."`}
                     </p>
@@ -960,7 +969,10 @@ export function Transfers({
                   <ChipGroup
                     label="Salário pago por nós"
                     value={String(deal.wagePct)}
-                    options={[0, 25, 50, 60, 75, 100].map((v) => ({ value: String(v), label: `${v}%` }))}
+                    options={[0, 25, 50, 60, 75, 100].map((v) => ({
+                      value: String(v),
+                      label: `${v}%`,
+                    }))}
                     onChange={(v) => update({ wagePct: Number(v) })}
                   />
                   <ChipGroup
@@ -1245,7 +1257,6 @@ export function Transfers({
               <LikelihoodMeter label="Jogador" value={outlook.player} />
               <button
                 className="primary send-offer"
-                disabled={!open}
                 onClick={() => {
                   const sent = loanReq
                     ? onLoan(deal.player.id, loanReq)
@@ -1263,15 +1274,16 @@ export function Transfers({
                 }}
               >
                 <Send size={17} />{' '}
-                {!open
-                  ? 'Janela fechada'
-                  : dealThread
-                    ? 'Enviar contraproposta'
-                    : deal.mode === 'loan'
-                      ? 'Pedir empréstimo'
-                      : 'Enviar proposta'}
+                {dealThread
+                  ? 'Enviar contraproposta'
+                  : deal.mode === 'loan'
+                    ? 'Pedir empréstimo'
+                    : 'Enviar proposta'}
               </button>
-              <small className="muted">Resposta amanhã. B fecha a sala.</small>
+              <small className="muted">
+                Resposta amanhã.
+                {!open && ' Janela fechada: o atleta só chega quando ela abrir.'} B fecha a sala.
+              </small>
             </aside>
           </div>
         </Modal>
@@ -1521,7 +1533,9 @@ export function Transfers({
                         player={p}
                         career={c}
                         autoFocus={i === 0}
-                        badge={<Badge club={clubById(world, c.players[p.id].clubId!)} size="small" />}
+                        badge={
+                          <Badge club={clubById(world, c.players[p.id].clubId!)} size="small" />
+                        }
                         accessibilityNote={`${clubName(p)}, valor ${money(marketValue(c, p))}. Negociar`}
                         onClick={() => startDeal(p)}
                       />
@@ -1600,9 +1614,15 @@ export function Transfers({
             {relevantSellOns.length ? (
               <div className="market-account-list">
                 {relevantSellOns.map((claim, index) => (
-                  <div className="market-account-row" key={`${claim.playerId}-${claim.clubId}-${index}`}>
+                  <div
+                    className="market-account-row"
+                    key={`${claim.playerId}-${claim.clubId}-${index}`}
+                  >
                     <span>
-                      <strong>{world.players.find((player) => player.id === claim.playerId)?.name ?? claim.playerId}</strong>
+                      <strong>
+                        {world.players.find((player) => player.id === claim.playerId)?.name ??
+                          claim.playerId}
+                      </strong>
                       <small>
                         {claim.clubId === c.clubId
                           ? 'A receber na próxima venda'
@@ -1625,14 +1645,24 @@ export function Transfers({
             {c.living.ledger.length ? (
               <div className="market-account-list">
                 {[...c.living.ledger].reverse().map((entry, index) => (
-                  <div className="market-account-row" key={`${entry.date}-${entry.playerId}-${index}`}>
+                  <div
+                    className="market-account-row"
+                    key={`${entry.date}-${entry.playerId}-${index}`}
+                  >
                     <span>
-                      <strong>{ledgerLabel[entry.kind]} · {world.players.find((player) => player.id === entry.playerId)?.name ?? entry.playerId}</strong>
+                      <strong>
+                        {ledgerLabel[entry.kind]} ·{' '}
+                        {world.players.find((player) => player.id === entry.playerId)?.name ??
+                          entry.playerId}
+                      </strong>
                       <small>
-                        {dateLabel(entry.date)} · {partyName(world, entry.from)} → {partyName(world, entry.to)}
+                        {dateLabel(entry.date)} · {partyName(world, entry.from)} →{' '}
+                        {partyName(world, entry.to)}
                       </small>
                     </span>
-                    <strong>{entry.to === c.clubId ? '+' : '−'} {money(entry.amount)}</strong>
+                    <strong>
+                      {entry.to === c.clubId ? '+' : '−'} {money(entry.amount)}
+                    </strong>
                   </div>
                 ))}
               </div>
@@ -1683,7 +1713,6 @@ export function Transfers({
               offer={current}
               career={c}
               world={world}
-              open={open}
               onRespond={onRespond}
               onAnswer={onAnswer}
               onAsk={onAsk}
@@ -1701,7 +1730,10 @@ export function Transfers({
           <section className="panel empty-state">
             <ArrowLeftRight size={35} />
             <h2>O mercado ainda está em silêncio.</h2>
-            <p>Faça uma proposta ou avance os dias durante a janela.</p>
+            <p>
+              Faça uma proposta ou avance os dias. Fora da janela, acordos fechados aguardam a
+              abertura.
+            </p>
           </section>
         ))}
     </div>

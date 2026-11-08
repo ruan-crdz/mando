@@ -562,3 +562,139 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
+
+/* Minhas escala��es: campo de nome e bot�es na mesma linha de base e mesma altura. */
+.saved-lineup-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 8px;
+}
+.saved-lineup-actions .lineup-name-input {
+  display: grid;
+  gap: 4px;
+  flex: 1 1 200px;
+  margin: 0;
+}
+.saved-lineup-actions .lineup-name-input input,
+.saved-lineup-actions > button {
+  box-sizing: border-box;
+  height: 40px;
+  min-height: 40px;
+  margin: 0;
+}
+.saved-lineup-actions > button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding-block: 0;
+}
+
+/* Foco bem vis�vel em campos num�ricos e de texto (navega��o por controle). */
+.stepper-row:focus-within,
+.number-stepper .stepper-row:focus-within {
+  border-color: var(--mando-cyan);
+  background: rgba(54, 214, 231, 0.16);
+  box-shadow:
+    0 0 0 3px var(--mando-cyan),
+    0 0 18px rgba(54, 214, 231, 0.55);
+}
+.stepper-row:focus-within > input {
+  color: #fff;
+}
+main input[type='text']:focus,
+main input:not([type]):focus,
+main input[type='number']:focus,
+main input[type='date']:focus,
+main select:focus,
+main textarea:focus {
+  outline: 3px solid var(--mando-cyan);
+  outline-offset: 2px;
+  box-shadow: 0 0 16px rgba(54, 214, 231, 0.45);
+}
+.stepper-row > input:focus {
+  outline: 0;
+  box-shadow: none;
+}
+
+.board-layout .office-trophy-hall {
+  grid-column: 1 / -1;
+}
+.office-trophy-hall .trophy-shelf {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  overflow: visible;
+}
+
+.calendar-window {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  border-radius: 4px;
+  padding: 1px 5px;
+}
+.calendar-window.open {
+  background: rgba(0, 200, 120, 0.22);
+  color: #4cf0a5;
+}
+.calendar-window.close {
+  background: rgba(255, 80, 80, 0.22);
+  color: #ff8a8a;
+}
+.day-cell {
+  position: relative;
+}
+.day-cell .window-mark {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+}
+.day-cell .window-mark.open {
+  background: rgba(0, 200, 120, 0.85);
+  color: #fff;
+}
+.day-cell .window-mark.close {
+  background: rgba(230, 60, 60, 0.85);
+  color: #fff;
+}
+
+.match-ratings-all .match-ratings-cols {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.match-ratings-all h4 {
+  margin: 0 0 4px;
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  opacity: 0.75;
+}
+.match-ratings-all .match-ratings-cols > div > div {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.72rem;
+  padding: 2px 0;
+}
+.match-ratings-all .match-ratings-cols span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.match-ratings-all .match-ratings-cols small {
+  opacity: 0.6;
+  font-size: 0.6rem;
+}
+.match-ratings-all .rating-badge {
+  min-width: 30px;
+  font-size: 0.7rem;
+}

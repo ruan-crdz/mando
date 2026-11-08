@@ -1,6 +1,14 @@
-import { AlertCircle, CalendarClock, MessageSquare, Square, Trophy } from 'lucide-react';
+import {
+  AlertCircle,
+  CalendarClock,
+  DoorClosed,
+  DoorOpen,
+  MessageSquare,
+  Square,
+  Trophy,
+} from 'lucide-react';
 import { ControllerButtonHint } from '../controller/ControllerButtonHint';
-import { fixtureLabel, nextFixture } from '../game/calendar';
+import { fixtureLabel, nextFixture, windowMark } from '../game/calendar';
 import { clubById } from '../game/npc';
 import { addDays } from '../game/random';
 import { type Career, type World } from '../game/types';
@@ -54,6 +62,23 @@ export function CareerCalendar({
               </span>
             </time>
             <span className="calendar-events">
+              {windowMark(date) && (
+                <span
+                  className={`calendar-window ${windowMark(date)}`}
+                  title={
+                    windowMark(date) === 'open'
+                      ? 'Abre a janela de transferências'
+                      : 'Fecha a janela de transferências'
+                  }
+                >
+                  {windowMark(date) === 'open' ? (
+                    <DoorOpen size={12} aria-hidden="true" />
+                  ) : (
+                    <DoorClosed size={12} aria-hidden="true" />
+                  )}{' '}
+                  {windowMark(date) === 'open' ? 'ABRE' : 'FECHA'} JANELA
+                </span>
+              )}
               {opponent && fixture && (
                 <span className="calendar-match" title={fixtureLabel(fixture).name}>
                   <Trophy size={12} aria-hidden="true" /> {opponent.short}

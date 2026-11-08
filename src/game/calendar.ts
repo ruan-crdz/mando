@@ -66,6 +66,23 @@ export function transferWindow(date: string) {
   return (md >= '01-05' && md <= '03-03') || (md >= '07-20' && md <= '09-11');
 }
 
+/** 'open' no primeiro dia de cada janela, 'close' no último. */
+export function windowMark(date: string): 'open' | 'close' | undefined {
+  const md = date.slice(5);
+  if (md === '01-05' || md === '07-20') return 'open';
+  if (md === '03-03' || md === '09-11') return 'close';
+  return undefined;
+}
+
+/** Próxima data de abertura de janela a partir de `date` (inclusive). */
+export function nextWindowOpen(date: string) {
+  const y = Number(date.slice(0, 4));
+  const md = date.slice(5);
+  if (md <= '01-05') return `${y}-01-05`;
+  if (md <= '07-20') return `${y}-07-20`;
+  return `${y + 1}-01-05`;
+}
+
 export function createSchedule(clubs: Club[], season = 2026): Fixture[] {
   return (['A', 'B'] as const)
     .flatMap((league) => {

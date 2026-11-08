@@ -57,7 +57,7 @@ import {
 } from './game/engine';
 import { available, bestLineup, beginMatch, substitute, syncBenchWithLineup } from './game/matches';
 import { careerWorld } from './game/live';
-import { fixtureLabel, nextFixture } from './game/calendar';
+import { fixtureLabel, nextFixture, transferWindow } from './game/calendar';
 import { clubById } from './game/npc';
 import {
   answerIncoming,
@@ -478,7 +478,24 @@ function Game() {
     setAdvanceStartedAt(career.date);
     setRunning(true);
   }, [career, live, act, running, busy, inMatch]);
-  const stopRunning = useCallback(() => setRunning(false), []);
+  const [runUntil, setRunUntil] = useState<string | null>(null);
+  const simulateTo = useCallback(
+    (date: string) => {
+      if (!career || running || busy || inMatch || date <= career.date) return;
+      setRunUntil(date);
+      setPlayed(0);
+      setAdvanceStartedAt(career.date);
+      setRunning(true);
+    },
+    [career, running, busy, inMatch],
+  );
+  const stopRunning = useCallback(() => {
+    setRunning(false);
+    setRunUntil(null);
+  }, []);
+  useEffect(() => {
+    if (!running) setRunUntil(null);
+  }, [running]);
   const step = useRef({ career, world });
   step.current = { career, world };
   useEffect(() => {
@@ -487,12 +504,19 @@ function Game() {
       const { career: current, world: base } = step.current;
       if (!current || !base) return setRunning(false);
       try {
-        const mode = current.prefs?.advance === 'auto' ? 'auto' : 'event';
+        if (runUntil && current.date >= runUntil) {
+          setRunning(false);
+          setRunUntil(null);
+          setNotice('Data alcançada.');
+          return;
+        }
+        const mode = runUntil ? 'event' : current.prefs?.advance === 'auto' ? 'auto' : 'event';
         const result = advanceStep(current, base, mode);
         setCareer(result.career);
         if (result.played) setPlayed((n) => n + 1);
-        if (result.stop) {
+        if (result.stop && !(runUntil && result.stop === 'message')) {
           setRunning(false);
+          setRunUntil(null);
           setNotice(stopNotes[result.stop]);
           rumble('whistle');
           if (result.stop === 'match') setPopup('prematch');
@@ -507,7 +531,7 @@ function Game() {
       }
     }, 110);
     return () => window.clearTimeout(timer);
-  }, [running, career, fail, rumble]);
+  }, [running, career, fail, rumble, runUntil]);
   useControllerActions(
     screen === 'create' || busy
       ? {}
@@ -750,7 +774,11 @@ function Game() {
                   onLoanOut={(id, clubId, terms) =>
                     act(() => {
                       setCareer(loanOutPlayer(career, live!, id, clubId, terms));
-                      setNotice(`Empréstimo concluído por ${terms.months} meses.`);
+                      setNotice(
+                        transferWindow(career.date)
+                          ? `Empréstimo concluído por ${terms.months} meses.`
+                          : 'Empréstimo acertado. O atleta sai quando a janela abrir.',
+                      );
                     })
                   }
                   onExerciseOption={(id) =>
@@ -937,6 +965,7 @@ function Game() {
                       );
                     })
                   }
+                  onSimulateTo={simulateTo}
                   onAcceptJob={(id) =>
                     act(() => {
                       setCareer(acceptJobOffer(career, live!, id));

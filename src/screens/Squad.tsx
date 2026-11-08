@@ -79,7 +79,8 @@ import {
 } from '../game/types';
 import { dateLabel, Modal, money, SectionTitle, thresholdPercent } from '../components/ui';
 import { ChipGroup, NumberStepper, ShirtNumberDial, TacticSlider } from '../components/controls';
-import { byPosition, PlayerCard, PlayerPicker, shortName } from '../components/PlayerCard';
+import { byPosition, shortName } from '../components/PlayerCard';
+import { cardTier } from '../components/cardTier';
 
 const roleScore: Record<string, (p: Player, c: Career) => number> = {
   Capitão: (p, c) =>
@@ -165,7 +166,6 @@ export function Squad({
   const [action, setAction] = useState<PlayerAction>('summary');
   const [focusId, setFocusId] = useState<string | null>(null);
   const [outsideId, setOutsideId] = useState<string | null>(null);
-  const [benchTarget, setBenchTarget] = useState(false);
   const [benchOrderId, setBenchOrderId] = useState<string | null>(null);
   const [hiringArea, setHiringArea] = useState<AssistantArea | null>(null);
   const lastDetail = useRef<string | null>(null);
@@ -402,7 +402,6 @@ export function Squad({
   const reserveRole = slotPicking ? rolePositions[slotPicking.index] : null;
   const resetBenchSelection = () => {
     setOutsideId(null);
-    setBenchTarget(false);
     setBenchOrderId(null);
   };
   const focusReserve = (id: string) =>
@@ -420,31 +419,45 @@ export function Squad({
       focusReserve(incoming);
     }
   };
+  const rolePicking = picking?.kind === 'role' ? picking : null;
+  const roleAllows = (player: Player) =>
+    !rolePicking ||
+    rolePicking.role.startsWith('Capit') ||
+    rolePicking.role.startsWith('Vice') ||
+    player.position !== 'GK';
   const reserveButton = (player: Player, onBench: boolean) => {
     const id = player.id;
     const state = c.players[id];
     const role = reserveRole ?? state.position ?? player.position;
-    const selected = !slotPicking && (onBench ? benchOrderId === id : outsideId === id);
+    const ovr = overall(player, role, state);
+    const selected = rolePicking
+      ? c.roles[rolePicking.role] === id
+      : !slotPicking && (onBench ? benchOrderId === id : outsideId === id);
     const eligible =
       available(c, id) && (!slotPicking || slotPicking.index !== 0 || player.position === 'GK');
     return (
       <button
         key={id}
-        className={`bench-player-square ${selected ? 'selected' : ''}`}
+        className={`bench-player-square ${cardTier(ovr)} ${selected ? 'selected' : ''}`}
         data-bench-player={onBench ? id : undefined}
         data-reserve-player={id}
         aria-pressed={selected}
-        aria-label={`${player.name}, ${role}, overall ${overall(player, role, state)}, ${onBench ? 'banco' : 'fora da relação'}, ${availability(player)}`}
-        disabled={slotPicking || !onBench ? !eligible : false}
+        aria-label={`${player.name}, ${role}, overall ${ovr}, ${onBench ? 'banco' : 'fora da relação'}, ${availability(player)}`}
+        disabled={rolePicking ? !roleAllows(player) : slotPicking || !onBench ? !eligible : false}
         onFocus={() => setFocusId(id)}
         onClick={() => {
-          if (slotPicking) {
+          if (rolePicking) {
+            setRole(rolePicking.role, id);
+          } else if (slotPicking) {
             resetBenchSelection();
             changeSlot(slotPicking.index, id);
           } else if (!onBench) {
-            resetBenchSelection();
-            setOutsideId(id);
-          } else if (benchTarget && outsideId) {
+            if (benchOrderId) changeBench(id, benchOrderId);
+            else {
+              resetBenchSelection();
+              setOutsideId(outsideId === id ? null : id);
+            }
+          } else if (outsideId) {
             changeBench(outsideId, id);
           } else if (benchOrderId && benchOrderId !== id) {
             changeBench(benchOrderId, id);
@@ -466,15 +479,19 @@ export function Squad({
       >
         <PlayerFace player={player} size="md" />
         <b>
-          {overall(player, role, state)} · {role}
+          {ovr} · {role}
         </b>
         <strong>{shortName(player.name)}</strong>
         <small>
-          {!available(c, id)
-            ? availability(player)
-            : slotPicking?.index === 0 && player.position !== 'GK'
-              ? 'Não é goleiro'
-              : `${Math.round(state.fitness)}%`}
+          {rolePicking
+            ? roleAllows(player)
+              ? `índice ${Math.round(roleScore[rolePicking.role](player, c))}`
+              : 'Goleiro não permitido'
+            : !available(c, id)
+              ? availability(player)
+              : slotPicking?.index === 0 && player.position !== 'GK'
+                ? 'Não é goleiro'
+                : `${Math.round(state.fitness)}%`}
         </small>
       </button>
     );
@@ -486,48 +503,40 @@ export function Squad({
         {(input === 'xbox' || input === 'playstation') && (
           <ControllerButtonHint
             action="confirm"
-            label={slotPicking ? 'Substituir' : 'Selecionar'}
+            label={rolePicking ? 'Escolher' : slotPicking ? 'Substituir' : 'Selecionar'}
           />
         )}
       </div>
       <p className="muted">
-        {slotPicking
-          ? 'Escolha um reserva ou atleta fora da relação para entrar em campo.'
-          : benchTarget
-            ? 'Escolha quem vai sair do banco.'
-            : benchOrderId
-              ? 'Selecione um titular para substituir ou outro reserva para trocar a ordem.'
-              : 'Selecione um atleta e depois um titular para substituí-lo. Dois reservas trocam a ordem; a seta envia um não relacionado ao banco.'}
+        {rolePicking
+          ? `Escolha no campo, no banco ou fora da relação quem será ${rolePicking.role.toLowerCase()}.`
+          : slotPicking
+            ? 'Escolha um reserva ou atleta fora da relação para entrar em campo.'
+            : outsideId
+              ? 'Escolha um titular ou um reserva para trocar com ele.'
+              : benchOrderId
+                ? 'Escolha um titular, outro reserva ou um não relacionado para trocar com ele.'
+                : 'Selecione um atleta e depois quem vai trocar com ele: titular, reserva ou não relacionado.'}
       </p>
-      <div
-        className={`bench-player-grid ${benchTarget && !slotPicking ? 'choosing-target' : ''}`}
-        role="group"
-        aria-label="Banco de reservas"
-      >
+      <div className="bench-player-grid" role="group" aria-label="Banco de reservas">
         {c.bench.map((id) => reserveButton(byId(id), true))}
       </div>
       <div className="bench-divider">
         <span>FORA DA RELAÇÃO</span>
-        {!slotPicking && (
+        {!slotPicking && !rolePicking && (
           <>
-            <button
-              disabled={!outsideId}
-              data-controller-info
-              onClick={() => {
-                if (!outsideId) return;
-                if (c.bench.length < 9) {
+            {outsideId && c.bench.length < 9 && (
+              <button
+                onClick={() => {
                   if (apply(() => selectBenchPlayer(c, outsideId))) {
                     focusReserve(outsideId);
                     resetBenchSelection();
                   }
-                } else {
-                  setBenchTarget(true);
-                  focusReserve(c.bench[0]);
-                }
-              }}
-            >
-              ↑ Enviar ao banco <ControllerButtonHint action="info" label="Trocar" />
-            </button>
+                }}
+              >
+                ↑ Adicionar ao banco
+              </button>
+            )}
             {(outsideId || benchOrderId) && (
               <button data-back-action onClick={resetBenchSelection}>
                 Cancelar seleção
@@ -583,12 +592,10 @@ export function Squad({
     );
   } else if (picking?.kind === 'role') {
     const score = roleScore[picking.role];
-    const pool = players.filter(
-      (p) =>
-        picking.role.startsWith('Capit') || picking.role.startsWith('Vice') || p.position !== 'GK',
-    );
-    const recommended = [...pool].sort((a, b) => score(b, c) - score(a, c)).slice(0, 5);
-    const others = pool.filter((p) => !recommended.includes(p)).sort(byPosition(c));
+    const best = players
+      .filter(roleAllows)
+      .sort((a, b) => score(b, c) - score(a, c))
+      .slice(0, 3);
     pickerContent = (
       <>
         <div className="panel-heading picker-heading">
@@ -603,44 +610,19 @@ export function Squad({
             <ChevronLeft size={16} /> Cancelar
           </button>
           <h2>{picking.role}</h2>
-          <span className="pill">Escolha o responsável</span>
+          {c.roles[picking.role] ? (
+            <button type="button" onClick={() => setRole(picking.role, null)}>
+              <UserX size={15} /> Remover responsável
+            </button>
+          ) : (
+            <span className="pill">Escolha o responsável</span>
+          )}
         </div>
-        {!pool.length && <p className="squad-empty">Não há atletas elegíveis para esta função.</p>}
-        <PlayerPicker
-          recommended={recommended}
-          others={others}
-          recommendedLabel="Melhores para a função"
-          othersLabel="Elenco por posição"
-          extra={
-            c.roles[picking.role] ? (
-              <button
-                type="button"
-                className="player-card empty"
-                onClick={() => setRole(picking.role, null)}
-              >
-                <UserX size={30} />
-                <strong className="pc-name">Ninguém</strong>
-                <span className="pc-meta">Remover</span>
-              </button>
-            ) : null
-          }
-          render={(p) => {
-            const status = `${c.lineup.includes(p.id) ? 'Titular' : 'Reserva'} · índice ${Math.round(score(p, c))} · ${availability(p)} · condição ${thresholdPercent(c.players[p.id].fitness)}%`;
-            return (
-              <div className="squad-candidate" key={p.id}>
-                <PlayerCard
-                  player={p}
-                  career={c}
-                  number={numbers[p.id]}
-                  active={c.roles[picking.role] === p.id}
-                  accessibilityNote={status}
-                  onClick={() => setRole(picking.role, p.id)}
-                />
-                <span className="squad-candidate-meta">{status}</span>
-              </div>
-            );
-          }}
-        />
+        <p className="muted small">
+          Melhores índices:{' '}
+          {best.map((p) => `${shortName(p.name)} (${Math.round(score(p, c))})`).join(' · ')}
+        </p>
+        <div className="lineup-management">{reservePanel}</div>
       </>
     );
   }
@@ -1165,9 +1147,13 @@ export function Squad({
                     type="button"
                     data-slot={i}
                     data-autofocus={i === 0 ? '' : undefined}
-                    className={`pitch-player ${!available(c, id) ? 'unavailable' : ''} ${selected ? 'selected' : ''} ${swapping ? 'swap-target' : ''} ${fam < LEARNED ? 'out-of-position' : ''}`}
+                    className={`pitch-player ${cardTier(ovr)} ${!available(c, id) ? 'unavailable' : ''} ${selected ? 'selected' : ''} ${swapping ? 'swap-target' : ''} ${fam < LEARNED ? 'out-of-position' : ''}`}
                     style={{ left: `${coordinates[i].x}%`, top: `${coordinates[i].y}%` }}
                     onClick={() => {
+                      if (rolePicking) {
+                        if (roleAllows(p)) setRole(rolePicking.role, id);
+                        return;
+                      }
                       setView('lineup');
                       const incoming = outsideId ?? benchOrderId;
                       if (incoming) changeSlot(i, incoming);

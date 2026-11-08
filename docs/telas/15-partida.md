@@ -26,7 +26,7 @@ Partida 2D jogável da carreira, aberta a partir do popup Dia de jogo. O manager
 - Controles permitem iniciar/pausar e alternar a velocidade da simulação.
 - O painel **O jogo em números** apresenta posse, finalizações, gols esperados (xG) e passes.
 - **Direto do campo** lista eventos recentes em texto.
-- Durante a partida, a tela exibe notas dos jogadores; no fim, exibe as notas finais e o Craque do jogo.
+- Durante a partida, a tela exibe ao mesmo tempo as notas de todos os jogadores dos dois times (duas colunas, com posição); no fim, exibe as notas finais e o Craque do jogo.
 
 ### Ações do manager
 

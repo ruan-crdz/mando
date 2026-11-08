@@ -156,7 +156,7 @@ Para incluir um não relacionado no banco, selecione-o, use ↑/Y/△ e escolha 
 │ │   LW      AM      RW      │ │ BANCO: [foto] [foto] [foto] [foto]          │
 │ │       DM      DM          │ │        [foto] [foto] [foto] [foto]          │
 │ │   LB   CB   CB   RB       │ │        [foto]                              │
-│ │          foto GK          │ │ FORA DA RELAÇÃO         [↑ Enviar ao banco]│
+│ │          foto GK          │ │ FORA DA RELAÇÃO         [↑ Adicionar ao banco]│
 │ └───────────────────────────┘ │                                             │
 │ Selecione uma posição: ...    │                                             │
 └───────────────────────────────┴──────────────────────────────────────────────┘
@@ -382,7 +382,7 @@ Define capitão, vice e cobradores de bola parada. Painel direito com uma grade 
   - Cards usam superfícies ardósia/grafite. Um goleiro já atribuído por um save antigo a uma função que não permite goleiro recebe aviso para regularização, sem alterar o save silenciosamente.
 - **Seletor de responsável** (`picking = {kind:'role', role}`) no painel direito:
   - Cabeçalho: `Cancelar` (`ChevronLeft`, `data-back-action`) · `h2` **{nome da função}** · `pill` **`Escolha o responsável`**.
-  - `PlayerPicker`: **`Melhores para a função`** = top 5 por `roleScore`; **`Elenco por posição`** = demais, por `byPosition`. Goleiros só aparecem nas duas listas de Capitão/Vice.
+  - Responsabilidades usam o mesmo campo + banco + fora da relação da Escalação: escolha a função e toque no atleta (campo, banco ou fora). Mostra os 3 mais indicados; goleiros só valem para Capitão/Vice. Cartas seguem os 6 níveis (ouro brilhante ≥80, ouro ≥75, prata brilhante ≥70, prata ≥65, bronze brilhante ≥60, bronze). Troca banco↔fora é direta: selecione um e toque no outro.
   - Card extra **Ninguém** (só se a função já tem responsável): `button.player-card.empty` (borda tracejada) com ícone **`UserX`** (30) + **`Ninguém`** + **`Remover`** → remove a função.
   - Cards `PlayerCard` com `active` = responsável atual. Titular/reserva, índice da função, disponibilidade e condição aparecem abaixo da foto e no rótulo acessível. Indisponíveis continuam selecionáveis aqui.
 - `roleScore` (critério dos recomendados):

@@ -457,6 +457,10 @@ export const offerSchema = z.object({
   sellOn: z.number().min(0).max(30).optional(),
   /** Presente quando a conversa é um pedido de empréstimo. */
   loan: loanTermsSchema.optional(),
+  /** Acordo fechado fora da janela: a operação se concretiza quando ela abrir. */
+  awaitingWindow: z.boolean().optional(),
+  /** Empréstimo de atleta do usuário para um clube da IA, agendado para a janela. */
+  outLoan: z.boolean().optional(),
 });
 export type Offer = z.infer<typeof offerSchema>;
 export const coachStyles = [

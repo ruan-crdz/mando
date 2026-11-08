@@ -1,7 +1,7 @@
 import { addDays, addMonths, ageAt, clamp, hash, random } from './random';
 import { overall } from './ratings';
 import { reconcileSquad, squad } from './matches';
-import { transferWindow } from './calendar';
+import { nextWindowOpen, transferWindow } from './calendar';
 import { clubById, foreignClubs, isForeign } from './npc';
 import { notify as inbox, recordMove } from './chronicle';
 import { checkPlayerSalaryBudget, directorEffect, staffLevel } from './staff';
@@ -197,7 +197,6 @@ export function createOffer(
   terms: { years?: number; bonus?: number; rights?: number; sellOn?: number } = {},
 ): Career {
   const c = structuredClone(career);
-  if (!transferWindow(c.date)) throw new Error('A janela de transferências está fechada.');
   if (!Number.isFinite(fee) || fee < 0 || !Number.isFinite(wage) || wage <= 0)
     throw new Error('Informe valores válidos.');
   const player = world.players.find((p) => p.id === playerId);
@@ -209,6 +208,8 @@ export function createOffer(
   if (c.challenge === 'Só a base' && ageAt(player.birthDate, c.date) > 23)
     throw new Error('Este desafio permite contratar apenas jogadores de até 23 anos.');
   let existing = activeThread(c, playerId);
+  if (existing?.awaitingWindow)
+    throw new Error('O acordo já está fechado. O atleta se apresenta quando a janela abrir.');
   if (existing?.status === 'pending')
     throw new Error('Esta proposta já está com o outro lado. Aguarde a resposta.');
   if (existing?.lockedUntil && existing.lockedUntil > c.date)
@@ -333,8 +334,35 @@ export function createOffer(
   return c;
 }
 
+const windowLabel = (date: string) => date.slice(5).split('-').reverse().join('/');
+
+function deferToWindow(c: Career, world: World, offer: Offer) {
+  const player = world.players.find((p) => p.id === offer.playerId)!;
+  offer.status = 'accepted';
+  offer.awaitingWindow = true;
+  say(offer, {
+    date: c.date,
+    from: 'system',
+    kind: 'info',
+    text: `Acordo fechado. ${player.name} ${offer.incoming || offer.outLoan ? 'deixa o clube' : 'se apresenta'} quando a janela abrir, em ${windowLabel(nextWindowOpen(c.date))}.`,
+  });
+}
+
 function finish(c: Career, world: World, offer: Offer) {
+  if (!transferWindow(c.date)) return deferToWindow(c, world, offer);
+  offer.awaitingWindow = undefined;
   try {
+    if (offer.outLoan) {
+      Object.assign(
+        c,
+        loanOutPlayer(c, world, offer.playerId, offer.fromClubId, {
+          ...offer.loan!,
+          fee: offer.fee,
+        }),
+      );
+      offer.status = 'completed';
+      return;
+    }
     if (offer.loan) completeLoan(c, world, offer);
     else completeTransfer(c, world, offer);
     const player = world.players.find((p) => p.id === offer.playerId)!;
@@ -443,7 +471,7 @@ function clubDecision(c: Career, world: World, offer: Offer) {
   const player = world.players.find((p) => p.id === offer.playerId)!;
   const exVal = exchangeValue(c, world, offer.exchangePlayerId);
   const amount = offer.fee + exVal;
-  const target = Math.min(offer.minimum, offer.ask ?? Infinity);
+  const target = Math.max(Math.min(offer.minimum, offer.ask ?? Infinity), offer.minimum * 0.85);
   const patience = offer.patience ?? startPatience(c);
   const seed = `${offer.id}:${threadOf(offer).length}:club`;
   if (amount >= target * 0.98) {
@@ -544,7 +572,6 @@ export function respondCounter(
     });
     return c;
   }
-  if (!transferWindow(c.date)) throw new Error('A janela de transferências está fechada.');
   const t = offer.counter!;
   const fee = offer.stage === 'player' ? offer.fee : (t.fee ?? offer.fee);
   const bonus = t.bonus ?? offer.bonus ?? 0;
@@ -708,6 +735,10 @@ export function answerIncoming(
       fee: offer.fee,
       text: 'Proposta aceita. Negócio fechado.',
     });
+    if (!transferWindow(c.date)) {
+      deferToWindow(c, world, offer);
+      return c;
+    }
     completeTransfer(c, world, offer);
     const player = world.players.find((p) => p.id === offer.playerId)!;
     say(offer, {
@@ -825,10 +856,15 @@ export function expireThread(offer: Offer, date: string, text: string) {
 }
 
 export function processOffers(c: Career, world: World) {
+  if (transferWindow(c.date))
+    for (const offer of c.offers.filter((o) => o.awaitingWindow && o.status === 'accepted')) {
+      offer.messages = threadOf(offer);
+      finish(c, world, offer);
+      notify(c, world, offer);
+    }
   for (const offer of c.offers.filter(
     (o) => !o.incoming && o.status === 'pending' && o.responseDate <= c.date,
   )) {
-    if (!transferWindow(c.date)) break;
     const state = c.players[offer.playerId];
     if (!state || state.clubId !== offer.toClubId || state.loanFrom) {
       expireThread(offer, c.date, 'O atleta não está mais disponível neste clube.');
@@ -843,16 +879,11 @@ export function processOffers(c: Career, world: World) {
     else clubDecision(c, world, offer);
     notify(c, world, offer);
   }
-  if (!transferWindow(c.date)) {
-    for (const offer of c.offers.filter((o) => o.status === 'pending' || o.status === 'countered'))
-      expireThread(offer, c.date, 'A janela de transferências fechou. Negociação encerrada.');
-    return;
-  }
   const rng = random(hash(`${c.seed}:${c.date}:market`));
   const own = squad(c, world).filter(
     (p) =>
       !c.players[p.id].loanFrom &&
-      !c.offers.some((o) => o.playerId === p.id && o.status === 'pending'),
+      !c.offers.some((o) => o.playerId === p.id && (o.status === 'pending' || o.awaitingWindow)),
   );
   // Atletas à venda atraem propostas com frequência, perto do preço pedido.
   const listed = own.filter((p) => c.players[p.id].listed);
@@ -1062,7 +1093,6 @@ export function createLoanOffer(
   req: LoanRequest,
 ): Career {
   const c = structuredClone(career);
-  if (!transferWindow(c.date)) throw new Error('A janela de transferências está fechada.');
   const player = world.players.find((p) => p.id === playerId);
   const state = c.players[playerId];
   if (
@@ -1080,6 +1110,8 @@ export function createLoanOffer(
     throw new Error('O empréstimo não pode ultrapassar o contrato do atleta com o clube dono.');
   const ownerId = state.clubId;
   let existing = activeThread(c, playerId);
+  if (existing?.awaitingWindow)
+    throw new Error('O acordo já está fechado. O atleta se apresenta quando a janela abrir.');
   if (existing?.status === 'pending')
     throw new Error('Esta proposta já está com o outro lado. Aguarde a resposta.');
   if (existing?.lockedUntil && existing.lockedUntil > c.date)
@@ -1353,7 +1385,6 @@ export function loanOutPlayer(
   req: LoanRequest = { months: 6, fee: 0, wagePct: 100 },
 ): Career {
   const c = structuredClone(career);
-  if (!transferWindow(c.date)) throw new Error('A janela de transferências está fechada.');
   const player = world.players.find((p) => p.id === playerId);
   const state = c.players[playerId];
   const dest = c.finances[destinationId];
@@ -1385,6 +1416,29 @@ export function loanOutPlayer(
     );
   if (dest.cash < fee || dest.transferBudget < fee)
     throw new Error(`O ${name} não tem orçamento para pagar a taxa.`);
+  if (!transferWindow(c.date)) {
+    if (c.offers.some((o) => o.playerId === playerId && o.awaitingWindow))
+      throw new Error(`${player.name} já tem uma saída acertada para a próxima janela.`);
+    const offer: Offer = {
+      id: `outloan-${hash(`${c.id}:${playerId}:${c.date}`)}`,
+      playerId,
+      fromClubId: destinationId,
+      toClubId: c.clubId,
+      fee,
+      wage: state.wage,
+      date: c.date,
+      responseDate: c.date,
+      status: 'accepted',
+      incoming: true,
+      outLoan: true,
+      minimum: 0,
+      loan: terms,
+      messages: [],
+    };
+    c.offers.push(offer);
+    deferToWindow(c, world, offer);
+    return c;
+  }
   dest.cash -= fee;
   dest.transferBudget -= fee;
   dest.history.push({ date: c.date, income: 0, expenses: fee, balance: dest.cash });
@@ -1587,7 +1641,6 @@ export function signPreContract(
 
 export function exerciseReleaseClause(career: Career, world: World, playerId: string): Career {
   const c = structuredClone(career);
-  if (!transferWindow(c.date)) throw new Error('A janela de transferências está fechada.');
   const player = world.players.find((p) => p.id === playerId);
   const state = c.players[playerId];
   if (!player || !state?.clubId || state.clubId === c.clubId || !state.clause)
@@ -1610,6 +1663,11 @@ export function exerciseReleaseClause(career: Career, world: World, playerId: st
     messages: [],
   };
   checkBudget(c, offer.fee, 0);
+  if (!transferWindow(c.date)) {
+    c.offers.push(offer);
+    deferToWindow(c, world, offer);
+    return c;
+  }
   completeTransfer(c, world, offer);
   c.offers.push({ ...offer, status: 'completed' });
   return c;

@@ -9,13 +9,7 @@ import {
   standings,
   validateCareerForWorld,
 } from './engine';
-import {
-  available,
-  beginMatch,
-  simulateMatch,
-  stepMatch,
-  substitute,
-} from './matches';
+import { available, beginMatch, simulateMatch, stepMatch, substitute } from './matches';
 import {
   createOffer,
   askingPrice,
@@ -260,10 +254,8 @@ describe('engine matemática da partida', () => {
 });
 
 describe('mercado e relações', () => {
-  it('não aceita transferência sem janela nem acima do orçamento', () => {
+  it('aceita proposta fora da janela, mas não acima do orçamento', () => {
     const p = world.players.find((p) => p.clubId === 'palmeiras' && p.position === 'ST')!;
-    expect(() => createOffer(career, world, p.id, 1000000, 100000)).toThrow('fechada');
-    career.date = '2026-01-05';
     expect(() => createOffer(career, world, p.id, 1e12, 100000)).toThrow('orçamento');
   });
   it('responde no dia seguinte e conclui a negociação sem depender de IA', () => {
