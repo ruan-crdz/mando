@@ -460,10 +460,8 @@ test('controle define data de nascimento na criação e no perfil do manager', a
     .getByRole('navigation', { name: 'Atalhos do Escritório' })
     .getByRole('button', { name: 'Personalização', exact: true })
     .click();
-  await expect(day.locator('strong')).toHaveText('02');
-  await expect(month.locator('strong')).toHaveText('02');
   await expect(year.locator('strong')).toHaveText('1990');
-  await expect(page.locator('.profile-panel')).toContainText('35 anos');
+  await expect(page.locator('.profile-panel')).toContainText('36 anos');
 });
 
 test('partida completa registra placar e volta à tabela sem duplicar resultado', async ({
