@@ -22,6 +22,7 @@ import {
 import { createSchedule, transferWindow } from './calendar';
 import { overall } from './ratings';
 import { careerSchema, type Career, type Manager } from './types';
+import { clubRights, formingClub } from './market';
 
 const world = createDemoWorld();
 const manager: Manager = {
@@ -381,7 +382,17 @@ describe('mercado e relações', () => {
   });
   it('aceita oferta recebida, contabiliza vendas e impede aceitar de novo', () => {
     career.date = '2026-01-05';
-    const p = career.lineup[10];
+    const p = world.players.find((player) => {
+      const former = formingClub(career, world, player.id);
+      return (
+        career.players[player.id]?.clubId === career.clubId &&
+        player.position !== 'GK' &&
+        clubRights(career, player.id) === 100 &&
+        former &&
+        former !== career.clubId &&
+        former !== 'palmeiras'
+      );
+    })!.id;
     career.offers.push({
       id: 'received',
       playerId: p,
