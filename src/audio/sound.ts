@@ -87,6 +87,7 @@ let musicBus: GainNode;
 let crowdBus: GainNode;
 let effectsBus: GainNode;
 let noise: AudioBufferSourceNode | null = null;
+let whiteBuffer: AudioBuffer | null = null;
 let percussionBuffer: AudioBuffer | null = null;
 let scheduler: ReturnType<typeof setInterval> | null = null;
 let scene: 'menu' | 'match' = 'menu';
@@ -202,6 +203,61 @@ function levels() {
   );
 }
 
+/**
+ * Torcida sintetizada: dezenas de vozes (pulso glotal com vibrato e sílabas aleatórias)
+ * sobre um rumor grave de estádio, com ondas lentas de volume e loop sem emenda.
+ */
+function crowdBuffer(ctx: AudioContext) {
+  const rate = ctx.sampleRate;
+  const seconds = 8;
+  const fade = Math.floor(rate * 0.6);
+  const length = rate * seconds;
+  const total = length + fade;
+  const mix = new Float32Array(total);
+  let brown = 0;
+  for (let i = 0; i < total; i++) {
+    brown = (brown + 0.02 * (Math.random() * 2 - 1)) / 1.02;
+    mix[i] = brown * 2.2;
+  }
+  for (let v = 0; v < 42; v++) {
+    const base = 95 + Math.random() * (v % 3 === 0 ? 200 : 110);
+    const vibRate = 4 + Math.random() * 2;
+    const vibDepth = 0.02 + Math.random() * 0.03;
+    const loud = 0.02 + Math.random() * 0.025;
+    let phase = Math.random();
+    let env = 0;
+    let target = 0;
+    let nextSyllable = Math.floor(Math.random() * rate * 0.4);
+    let glide = 1;
+    for (let i = 0; i < total; i++) {
+      if (i >= nextSyllable) {
+        target = Math.random() < 0.7 ? 0.5 + Math.random() * 0.5 : 0;
+        glide = 0.85 + Math.random() * 0.35;
+        nextSyllable = i + Math.floor(rate * (0.12 + Math.random() * 0.35));
+      }
+      env += (target - env) * 0.0016;
+      const f = base * glide * (1 + vibDepth * Math.sin((2 * Math.PI * vibRate * i) / rate));
+      phase += f / rate;
+      if (phase >= 1) phase -= 1;
+      const p = 2 * Math.PI * phase;
+      const voice = Math.sin(p) + 0.6 * Math.sin(2 * p) + 0.4 * Math.sin(3 * p) + 0.22 * Math.sin(5 * p);
+      mix[i] += voice * env * loud;
+    }
+  }
+  const out = ctx.createBuffer(1, length, rate);
+  const data = out.getChannelData(0);
+  let peak = 0;
+  for (let i = 0; i < length; i++) {
+    const swell = 0.8 + 0.2 * Math.sin((2 * Math.PI * i) / length) * Math.sin((6 * Math.PI * i) / length);
+    let s = mix[i];
+    if (i < fade) s = mix[i] * (i / fade) + mix[length + i] * (1 - i / fade);
+    data[i] = s * swell;
+    peak = Math.max(peak, Math.abs(data[i]));
+  }
+  for (let i = 0; i < length; i++) data[i] = (data[i] / peak) * 0.6;
+  return out;
+}
+
 export async function unlockAudio() {
   try {
     if (!context) {
@@ -228,14 +284,20 @@ export async function unlockAudio() {
       const percussion = percussionBuffer.getChannelData(0);
       for (let index = 0; index < percussion.length; index++)
         percussion[index] = Math.random() * 2 - 1;
+      whiteBuffer = buffer;
       noise = context.createBufferSource();
-      noise.buffer = buffer;
+      noise.buffer = crowdBuffer(context);
       noise.loop = true;
-      const filter = context.createBiquadFilter();
-      filter.type = 'bandpass';
-      filter.frequency.value = 900;
-      filter.Q.value = 0.5;
-      noise.connect(filter).connect(crowdBus);
+      const body = context.createBiquadFilter();
+      body.type = 'lowpass';
+      body.frequency.value = 2200;
+      body.Q.value = 0.6;
+      const chest = context.createBiquadFilter();
+      chest.type = 'peaking';
+      chest.frequency.value = 600;
+      chest.gain.value = 5;
+      chest.Q.value = 0.8;
+      noise.connect(body).connect(chest).connect(crowdBus);
       noise.start();
       nextBeat = context.currentTime + 0.08;
       scheduler = setInterval(() => {
@@ -414,12 +476,12 @@ function stopPhoneLine() {
 }
 
 function startPhoneLine() {
-  if (!context || !noise?.buffer || context.state !== 'running') return;
+  if (!context || !whiteBuffer || context.state !== 'running') return;
   stopPhoneLine();
   const source = context.createBufferSource();
   const filter = context.createBiquadFilter();
   const gain = context.createGain();
-  source.buffer = noise.buffer;
+  source.buffer = whiteBuffer;
   source.loop = true;
   filter.type = 'bandpass';
   filter.frequency.value = 1700;
