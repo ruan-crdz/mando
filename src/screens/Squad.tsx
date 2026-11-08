@@ -16,7 +16,7 @@ import {
   UserPlus,
   UserMinus,
 } from 'lucide-react';
-import { available, bestLineup, squad } from '../game/matches';
+import { autoSelectSquad, available, bestLineup, squad } from '../game/matches';
 import { useGamepad } from '../controller/GamepadProvider';
 import { ControllerButtonHint } from '../controller/ControllerButtonHint';
 import { clubById } from '../game/npc';
@@ -994,12 +994,20 @@ export function Squad({
         <button
           data-controller-secondary={view === 'lineup' || view === 'tactics' ? '' : undefined}
           onClick={() => {
-            const lineup = bestLineup(c, world);
-            if (lineup.length !== 11) onError('Não há onze atletas disponíveis.');
-            else onChange(syncBenchWithLineup(c, lineup));
+            const selected = autoSelectSquad(c, world);
+            if (selected.lineup.length !== 11) onError('Não há onze atletas disponíveis.');
+            else if (
+              c.challenge === 'Só a base' &&
+              selected.lineup.filter((id) => ageAt(byId(id).birthDate, c.date) <= 23).length < 3
+            )
+              onError('Não há três atletas sub-23 disponíveis para cumprir o desafio.');
+            else onChange(selected);
           }}
         >
-          <Sparkles size={17} /> Autoescalar
+          <Sparkles size={17} /> Autoescalar titulares e banco
+          <span aria-hidden="true">
+            <ControllerButtonHint action="secondary" label="" />
+          </span>
         </button>
       </SectionTitle>
       {hiringArea && (

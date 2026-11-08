@@ -225,6 +225,17 @@
   gap: 8px;
   flex-wrap: wrap;
 }
+.match-assistant-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 20px;
+}
+.match-assistant-actions button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
 .finish-match {
   width: 100%;
   padding: 12px;

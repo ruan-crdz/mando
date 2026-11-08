@@ -75,7 +75,7 @@ e mapa de calor com o mesmo comportamento de rolagem por RS.
 
 - `p.eyebrow`: **`TIME / GESTÃO DO ELENCO`**.
 - `h1` em caixa alta: **`Onze nomes. Uma ideia.`** — como termina em ponto, o `title-dot` não é acrescentado.
-- Botão à direita: ícone `Sparkles` (17 px) + **`Autoescalar`**. Ação: `bestLineup(c, world)`; se não retornar 11 atletas → erro `"Não há onze atletas disponíveis."`; senão `onChange({...c, lineup})`. Não mexe em formação nem tática. Disponível em todas as sub-abas.
+- Botão à direita: **Autoescalar titulares e banco**, com atalho □/X nas abas Escalação e Tática. A ação escolhe titulares pelo overall na função e condição física, respeita o mínimo de três sub-23 no desafio Só a base e monta até nove reservas para cobrir goleiro e as funções da formação antes de completar por qualidade. Não altera formação nem tática.
 
 ### Barra de sub-abas (`.segmented`)
 

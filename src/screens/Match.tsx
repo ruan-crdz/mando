@@ -11,13 +11,16 @@ import {
   SlidersHorizontal,
   Star,
   Volume2,
+  X,
 } from 'lucide-react';
 import {
   available,
+  assistantSubstitutionSuggestion,
   shoutChoices,
   shoutFromSideline,
   sideFormation,
   stepMatch,
+  type AssistantSubstitutionSuggestion,
 } from '../game/matches';
 import { manOfTheMatch, matchRatings, ratingTone } from '../game/matchRatings';
 import { fixtureLabel } from '../game/calendar';
@@ -65,9 +68,13 @@ export function MatchScreen({
   const [shout, setShout] = useState(false);
   const [outgoing, setOut] = useState('');
   const [incoming, setIn] = useState('');
+  const [assistantSuggestion, setAssistantSuggestion] =
+    useState<AssistantSubstitutionSuggestion | null>(null);
   const { rumble } = useGamepad();
   const latest = useRef(c);
   const finishButton = useRef<HTMLButtonElement>(null);
+  const ignoredAssistantSuggestions = useRef(new Set<string>());
+  const resumeAfterAssistantSuggestion = useRef(false);
   latest.current = c;
   const match = c.activeMatch!;
   const scoreRef = useRef({ home: match.homeGoals, away: match.awayGoals, minute: match.minute });
@@ -133,6 +140,27 @@ export function MatchScreen({
           ? 'AO VIVO'
           : 'PAUSADO';
   const isLive = playing && !sub && !tactic && !shout && !paused && match.minute < 90;
+  useEffect(() => {
+    if (!isLive || assistantSuggestion) return;
+    const suggestion = assistantSubstitutionSuggestion(
+      c,
+      world,
+      ignoredAssistantSuggestions.current,
+    );
+    if (!suggestion) return;
+    resumeAfterAssistantSuggestion.current = true;
+    setPlaying(false);
+    setAssistantSuggestion(suggestion);
+  }, [isLive, assistantSuggestion, c, world]);
+  const decideAssistantSuggestion = (accept: boolean) => {
+    const suggestion = assistantSuggestion;
+    if (!suggestion) return;
+    ignoredAssistantSuggestions.current.add(suggestion.outgoing);
+    if (accept) onSubstitute(suggestion.outgoing, suggestion.incoming);
+    setAssistantSuggestion(null);
+    if (resumeAfterAssistantSuggestion.current && match.minute < 90) setPlaying(true);
+    resumeAfterAssistantSuggestion.current = false;
+  };
   useEffect(() => {
     setCrowdPlaying(isLive);
     return () => setCrowdPlaying(false);
@@ -206,6 +234,43 @@ export function MatchScreen({
           }}
           onDone={() => setIntro(false)}
         />
+      )}
+      {assistantSuggestion && (
+        <Modal
+          title="Sugestão do auxiliar técnico"
+          onClose={() => decideAssistantSuggestion(false)}
+          className="assistant-substitution-modal"
+        >
+          <p>
+            Aos {match.minute}', o auxiliar recomenda tirar{' '}
+            <strong>{findPlayer(world, assistantSuggestion.outgoing)?.name}</strong> e colocar{' '}
+            <strong>{findPlayer(world, assistantSuggestion.incoming)?.name}</strong> na função{' '}
+            <strong>{assistantSuggestion.role}</strong>.
+          </p>
+          <p className="muted">
+            {findPlayer(world, assistantSuggestion.outgoing)?.name} {assistantSuggestion.reason}.{' '}
+            {assistantSuggestion.detail}
+          </p>
+          <div className="match-assistant-actions">
+            <button
+              className="primary"
+              data-controller-secondary
+              data-autofocus=""
+              onClick={() => decideAssistantSuggestion(true)}
+            >
+              <Check size={17} /> Aceitar
+              <span aria-hidden="true">
+                <ControllerButtonHint action="secondary" label="" />
+              </span>
+            </button>
+            <button data-controller-info onClick={() => decideAssistantSuggestion(false)}>
+              <X size={17} /> Recusar
+              <span aria-hidden="true">
+                <ControllerButtonHint action="info" label="" />
+              </span>
+            </button>
+          </div>
+        </Modal>
       )}
       <div className="match-strip">
         <span>
