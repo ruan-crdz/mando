@@ -1755,6 +1755,14 @@ export function renewalTerms(c: Career, playerId: string, months = 36) {
   return { wage, bonus, contractEnd: addMonths(start, months) };
 }
 
+/** Termos pedidos pelo atleta que avisou sobre o fim do contrato; quem quer sair pede mais. */
+export function contractCallTerms(c: Career, playerId: string, stay: boolean) {
+  const terms = renewalTerms(c, playerId, 36);
+  return stay
+    ? terms
+    : { ...terms, wage: Math.round(terms.wage * 1.12), bonus: Math.round(terms.bonus * 1.3) };
+}
+
 export function renewContract(career: Career, world: World, playerId: string, months = 36): Career {
   const c = structuredClone(career);
   const p = c.players[playerId];
@@ -1776,6 +1784,12 @@ export function renewContract(career: Career, world: World, playerId: string, mo
   p.wage = wage;
   p.contractEnd = contractEnd;
   p.morale = clamp(p.morale + 5);
+  for (const m of c.messages)
+    if (m.contract && m.playerId === playerId && !m.resolved) {
+      m.resolved = true;
+      m.read = true;
+      m.choice = 'support';
+    }
   c.memories.push({
     playerId,
     date: c.date,

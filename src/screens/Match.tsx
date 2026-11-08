@@ -31,6 +31,9 @@ import { Badge, Modal } from '../components/ui';
 import { ChipGroup, TacticSlider } from '../components/controls';
 import { LivePitch, type PitchTeam } from '../components/LivePitch';
 import { FinalIntro } from '../components/FinalIntro';
+import { PenaltyShootoutScene, type ShootoutSide } from '../components/PenaltyShootoutScene';
+import { FinalOutcome } from '../components/FinalOutcome';
+import { penaltyShootout } from '../game/competitions';
 import { matchKits } from '../game/kits';
 import { byPosition, PlayerCard, PlayerPicker, roleFits } from '../components/PlayerCard';
 import { PlayerFace } from '../components/PlayerFace';
@@ -89,8 +92,55 @@ export function MatchScreen({
   const home = clubById(world, fixture.homeId);
   const away = clubById(world, fixture.awayId);
   const label = fixtureLabel(fixture);
-  const isFinal = fixture.stage === 'Final' || fixture.cup === 'SUP';
+  const isFinal = !!fixture.stage?.startsWith('Final') || fixture.cup === 'SUP';
   const [intro, setIntro] = useState(isFinal && match.minute === 0);
+  const [ceremony, setCeremony] = useState<'shootout' | 'outcome' | null>(null);
+  const [seen, setSeen] = useState({ shootout: false, outcome: false });
+  const autoTimer = useRef(0);
+  const ended = match.minute === 90;
+  const shootout = useMemo(
+    () => (ended ? penaltyShootout(c, world, fixture, match) : null),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [ended, fixture.id, match.homeGoals, match.awayGoals],
+  );
+  const legs = fixture.tie
+    ? c.fixtures.filter((f) => f.tie === fixture.tie).sort((a, b) => a.id.localeCompare(b.id))
+    : [fixture];
+  const decisiveFinal = isFinal && legs[legs.length - 1]?.id === fixture.id;
+  const finalWinner = (() => {
+    if (!ended || !decisiveFinal) return null;
+    if (shootout) return shootout.winner;
+    const goals = new Map<string, number>([
+      [fixture.homeId, match.homeGoals],
+      [fixture.awayId, match.awayGoals],
+    ]);
+    for (const f of legs) {
+      if (f.id === fixture.id || !f.result) continue;
+      goals.set(f.homeId, (goals.get(f.homeId) || 0) + f.result.homeGoals);
+      goals.set(f.awayId, (goals.get(f.awayId) || 0) + f.result.awayGoals);
+    }
+    const diff = (goals.get(fixture.homeId) || 0) - (goals.get(fixture.awayId) || 0);
+    return diff === 0 ? null : diff > 0 ? fixture.homeId : fixture.awayId;
+  })();
+  const proceed = () => {
+    clearTimeout(autoTimer.current);
+    if (shootout && !seen.shootout) {
+      setSeen((value) => ({ ...value, shootout: true }));
+      setCeremony('shootout');
+      return;
+    }
+    if (finalWinner && !seen.outcome) {
+      setSeen((value) => ({ ...value, outcome: true }));
+      setCeremony('outcome');
+      return;
+    }
+    setCeremony(null);
+    onFinish();
+  };
+  const proceedRef = useRef(proceed);
+  proceedRef.current = proceed;
+  const ownGoals = fixture.homeId === c.clubId ? match.homeGoals : match.awayGoals;
+  const rivalGoals = fixture.homeId === c.clubId ? match.awayGoals : match.homeGoals;
   const ownLineup = fixture.homeId === c.clubId ? match.homeLineup : match.awayLineup;
   const selectedBench = c.benchConfigured ? new Set(c.bench) : null;
   const bench = world.players.filter(
@@ -124,6 +174,18 @@ export function MatchScreen({
     };
   };
   const ratings = useMemo(() => matchRatings(c, world, match), [c, world, match]);
+  const shootoutSide = (clubId: string, ids: string[]): ShootoutSide => {
+    const team = teamFor(clubId, ids);
+    const kit = clubId === fixture.homeId ? kits.home : kits.away;
+    return {
+      club: clubId === fixture.homeId ? home : away,
+      color: kit.shirt,
+      text: kit.text,
+      lineup: ids.filter((id) => !match.dismissed.includes(id)),
+      numbers: team.numbers,
+      players: Object.fromEntries(ids.map((id) => [id, findPlayer(world, id)])),
+    };
+  };
   const mvp =
     match.mvp ||
     (match.minute === 90 ? manOfTheMatch(ratings, match, fixture.homeId)?.id : undefined);
@@ -192,9 +254,9 @@ export function MatchScreen({
   useControllerActions(
     {
       secondary: () => {
-        if (intro) return;
+        if (intro || ceremony) return;
         if (assistantSuggestion) decideAssistantSuggestion(true);
-        else if (match.minute === 90) onFinish();
+        else if (match.minute === 90) proceed();
         else setPlaying((value) => !value);
       },
       ...(match.minute < 90
@@ -229,7 +291,9 @@ export function MatchScreen({
       secondary: assistantSuggestion
         ? 'Aceitar troca do auxiliar'
         : match.minute === 90
-          ? 'Confirmar resultado'
+          ? shootout && !seen.shootout
+            ? 'Ir para os pênaltis'
+            : 'Confirmar resultado'
           : playing
             ? 'Pausar partida'
             : 'Jogar',
@@ -250,6 +314,10 @@ export function MatchScreen({
     if (match.minute !== 90) return;
     setPlaying(false);
     requestAnimationFrame(() => finishButton.current?.focus());
+    if (!shootout && !finalWinner) return;
+    autoTimer.current = window.setTimeout(() => proceedRef.current(), shootout ? 1800 : 2400);
+    return () => clearTimeout(autoTimer.current);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [match.minute]);
   useEffect(() => {
     const before = scoreRef.current;
@@ -311,6 +379,39 @@ export function MatchScreen({
             numbers: teamFor(fixture.awayId, match.awayLineup).numbers,
           }}
           onDone={() => setIntro(false)}
+        />
+      )}
+      {ceremony === 'shootout' && shootout && (
+        <PenaltyShootoutScene
+          competition={label.name}
+          home={shootoutSide(fixture.homeId, match.homeLineup)}
+          away={shootoutSide(fixture.awayId, match.awayLineup)}
+          shootout={shootout}
+          ownSide={fixture.homeId === c.clubId ? 'home' : 'away'}
+          final={!!finalWinner}
+          onDone={() => {
+            if (finalWinner) proceed();
+            else {
+              setCeremony(null);
+              requestAnimationFrame(() => finishButton.current?.focus());
+            }
+          }}
+        />
+      )}
+      {ceremony === 'outcome' && finalWinner && (
+        <FinalOutcome
+          competition={`${label.name} · ${c.season}`}
+          club={fixture.homeId === c.clubId ? home : away}
+          rival={fixture.homeId === c.clubId ? away : home}
+          color={fixture.homeId === c.clubId ? kits.home.shirt : kits.away.shirt}
+          won={finalWinner === c.clubId}
+          score={
+            shootout
+              ? `${ownGoals} × ${rivalGoals} (${fixture.homeId === c.clubId ? shootout.home : shootout.away}–${fixture.homeId === c.clubId ? shootout.away : shootout.home} pên.)`
+              : `${ownGoals} × ${rivalGoals}`
+          }
+          players={ownLineup.flatMap((id) => findPlayer(world, id) ?? [])}
+          onDone={proceed}
         />
       )}
       {assistantSuggestion && (
@@ -477,9 +578,14 @@ export function MatchScreen({
               ref={finishButton}
               className="primary finish-match"
               data-autofocus=""
-              onClick={onFinish}
+              onClick={proceed}
             >
-              <Check size={18} /> Confirmar resultado e voltar à central
+              <Check size={18} />{' '}
+              {shootout && !seen.shootout
+                ? 'Ir para a disputa de pênaltis'
+                : shootout
+                  ? `Pênaltis ${shootout.home} × ${shootout.away} · confirmar e voltar à central`
+                  : 'Confirmar resultado e voltar à central'}
             </button>
           )}
         </section>

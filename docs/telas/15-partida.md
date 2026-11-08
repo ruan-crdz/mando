@@ -71,3 +71,9 @@ O objeto da partida guarda seed, minuto, placar, estatísticas, eventos, escala�
 - B na escolha de substituto volta à escolha de quem sai antes de fechar a janela. Na tática, X/□ conclui os ajustes e RT/R2 abre as substituições.
 - Torcida sintetizada acompanha a partida e reage aos gols; música de menu é silenciada.
 - Não reintroduzir coletivas, VAR, clima/gramado ou diálogos aleatórios na partida.
+
+## Pênaltis e decisões
+
+- Quando um mata-mata termina empatado no agregado, a disputa de pênaltis é encenada: os dois times no meio-campo, cada cobrador caminhando até a marca, suspense, chute, defesa ou trave. □/X acelera; **Ver resultado** pula para o fim.
+- Finais (inclusive Libertadores, Sul-Americana e Supercopa) abrem com a cerimônia de entrada e terminam com a festa do título (troféu, fogos, papel picado) ou com o clima de vice (chuva, silêncio).
+

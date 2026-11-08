@@ -37,6 +37,17 @@ import { PortraitCamera } from '../components/PortraitCamera';
 import { TrophyArt } from '../components/TrophyArt';
 import { dateLabel, ManagerPortrait, Metric, Modal, money, SectionTitle } from '../components/ui';
 import { useControllerActions, useControllerFocus } from '../controller/GamepadProvider';
+import { contractCallTerms } from '../game/transfers';
+
+function contractOffer(c: Career, m: Message) {
+  if (!m.contract || !m.playerId) return null;
+  try {
+    const terms = contractCallTerms(c, m.playerId, m.contract.stay);
+    return `Renovar por 3 anos · ${money(terms.wage)}/mês · luvas ${money(terms.bonus)}`;
+  } catch {
+    return 'Renovar contrato';
+  }
+}
 
 const scoutRegions = ['Brasil', 'América do Sul', 'Europa'] as const;
 
@@ -207,12 +218,16 @@ export function Office({
     {
       secondary: canRespond
         ? responseMessage?.kind === 'player'
-          ? 'Responder com apoio'
+          ? responseMessage.contract
+            ? 'Renovar contrato'
+            : 'Responder com apoio'
           : 'Confirmar leitura'
         : 'Aplicar plano',
       info:
         responseFocused && canRespond && responseMessage.kind === 'player'
-          ? 'Cobrar dedicação'
+          ? responseMessage.contract
+            ? 'Deixar sair'
+            : 'Cobrar dedicação'
           : audio.speaking
             ? 'Parar leitura'
             : 'Ouvir caixa postal',
@@ -754,7 +769,16 @@ export function Office({
                 {(m.important || m.kind === 'player') && !m.resolved ? (
                   <div className="response-area">
                     <p className="eyebrow">SUA DECISÃO</p>
-                    {m.kind === 'player' ? (
+                    {m.kind === 'player' && m.contract ? (
+                      <div className="button-row">
+                        <button className="primary" onClick={() => respond('support')}>
+                          {contractOffer(c, m)}
+                        </button>
+                        <button onClick={() => respond('firm')}>
+                          Deixar sair no fim do contrato
+                        </button>
+                      </div>
+                    ) : m.kind === 'player' ? (
                       <div className="button-row">
                         <button className="primary" onClick={() => respond('support')}>
                           Ouvir e oferecer apoio
@@ -879,10 +903,14 @@ export function Office({
                     </p>
                     <div className="button-row">
                       <button className="primary" onClick={() => respond('support')}>
-                        Responder com apoio{' '}
+                        {awaitingMessage.contract
+                          ? contractOffer(c, awaitingMessage)
+                          : 'Responder com apoio'}{' '}
                         <ControllerButtonHint action="secondary" label="Responder" />
                       </button>
-                      <button onClick={() => respond('firm')}>Responder com firmeza</button>
+                      <button onClick={() => respond('firm')}>
+                        {awaitingMessage.contract ? 'Deixar sair' : 'Responder com firmeza'}
+                      </button>
                     </div>
                   </section>
                 ) : (

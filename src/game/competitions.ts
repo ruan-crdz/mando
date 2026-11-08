@@ -1,7 +1,136 @@
-import { addDays, hash, random } from './random';
+import { addDays, clamp, hash, random } from './random';
 import { competitionName } from './calendar';
-import { brazilianNpcClubs, clubById, continentalNpcClubs, isNpc, stateNpcClubs } from './npc';
-import { type Career, type Fixture, type TableRow, type World } from './types';
+import {
+  brazilianNpcClubs,
+  clubById,
+  continentalNpcClubs,
+  findPlayer,
+  isNpc,
+  stateNpcClubs,
+} from './npc';
+import { type Career, type Fixture, type Match, type TableRow, type World } from './types';
+
+export type PenaltyKick = {
+  side: 'home' | 'away';
+  takerId: string;
+  keeperId: string;
+  scored: boolean;
+  /** Canto da cobrança e do goleiro: -1 esquerda, 0 meio, 1 direita. */
+  aim: -1 | 0 | 1;
+  dive: -1 | 0 | 1;
+  /** Erro sem defesa: bola na trave ou por cima. */
+  miss?: 'post' | 'over';
+  home: number;
+  away: number;
+};
+
+export type PenaltyShootout = {
+  kicks: PenaltyKick[];
+  home: number;
+  away: number;
+  winner: string;
+  loser: string;
+};
+
+/**
+ * Disputa de pênaltis da partida jogada pelo usuário: cobradores reais em campo, ordem por
+ * qualidade de finalização e frieza, goleiro titular e encerramento antecipado como no futebol.
+ * Retorna null quando o confronto não termina empatado no último jogo.
+ */
+export function penaltyShootout(
+  c: Career,
+  world: World,
+  fixture: Fixture,
+  match: Pick<Match, 'homeGoals' | 'awayGoals' | 'homeLineup' | 'awayLineup' | 'dismissed'>,
+): PenaltyShootout | null {
+  if (!fixture.tie) return null;
+  const legs = c.fixtures.filter((f) => f.tie === fixture.tie).sort((a, b) => a.id.localeCompare(b.id));
+  if (legs[legs.length - 1]?.id !== fixture.id) return null;
+  if (legs.some((f) => f.id !== fixture.id && !f.result)) return null;
+  const goals = new Map<string, number>([
+    [fixture.homeId, match.homeGoals],
+    [fixture.awayId, match.awayGoals],
+  ]);
+  for (const f of legs) {
+    if (f.id === fixture.id) continue;
+    goals.set(f.homeId, (goals.get(f.homeId) || 0) + f.result!.homeGoals);
+    goals.set(f.awayId, (goals.get(f.awayId) || 0) + f.result!.awayGoals);
+  }
+  if (goals.get(fixture.homeId) !== goals.get(fixture.awayId)) return null;
+  const rng = random(hash(`${c.seed}:${fixture.id}:shootout`));
+  const skill = (id: string) => {
+    const p = findPlayer(world, id);
+    return p ? p.attributes.finishing * 0.6 + p.attributes.composure * 0.4 : 60;
+  };
+  const keeping = (id: string) => {
+    const p = findPlayer(world, id);
+    return p ? (p.attributes.reflexes + p.attributes.handling) / 2 : 60;
+  };
+  const side = (lineup: string[]) => {
+    const onField = lineup.filter((id) => !match.dismissed.includes(id));
+    const keeper = onField[0] ?? lineup[0] ?? '';
+    const takers = onField
+      .slice(1)
+      .sort((a, b) => skill(b) - skill(a))
+      .concat(keeper ? [keeper] : []);
+    return { keeper, takers: takers.length ? takers : [keeper] };
+  };
+  const teams = { home: side(match.homeLineup), away: side(match.awayLineup) };
+  const score = { home: 0, away: 0 };
+  const taken = { home: 0, away: 0 };
+  const kicks: PenaltyKick[] = [];
+  const corner = () => (Math.floor(rng() * 3) - 1) as -1 | 0 | 1;
+  const kick = (who: 'home' | 'away') => {
+    const team = teams[who];
+    const rival = teams[who === 'home' ? 'away' : 'home'];
+    const takerId = team.takers[taken[who] % team.takers.length];
+    const pressure = taken[who] >= 5 ? 0.03 : 0;
+    const chance = clamp(0.75 + (skill(takerId) - keeping(rival.keeper)) * 0.004 - pressure, 0.55, 0.9);
+    const scored = rng() < chance;
+    const aim = corner();
+    let dive = corner();
+    let miss: PenaltyKick['miss'];
+    if (scored && dive === aim) dive = (aim === 0 ? 1 : -aim) as -1 | 1;
+    if (!scored) {
+      if (rng() < 0.7) dive = aim;
+      else miss = rng() < 0.5 ? 'post' : 'over';
+    }
+    taken[who]++;
+    if (scored) score[who]++;
+    kicks.push({
+      side: who,
+      takerId,
+      keeperId: rival.keeper,
+      scored,
+      aim,
+      dive,
+      miss,
+      home: score.home,
+      away: score.away,
+    });
+  };
+  const decided = () => {
+    const left = { home: Math.max(0, 5 - taken.home), away: Math.max(0, 5 - taken.away) };
+    return score.home + left.home < score.away || score.away + left.away < score.home;
+  };
+  for (let round = 0; round < 5 && !decided(); round++) {
+    kick('home');
+    if (decided()) break;
+    kick('away');
+  }
+  while (score.home === score.away) {
+    kick('home');
+    kick('away');
+  }
+  const homeWins = score.home > score.away;
+  return {
+    kicks,
+    home: score.home,
+    away: score.away,
+    winner: homeWins ? fixture.homeId : fixture.awayId,
+    loser: homeWins ? fixture.awayId : fixture.homeId,
+  };
+}
 
 type Stage = { key: string; name: string; dates: string[]; neutral?: boolean };
 

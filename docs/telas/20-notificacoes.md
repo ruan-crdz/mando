@@ -42,3 +42,8 @@ contextuais e têm cooldown global e individual.
 - Conversas são registros de interações anteriores, não um chat com geração de falas em tempo real.
 - Só jogadores profissionais do clube atual aparecem na lista. Não há chat persistente com atletas de outros clubes.
 - Mensagens e memórias de saves antigos são preservadas; não recria contatos já respondidos.
+
+## Fim de contrato
+
+- Entre 75 e 120 dias antes do fim do vínculo, cada atleta escreve ao técnico dizendo se quer continuar ou sair. A mensagem é importante: **Renovar** (3 anos, salário e luvas exibidos) ou **Deixar sair**. A nova temporada só começa após todas as respostas.
+

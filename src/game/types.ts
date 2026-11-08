@@ -389,6 +389,8 @@ export const messageSchema = z.object({
   aiText: z.string().optional(),
   /** Plano sugerido pelo auxiliar técnico para o próximo jogo. */
   tactic: tacticSchema.optional(),
+  /** Atleta pedindo definição sobre o contrato que está acabando. */
+  contract: z.object({ end: isoDate, stay: z.boolean() }).optional(),
   choice: z.enum(['support', 'firm']).optional(),
 });
 export type Message = z.infer<typeof messageSchema>;
@@ -631,6 +633,8 @@ export const livingSchema = z.object({
       }),
     )
     .default([]),
+  /** Atletas que saíram por fim de contrato sem aviso prévio já foram reintegrados. */
+  contractsRestored: z.boolean().optional(),
 });
 export type Living = z.infer<typeof livingSchema>;
 const careerStateSchema = z.object({

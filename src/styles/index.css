@@ -48,6 +48,7 @@
 @import './screens/squad-roster.css';
 @import './components/living-panels.css';
 @import './components/final-intro.css';
+@import './components/penalties.css';
 @import './legacy/00-tokens.css';
 @import './legacy/01-stadium.css';
 @import './legacy/02-shell.css';

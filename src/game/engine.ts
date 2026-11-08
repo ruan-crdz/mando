@@ -9,7 +9,7 @@ import {
   validateLineup,
 } from './matches';
 import { competitionName, createSchedule, fixtureLabel, nextFixture } from './calendar';
-import { endLoan, expireThread, processOffers } from './transfers';
+import { contractCallTerms, endLoan, expireThread, processOffers } from './transfers';
 import { payroll, settleFee } from './market';
 import { overall } from './ratings';
 import { dailyRecovery } from './fatigue';
@@ -35,6 +35,7 @@ import {
   createCups,
   cupsFinished,
   initialQualification,
+  penaltyShootout,
   progressCups,
   roundRobin,
   table,
@@ -404,6 +405,83 @@ function monthlyReviews(c: Career, world: World) {
   }
 }
 
+const brl = (value: number) =>
+  value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 });
+
+/** O atleta procura o manager antes do fim do contrato: quer ficar ou quer sair. */
+function contractCall(c: Career, player: Player, s: PlayerState) {
+  const age = ageAt(player.birthDate, c.date);
+  const stay =
+    s.morale >= 50 && s.relationship >= 40 && (s.benchGames < 6 || age >= 33 || s.minutes > 900);
+  const terms = contractCallTerms(c, player.id, stay);
+  const end = s.contractEnd.split('-').reverse().join('/');
+  const coach = c.manager.firstName;
+  message(c, {
+    kind: 'player',
+    from: player.name,
+    title: stay ? 'Professor, meu contrato está acabando' : 'Professor, preciso falar do meu futuro',
+    body: stay
+      ? `Opa, ${coach}! Aqui é o ${player.name}. Meu contrato acaba em ${end} e eu quero continuar aqui — me sinto em casa nesse grupo. Meu empresário já passou os termos: 3 anos, salário de ${brl(terms.wage)}/mês e luvas de ${brl(terms.bonus)}. Se você não renovar, eu saio como agente livre quando o contrato terminar.`
+      : `Opa, ${coach}. Aqui é o ${player.name}. Meu contrato acaba em ${end} e vou ser sincero: estou pensando em sair e buscar outro desafio. Se o clube quiser mesmo que eu fique, meu empresário pede 3 anos, salário de ${brl(terms.wage)}/mês e luvas de ${brl(terms.bonus)}. Se não renovar, eu saio como agente livre quando o contrato terminar.`,
+    playerId: player.id,
+    important: true,
+    contract: { end: s.contractEnd, stay },
+  });
+}
+
+/** Atletas do elenco avisam entre 75 e 120 dias antes do fim do vínculo (ou já, na pausa de fim de ano). */
+function contractCalls(c: Career, world: World) {
+  const live = careerWorld(world, c);
+  const seasonLimit = `${c.season + 1}-01-01`;
+  for (const player of squad(c, live)) {
+    const s = c.players[player.id];
+    if (!s || s.retired || s.loanFrom || s.contractEnd < c.date) continue;
+    if (c.messages.some((m) => m.contract && m.playerId === player.id && m.contract.end === s.contractEnd))
+      continue;
+    const lead = 75 + (hash(`${player.id}:contract-call`) % 46);
+    if (addDays(c.date, lead) >= s.contractEnd || (c.seasonEnded && s.contractEnd < seasonLimit))
+      contractCall(c, player, s);
+  }
+}
+
+/**
+ * Saves anteriores ao aviso de contrato perderam atletas sem nenhuma chance de renovação.
+ * Reintegra uma única vez quem saiu assim, com mais um ano de vínculo.
+ */
+function restoreLapsedContracts(c: Career, world: World) {
+  if (c.living.contractsRestored) return;
+  c.living.contractsRestored = true;
+  const live = careerWorld(world, c);
+  const restored: Player[] = [];
+  for (const m of c.messages) {
+    if (m.kind !== 'market' || !m.title.startsWith('Contrato encerrado: ')) continue;
+    const name = m.title.slice('Contrato encerrado: '.length);
+    const player =
+      (m.playerId && live.players.find((p) => p.id === m.playerId)) ||
+      live.players.find((p) => p.name === name);
+    const s = player && c.players[player.id];
+    if (!player || !s || s.clubId === c.clubId || restored.includes(player)) continue;
+    s.clubId = c.clubId;
+    s.retired = false;
+    s.rights = 100;
+    delete s.partner;
+    delete s.rightsPartners;
+    delete s.loanFrom;
+    delete s.loanUntil;
+    s.contractEnd = `${c.season + 1}-12-31`;
+    s.morale = clamp(Math.max(s.morale, 65));
+    restored.push(player);
+  }
+  if (!restored.length) return;
+  message(c, {
+    kind: 'board',
+    from: 'Diretor de futebol',
+    title: 'Atletas reintegrados ao elenco',
+    body: `Você não foi avisado a tempo sobre o fim dos contratos. A diretoria reintegrou ${restored.map((p) => p.name).join(', ')} com vínculo até 31/12/${c.season + 1}, mantendo os salários. A partir de agora, cada atleta procura você antes do fim do contrato para decidir a renovação.`,
+    important: true,
+  });
+}
+
 /** Celebração de título do clube do usuário: presidência, elenco e torcida. */
 function celebrate(c: Career, world: World, honour: Career['honours'][number]) {
   const club = clubById(world, c.clubId);
@@ -563,9 +641,23 @@ export function finishMatch(career: Career, world: World): Career {
   const live = careerWorld(world, c);
   if (!c.activeMatch || c.activeMatch.minute !== 90)
     throw new Error('A partida ainda não terminou.');
-  applyMatch(c, live, c.activeMatch);
+  const played = c.activeMatch;
+  applyMatch(c, live, played);
   delete c.activeMatch;
+  const fixture = c.fixtures.find((f) => f.id === played.fixtureId);
+  const shootout = fixture && penaltyShootout(c, live, fixture, played);
+  if (fixture && shootout) {
+    fixture.penalties = { home: shootout.home, away: shootout.away };
+    const winner = clubById(live, shootout.winner).name;
+    message(c, {
+      kind: 'news',
+      from: competitionName(fixture.cup ?? ''),
+      title: `${competitionName(fixture.cup ?? '')}: decisão nos pênaltis`,
+      body: `${winner} venceu a disputa por ${Math.max(shootout.home, shootout.away)} a ${Math.min(shootout.home, shootout.away)} nas cobranças.`,
+    });
+  }
   updateSeason(c, live);
+  if (c.seasonEnded) contractCalls(c, live);
   return c;
 }
 
@@ -798,8 +890,6 @@ export const blocks = (c: Career, m: Career['messages'][number]) => m.important 
 
 export function advanceDay(career: Career, world: World): Career {
   const c = structuredClone(career);
-  ensureAcademy(c, world);
-  const live = careerWorld(world, c);
   if (c.seasonEnded)
     throw new Error(
       `A temporada ${c.season} está encerrada. Inicie a temporada ${c.season + 1} pela Central.`,
@@ -807,6 +897,8 @@ export function advanceDay(career: Career, world: World): Career {
   if (c.activeMatch) throw new Error('Conclua a partida em andamento.');
   if (c.messages.some((m) => blocks(c, m)))
     throw new Error('Há uma decisão importante pendente no escritório.');
+  ensureAcademy(c, world);
+  const live = careerWorld(world, c);
   const fixture = nextFixture(c);
   if (fixture && fixture.date <= c.date)
     throw new Error('Hoje é dia de jogo. Prepare a equipe e comece a partida.');
@@ -935,6 +1027,7 @@ export function advanceDay(career: Career, world: World): Career {
           from: 'Diretor de futebol',
           title: `Contrato encerrado: ${player.name}`,
           body: 'O atleta deixou o clube como agente livre. Renove contratos antes do vencimento.',
+          playerId: player.id,
           important: true,
         });
     }
@@ -1266,6 +1359,8 @@ function youthPlayer(
 
 export function ensureAcademy(c: Career, world: World) {
   const club = clubById(world, c.clubId);
+  restoreLapsedContracts(c, world);
+  contractCalls(c, world);
   if (!c.benchConfigured) {
     c.bench = squad(c, careerWorld(world, c))
       .filter((player) => !c.lineup.includes(player.id) && available(c, player.id))
@@ -1479,6 +1574,10 @@ function runAcademyTrial(career: Career, world: World) {
 export function startNextSeason(career: Career, world: World): Career {
   const c = structuredClone(career);
   if (!c.seasonEnded) throw new Error('A temporada ainda não terminou.');
+  if (c.messages.some((m) => m.contract && !m.resolved))
+    throw new Error(
+      'Há atletas esperando sua resposta sobre o fim do contrato. Responda na caixa postal antes de iniciar a nova temporada.',
+    );
   const base = baseWorld(world);
   const live = careerWorld(base, c);
   const y = c.season;
@@ -1762,6 +1861,41 @@ export function respondMessage(career: Career, id: string, choice: 'support' | '
   const m = c.messages.find((m) => m.id === id);
   if (!m) throw new Error('Mensagem não encontrada.');
   if (m.resolved) return c;
+  if (m.contract && m.playerId) {
+    const s = c.players[m.playerId];
+    const current = s && s.clubId === c.clubId && s.contractEnd <= m.contract.end;
+    if (current && choice === 'support') {
+      const terms = contractCallTerms(c, m.playerId, m.contract.stay);
+      checkPlayerSalaryBudget(c, terms.wage - s.wage);
+      const finance = c.finances[c.clubId];
+      if (finance.cash < terms.bonus)
+        throw new Error('Saldo insuficiente para pagar as luvas da renovação.');
+      finance.cash -= terms.bonus;
+      finance.history.push({
+        date: c.date,
+        income: 0,
+        expenses: terms.bonus,
+        balance: finance.cash,
+      });
+      s.wage = terms.wage;
+      s.contractEnd = terms.contractEnd;
+      s.morale = clamp(s.morale + (m.contract.stay ? 8 : 4));
+      s.relationship = clamp(s.relationship + 5);
+    } else if (current) s.morale = clamp(s.morale - 4);
+    m.read = true;
+    m.resolved = true;
+    m.choice = choice;
+    if (current)
+      c.memories.push({
+        playerId: m.playerId,
+        date: c.date,
+        text:
+          choice === 'support'
+            ? `Renovei meu contrato até ${s.contractEnd.split('-').reverse().join('/')}.`
+            : 'O manager decidiu não renovar. Saio como agente livre no fim do contrato.',
+      });
+    return c;
+  }
   m.read = true;
   m.resolved = true;
   m.choice = choice;

@@ -508,6 +508,130 @@ export function stopFinalBuildup() {
   levels();
 }
 
+let ceremonyBus: GainNode | null = null;
+function freshCeremonyBus() {
+  ceremonyBus?.disconnect();
+  if (!context) return null;
+  const bus = context.createGain();
+  bus.connect(effectsBus);
+  ceremonyBus = bus;
+  return bus;
+}
+function heartbeat(bus: GainNode, time: number, volume: number) {
+  if (!context) return;
+  for (const [offset, v] of [
+    [0, volume],
+    [0.22, volume * 0.65],
+  ] as const) {
+    const o = context.createOscillator();
+    const g = context.createGain();
+    o.type = 'sine';
+    o.frequency.setValueAtTime(68, time + offset);
+    o.frequency.exponentialRampToValueAtTime(36, time + offset + 0.18);
+    g.gain.setValueAtTime(v, time + offset);
+    g.gain.exponentialRampToValueAtTime(0.001, time + offset + 0.22);
+    o.connect(g).connect(bus);
+    o.start(time + offset);
+    o.stop(time + offset + 0.24);
+  }
+}
+
+/** Silêncio no estádio e batidas de coração enquanto o cobrador ajeita a bola. */
+export async function penaltyTension(seconds = 1.6) {
+  await unlockAudio();
+  if (!context || context.state !== 'running') return;
+  const bus = freshCeremonyBus();
+  if (!bus) return;
+  const t = context.currentTime;
+  for (let beat = 0; beat * 0.62 < seconds; beat++) heartbeat(bus, t + beat * 0.62, 0.85);
+  if (state.crowd) {
+    crowdBus.gain.cancelScheduledValues(t);
+    crowdBus.gain.setTargetAtTime(0.018, t, 0.25);
+  }
+}
+
+/** Chute, rede ou defesa e a reação da torcida: explosão no gol nosso, lamento no gol deles. */
+export function penaltyResult(scored: boolean, ours: boolean) {
+  if (!context || context.state !== 'running') return;
+  const bus = ceremonyBus || effectsBus;
+  const t = context.currentTime;
+  noiseHit(t, 0.09, 0.9, 900, 'lowpass', bus);
+  if (scored) noiseHit(t + 0.18, 0.4, 0.35, 3200, 'bandpass', bus);
+  const joy = scored === ours;
+  if (joy) {
+    for (const [i, note] of [72, 76, 79].entries()) tone(bus, t + 0.25 + i * 0.07, note, 0.5, 0.1, 'square');
+  } else {
+    tone(bus, t + 0.25, 52, 0.9, 0.12, 'sawtooth');
+    tone(bus, t + 0.25, 51, 0.9, 0.08, 'triangle');
+  }
+  if (state.crowd) {
+    crowdBus.gain.cancelScheduledValues(t);
+    crowdBus.gain.setValueAtTime(joy ? 0.42 : 0.2, t + 0.2);
+    crowdBus.gain.setTargetAtTime(0.05, t + (joy ? 1.6 : 0.8), 0.6);
+  }
+}
+
+/** Fanfarra de campeão: metais em arpejo maior, rufar, fogos e a torcida explodindo. */
+export async function championFanfare() {
+  await unlockAudio();
+  if (!context || context.state !== 'running') return;
+  const bus = freshCeremonyBus();
+  if (!bus) return;
+  const t = context.currentTime;
+  for (let i = 0; i < 18; i++) noiseHit(t + i * 0.05, 0.05, 0.2 + i * 0.02, 1800, 'bandpass', bus);
+  const melody = [60, 64, 67, 72, 67, 72, 76, 79];
+  melody.forEach((note, i) => {
+    tone(bus, t + 1 + i * 0.22, note, 0.5, 0.14, 'sawtooth');
+    tone(bus, t + 1 + i * 0.22, note - 12, 0.5, 0.08, 'square');
+  });
+  for (const note of [60, 64, 67, 72, 76])
+    tone(bus, t + 2.9, note, 3.2, 0.11, note % 2 ? 'triangle' : 'sawtooth');
+  for (let i = 0; i < 14; i++) {
+    const at = t + 3 + i * 0.38 + (i % 3) * 0.07;
+    noiseHit(at, 0.06, 0.5, 600, 'lowpass', bus);
+    for (let k = 0; k < 6; k++) noiseHit(at + 0.25 + k * 0.035, 0.03, 0.12, 6200, 'highpass', bus);
+  }
+  if (state.crowd) {
+    crowdBus.gain.cancelScheduledValues(t);
+    crowdBus.gain.setValueAtTime(0.2, t);
+    crowdBus.gain.linearRampToValueAtTime(0.48, t + 1.1);
+    crowdBus.gain.setTargetAtTime(0.18, t + 8, 1.5);
+  }
+}
+
+/** Derrota: a torcida silencia e sobra um piano grave em tom menor. */
+export async function defeatLament() {
+  await unlockAudio();
+  if (!context || context.state !== 'running') return;
+  const bus = freshCeremonyBus();
+  if (!bus) return;
+  const t = context.currentTime;
+  const chords = [
+    [57, 60, 64],
+    [53, 57, 60],
+    [55, 59, 62],
+    [52, 56, 59],
+  ];
+  chords.forEach((chord, i) => {
+    for (const note of chord) tone(bus, t + 0.6 + i * 2.1, note, 2.4, 0.07, 'sine');
+    tone(bus, t + 0.6 + i * 2.1, chord[0] - 12, 2.6, 0.08, 'sine');
+  });
+  [69, 67, 65, 64].forEach((note, i) => tone(bus, t + 1.6 + i * 2.1, note, 1.4, 0.05, 'triangle'));
+  if (state.crowd) {
+    crowdBus.gain.cancelScheduledValues(t);
+    crowdBus.gain.setValueAtTime(0.12, t);
+    crowdBus.gain.setTargetAtTime(0.008, t, 1.2);
+  }
+}
+
+export function stopCeremony() {
+  ceremonyBus?.disconnect();
+  ceremonyBus = null;
+  if (!context) return;
+  crowdBus.gain.cancelScheduledValues(context.currentTime);
+  levels();
+}
+
 function stopPhoneLine() {
   if (!phoneLine) return;
   phoneLine.source.stop();
