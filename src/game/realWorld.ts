@@ -1,5 +1,8 @@
 import { worldSchema, type World } from './types';
 import logos from './data/club-logos.json';
+import birthYears from './data/player-birth-years.json';
+
+const correctedBirthYears: Partial<Record<string, string>> = birthYears;
 
 export const WORLD_2026_URL = `${import.meta.env.BASE_URL}data/world-2026.json`;
 
@@ -7,18 +10,16 @@ export async function loadWorld2026(): Promise<World> {
   const response = await fetch(WORLD_2026_URL, { cache: 'no-cache' });
   if (!response.ok)
     throw new Error(`Não foi possível carregar os elencos de 2026 (HTTP ${response.status}).`);
-  return worldSchema.parse(await response.json());
+  return applyPlayerBirthYearCorrections(worldSchema.parse(await response.json()));
 }
 
-export function refreshPlayerBirthYears(saved: World, latest: World): World {
-  if (saved.id !== latest.id || saved.mode !== latest.mode) return saved;
-  const latestPlayers = new Map(latest.players.map((player) => [player.id, player]));
+export function applyPlayerBirthYearCorrections(saved: World): World {
   let changed = false;
   const players = saved.players.map((player) => {
-    const updated = latestPlayers.get(player.id);
-    if (!updated || player.birthDate.slice(0, 4) === updated.birthDate.slice(0, 4)) return player;
+    const year = correctedBirthYears[player.id];
+    if (!year || player.birthDate.slice(0, 4) === year) return player;
     changed = true;
-    return { ...player, birthDate: `${updated.birthDate.slice(0, 4)}${player.birthDate.slice(4)}` };
+    return { ...player, birthDate: `${year}${player.birthDate.slice(4)}` };
   });
   return changed ? { ...saved, players } : saved;
 }

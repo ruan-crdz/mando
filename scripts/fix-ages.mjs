@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 const root = fileURLToPath(new URL('../', import.meta.url));
 const cacheDir = path.join(root, '.cache', 'api-football');
 const worldFile = path.join(root, 'public', 'data', 'world-2026.json');
+const correctionsFile = path.join(root, 'src', 'game', 'data', 'player-birth-years.json');
 const teamIds = JSON.parse(
   (await readFile(path.join(root, 'scripts', 'sync-player-faces.mjs'), 'utf8'))
     .match(/const teamIds = (\{[\s\S]*?\});/)[1]
@@ -85,6 +86,8 @@ function pair(ours, theirs, threshold) {
 }
 
 const world = JSON.parse(await readFile(worldFile, 'utf8'));
+const originalYears = new Map(world.players.map((p) => [p.id, p.birthDate.slice(0, 4)]));
+const corrections = JSON.parse(await readFile(correctionsFile, 'utf8'));
 const squads = {};
 let fetchedAt = new Date('2026-11-04');
 for (const club of world.clubs) {
@@ -199,4 +202,14 @@ for (let i = 0; i < rest.length; i += 30) {
   process.stdout.write(`\rWikidata ${Math.min(i + 30, rest.length)}/${rest.length}`);
 }
 console.log(`\nWikidata: ${wikiFound}/${rest.length} encontrados · ${wikiFixed} corrigidos`);
-if (!process.argv.includes('--dry')) await writeFile(worldFile, `${JSON.stringify(world)}\n`, 'utf8');
+if (!process.argv.includes('--dry')) {
+  for (const player of world.players)
+    if (player.birthDate.slice(0, 4) !== originalYears.get(player.id))
+      corrections[player.id] = player.birthDate.slice(0, 4);
+  await writeFile(worldFile, `${JSON.stringify(world)}\n`, 'utf8');
+  await writeFile(
+    correctionsFile,
+    `${JSON.stringify(Object.fromEntries(Object.entries(corrections).sort()), null, 2)}\n`,
+    'utf8',
+  );
+}

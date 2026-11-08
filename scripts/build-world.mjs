@@ -371,6 +371,12 @@ try {
     };
   });
 
+  const birthYears = JSON.parse(
+    await readFile(path.join(root, 'src', 'game', 'data', 'player-birth-years.json'), 'utf8'),
+  );
+  for (const player of players)
+    if (birthYears[player.id])
+      player.birthDate = `${birthYears[player.id]}${player.birthDate.slice(4)}`;
   const world = worldSchema.parse({
     id: WORLD_ID,
     snapshot: SNAPSHOT,

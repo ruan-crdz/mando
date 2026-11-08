@@ -33,7 +33,7 @@ import { AudioDirector } from './components/AudioDirector';
 import { audioState, subscribeAudio, toggleMusic, toggleCrowd } from './audio/sound';
 import { PRIMARY_TABS, TAB } from './navigation';
 import { MatchScreen } from './screens/Match';
-import { loadWorld2026, refreshPlayerBirthYears } from './game/realWorld';
+import { applyPlayerBirthYearCorrections, loadWorld2026 } from './game/realWorld';
 import {
   advanceDay,
   startNextSeason,
@@ -340,15 +340,8 @@ function Game() {
     };
   }, [fail]);
 
-  const continueCareer = useCallback(async (record: SavedCareer) => {
-    let restoredWorld = record.world;
-    if (navigator.onLine) {
-      try {
-        restoredWorld = refreshPlayerBirthYears(record.world, await loadWorld2026());
-      } catch (e) {
-        setNotice(`Não foi possível atualizar os dados dos jogadores: ${readableError(e)}.`);
-      }
-    }
+  const continueCareer = useCallback((record: SavedCareer) => {
+    const restoredWorld = applyPlayerBirthYearCorrections(record.world);
     validateCareerForWorld(record.career, restoredWorld);
     const restored = ensureAcademy(structuredClone(record.career), restoredWorld);
     validateCareerForWorld(restored, restoredWorld);

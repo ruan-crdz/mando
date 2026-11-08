@@ -1,5 +1,6 @@
 import { careerSchema, worldSchema, type Career, type World } from '../game/types';
 import { validateCareerForWorld } from '../game/engine';
+import { applyPlayerBirthYearCorrections } from '../game/realWorld';
 import { z } from 'zod';
 
 const recordSchema = z.object({
@@ -28,42 +29,69 @@ async function database(): Promise<IDBDatabase> {
 async function transaction<T>(
   mode: IDBTransactionMode,
   operation: (store: IDBObjectStore) => IDBRequest<T>,
+  afterRead?: (value: T, store: IDBObjectStore) => void,
 ): Promise<T> {
   const db = await database();
   return new Promise((resolve, reject) => {
     const tx = db.transaction('careers', mode);
-    const request = operation(tx.objectStore('careers'));
+    const store = tx.objectStore('careers');
+    const request = operation(store);
+    let operationError: unknown;
+    if (afterRead)
+      request.onsuccess = () => {
+        try {
+          afterRead(request.result, store);
+        } catch (error) {
+          operationError = error;
+          tx.abort();
+        }
+      };
     tx.oncomplete = () => {
       db.close();
       resolve(request.result);
     };
     tx.onerror = () => {
       db.close();
-      reject(tx.error || new Error('Erro ao persistir a carreira.'));
+      reject(operationError || tx.error || new Error('Erro ao persistir a carreira.'));
     };
     tx.onabort = () => {
       db.close();
-      reject(tx.error || new Error('Gravação da carreira interrompida.'));
+      reject(operationError || tx.error || new Error('Gravação da carreira interrompida.'));
     };
   });
 }
 
 export async function saveLocal(career: Career, world: World, cloudRevision = 0) {
-  validateCareerForWorld(career, world);
-  const record: SavedCareer = { career, world, savedAt: new Date().toISOString(), cloudRevision };
+  const correctedWorld = applyPlayerBirthYearCorrections(world);
+  validateCareerForWorld(career, correctedWorld);
+  const record: SavedCareer = {
+    career,
+    world: correctedWorld,
+    savedAt: new Date().toISOString(),
+    cloudRevision,
+  };
   await transaction('readwrite', (store) => store.put(record));
   return record;
 }
 
 export async function listLocal(): Promise<SavedCareer[]> {
-  const values: unknown[] = await transaction('readonly', (store) => store.getAll());
-  return values
-    .map((value) => {
-      const record = recordSchema.parse(value);
-      validateCareerForWorld(record.career, record.world);
-      return record;
-    })
-    .sort((a, b) => b.savedAt.localeCompare(a.savedAt));
+  let records: SavedCareer[] = [];
+  await transaction<unknown[]>(
+    'readwrite',
+    (store) => store.getAll(),
+    (values, store) => {
+      records = values.map((value) => {
+        const record = recordSchema.parse(value);
+        const world = applyPlayerBirthYearCorrections(record.world);
+        validateCareerForWorld(record.career, world);
+        if (world === record.world) return record;
+        const corrected = { ...record, world };
+        store.put(corrected);
+        return corrected;
+      });
+    },
+  );
+  return records.sort((a, b) => b.savedAt.localeCompare(a.savedAt));
 }
 
 export async function removeLocal(id: string) {
@@ -73,7 +101,7 @@ export async function removeLocal(id: string) {
 export function exportSave(career: Career, world: World) {
   const text = JSON.stringify({
     career,
-    world,
+    world: applyPlayerBirthYearCorrections(world),
     savedAt: new Date().toISOString(),
     cloudRevision: 0,
   });

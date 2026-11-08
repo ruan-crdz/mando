@@ -2,6 +2,7 @@ import { createClient, FunctionsHttpError } from '@supabase/supabase-js';
 import { z } from 'zod';
 import { careerSchema, worldSchema, type Career, type World } from '../game/types';
 import { validateCareerForWorld } from '../game/engine';
+import { applyPlayerBirthYearCorrections } from '../game/realWorld';
 import { type Database } from '../../supabase/functions/_shared/database.types';
 
 const url = import.meta.env.VITE_SUPABASE_URL;
@@ -99,7 +100,7 @@ export async function loadPublishedWorld(): Promise<World> {
   if (error) throw new Error(`Nenhum snapshot oficial publicado: ${error.message}`);
   const world = worldSchema.parse(data.payload);
   if (world.mode !== 'official') throw new Error('O snapshot publicado não é um mundo oficial.');
-  return world;
+  return applyPlayerBirthYearCorrections(world);
 }
 
 export async function saveCloud(career: Career, revision: number): Promise<number> {
@@ -128,12 +129,13 @@ export async function listCloud(): Promise<
   return (data || []).map((row) => {
     const relation = z.object({ payload: worldSchema }).parse(row.world_snapshots);
     const career = careerSchema.parse(row.state);
-    validateCareerForWorld(career, relation.payload);
+    const world = applyPlayerBirthYearCorrections(relation.payload);
+    validateCareerForWorld(career, world);
     return {
       career,
       revision: z.number().parse(row.revision),
       savedAt: row.updated_at,
-      world: relation.payload,
+      world,
     };
   });
 }

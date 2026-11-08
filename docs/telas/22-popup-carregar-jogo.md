@@ -8,6 +8,8 @@ Abre pelo card Carregar jogo do [menu](./02-menu-principal.md), disponível com 
 - Grade de todos os saves locais, do mais recente para o mais antigo.
 - Cada card mostra escudo, clube, nome completo do manager e data da carreira.
 - Selecionar um card valida e abre essa carreira, preservando contrato/tutorial pendentes.
+- Ao listar os saves, as correções de ano de nascimento são gravadas automaticamente no armazenamento local, em uma transação única. Não dependem de internet nem de recriar a carreira. Data do save, revisão da nuvem, progresso e jogadores gerados ficam preservados.
+- As mesmas correções são aplicadas ao importar, exportar ou recuperar um save da nuvem e ao continuar uma carreira antiga.
 - Cada save tem uma lixeira no canto superior direito, com tamanho fixo de 36 × 36 px inclusive durante o foco.
 
 ## Interações e estados
