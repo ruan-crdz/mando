@@ -25,6 +25,9 @@ import { standings } from '../game/engine';
 import { Season, type SeasonView } from './Season';
 import { AcademyPanel } from '../components/AcademyPanel';
 import { ManagerEditor } from '../components/ManagerEditor';
+import { AssistantSalaryBudget } from '../components/AssistantSalaryBudget';
+import { payroll } from '../game/market';
+import { staffPayroll } from '../game/staff';
 import { ControllerButtonHint } from '../controller/ControllerButtonHint';
 import { audioState, mailboxChime, readMailbox, stopReading, subscribeAudio } from '../audio/sound';
 import { competitionName } from '../game/calendar';
@@ -169,7 +172,7 @@ export function Office({
       messageId: undefined,
     })),
   ].sort((a, b) => a.date.localeCompare(b.date));
-  const wages = players.reduce((sum, p) => sum + c.players[p.id].wage, 0);
+  const wages = payroll(c, world, c.clubId) + staffPayroll(c);
   const operation = club.reputation * 30000;
   const expenses = wages + operation + finance.debt * 0.002;
   const wageShare = (wages / Math.max(1, expenses)) * 100;
@@ -811,13 +814,14 @@ export function Office({
         </div>
       )}
       {area === 'office' && view === 'finances' && (
-        <div className="finance-layout">
+        <div className="finance-layout" data-stick-scroll>
           <div className="metrics-strip">
             <Metric label="CAIXA ATUAL" value={money(finance.cash)} />
             <Metric label="TRANSFERÊNCIAS" value={money(finance.transferBudget)} />
             <Metric label="FOLHA MENSAL" value={money(wages)} />
             <Metric label="DÍVIDA" value={money(finance.debt)} />
           </div>
+          <AssistantSalaryBudget career={c} onChange={onChange} onError={onError} />
           <div className="finance-charts">
             <section className="panel">
               <p className="eyebrow">DISTRIBUIÇÃO MENSAL PREVISTA</p>
@@ -997,10 +1001,10 @@ export function Office({
         </div>
       )}
       {area === 'office' && view === 'staff' && (
-        <div className="staff-layout">
-          <section className="panel profile-panel">
-            <ManagerPortrait manager={c.manager} />
-            <div>
+        <div className="staff-layout manager-customization-layout">
+          <section className="panel profile-panel manager-customization" data-stick-scroll>
+            <aside className="manager-customization-identity">
+              <ManagerPortrait manager={c.manager} />
               <p className="eyebrow">MANAGER DO {club.name.toUpperCase()}</p>
               <h2>
                 {c.manager.firstName} {c.manager.lastName}
@@ -1009,7 +1013,6 @@ export function Office({
                 {c.manager.nationality} · {c.manager.age} anos · {c.difficulty}
               </p>
               <p>{c.manager.appearance}</p>
-              <ManagerEditor manager={c.manager} referenceDate={c.date} onSave={onManager} />
               <button
                 className="primary"
                 disabled={!aiAvailable || busy}
@@ -1018,18 +1021,21 @@ export function Office({
                 <Camera size={16} />
                 {c.manager.avatar ? 'Novo retrato com sua foto' : 'Criar retrato com sua foto'}
               </button>
-              {camera && (
-                <PortraitCamera
-                  style={c.manager.style}
-                  onClose={() => setCamera(false)}
-                  onCapture={(photo) => {
-                    setCamera(false);
-                    onAvatar(photo);
-                  }}
-                />
-              )}
+            </aside>
+            <div className="manager-customization-fields">
+              <ManagerEditor manager={c.manager} referenceDate={c.date} onSave={onManager} />
             </div>
           </section>
+          {camera && (
+            <PortraitCamera
+              style={c.manager.style}
+              onClose={() => setCamera(false)}
+              onCapture={(photo) => {
+                setCamera(false);
+                onAvatar(photo);
+              }}
+            />
+          )}
         </div>
       )}
       {area === 'academy' && view === 'scouts' && scoutingPanel}

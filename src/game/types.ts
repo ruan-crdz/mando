@@ -181,6 +181,7 @@ export const assistantAreas = ['ataque', 'meio', 'defesa', 'goleiro'] as const;
 export type AssistantArea = (typeof assistantAreas)[number];
 const assistantCoachSchema = z.object({
   id: z.string().optional(),
+  area: z.enum(assistantAreas).optional(),
   name: z.string().min(2),
   tacticalVision: z.enum(['Ofensivo', 'Retranqueiro', 'Pressão', 'Posse', 'Contra-ataque']),
   skill: z.number().int().min(1).max(5),
@@ -291,8 +292,7 @@ const matchEventTypes = [
 ] as const;
 const knownMatchEventTypes = new Set<string>(matchEventTypes);
 const matchEventTypeSchema = z.preprocess(
-  (value) =>
-    typeof value === 'string' && !knownMatchEventTypes.has(value) ? 'chance' : value,
+  (value) => (typeof value === 'string' && !knownMatchEventTypes.has(value) ? 'chance' : value),
   z.enum(matchEventTypes),
 );
 const eventSchema = z.object({
@@ -629,7 +629,7 @@ export const livingSchema = z.object({
     .default([]),
 });
 export type Living = z.infer<typeof livingSchema>;
-export const careerSchema = z.object({
+const careerStateSchema = z.object({
   version: z.literal(1),
   id: z.string().uuid(),
   worldId: z.string(),
@@ -653,9 +653,16 @@ export const careerSchema = z.object({
     z.object({
       cash: z.number(),
       transferBudget: z.number().nonnegative(),
+      playerWageBudget: z.number().nonnegative().optional(),
+      assistantWageBudget: z.number().nonnegative().optional(),
       debt: z.number().nonnegative(),
       history: z.array(
-        z.object({ date: isoDate, income: z.number(), expenses: z.number(), balance: z.number() }),
+        z.object({
+          date: isoDate,
+          income: z.number(),
+          expenses: z.number(),
+          balance: z.number(),
+        }),
       ),
     }),
   ),
@@ -667,8 +674,8 @@ export const careerSchema = z.object({
   benchConfigured: z.boolean().default(false),
   /** Esquemas criados pelo treinador para reutilização e exportação. */
   savedLineups: z.array(savedLineupSchema).default([]),
-  /** Auxiliares por área; saves antigos começam sem contratações. */
-  assistantCoaches: z.partialRecord(z.enum(assistantAreas), assistantCoachSchema).default({}),
+  /** Auxiliares identificados individualmente; chaves de área são aceitas em saves antigos. */
+  assistantCoaches: z.record(z.string(), assistantCoachSchema).default({}),
   roles: z.record(z.string(), z.string()),
   tactic: tacticSchema,
   messages: z.array(messageSchema),
@@ -740,6 +747,47 @@ export const careerSchema = z.object({
     .default([]),
   /** Mundo vivo: técnicos da IA, mercado, vestiário, diretoria, torcida e legado. */
   living: livingSchema.prefault({}),
+});
+export const careerSchema = careerStateSchema.transform((career, ctx) => {
+  const names = new Set<string>();
+  const ids = new Set<string>();
+  const removed: string[] = [];
+  for (const [key, coach] of Object.entries(career.assistantCoaches)) {
+    const legacy = coach.area === undefined;
+    const area = coach.area ?? assistantAreas.find((item) => item === key);
+    if (!area) {
+      ctx.addIssue({ code: 'custom', message: 'Auxiliar sem setor válido.' });
+      continue;
+    }
+    if (names.has(coach.name) || (coach.id && ids.has(coach.id))) {
+      if (!legacy)
+        ctx.addIssue({
+          code: 'custom',
+          message: 'Um auxiliar não pode ocupar mais de um cargo.',
+        });
+      else {
+        delete career.assistantCoaches[key];
+        removed.push(coach.name);
+      }
+      continue;
+    }
+    names.add(coach.name);
+    if (coach.id) ids.add(coach.id);
+    coach.area = area;
+  }
+  if (removed.length)
+    career.messages.unshift({
+      id: `assistant-migration-${career.id}`,
+      date: career.date,
+      from: 'Comissão técnica',
+      title: 'Cargos dos auxiliares regularizados',
+      body: `As atribuições duplicadas de ${[...new Set(removed)].join(', ')} foram removidas. Cada profissional permanece em um único setor, e os salários duplicados deixam de ser cobrados.`,
+      kind: 'staff',
+      important: false,
+      read: false,
+      resolved: true,
+    });
+  return career;
 });
 export type Career = z.infer<typeof careerSchema>;
 export type TableRow = {

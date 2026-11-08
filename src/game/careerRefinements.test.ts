@@ -28,6 +28,7 @@ import {
 } from './squadManagement';
 import { bestLineup, simulateMatch, syncBenchWithLineup } from './matches';
 import { setTraining, familiarity } from './positions';
+import { setAssistantSalaryBudget } from './staff';
 
 const world = createDemoWorld();
 const manager: Manager = {
@@ -143,9 +144,10 @@ describe('refinamentos da carreira', () => {
     career.messages.forEach((message) => {
       message.resolved = true;
     });
-    const base = setTraining(career, player, 'CM');
+    const base = setAssistantSalaryBudget(setTraining(career, player, 'CM'), 50000);
     const candidate = assistantCandidates(base, 'ataque')[4];
-    const staffed = hireAssistant(base, 'ataque', candidate.id!);
+    const middle = assistantCandidates(base, 'meio')[9];
+    const staffed = hireAssistant(hireAssistant(base, 'ataque', candidate.id!), 'meio', middle.id!);
     const normal = advanceDay(base, world);
     const trained = advanceDay(staffed, world);
     const bonus = assistantTrainingBonus(staffed, player.position);

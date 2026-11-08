@@ -94,6 +94,12 @@ let liveCrowd = false;
 let beat = 0;
 let nextBeat = 0;
 let generation = 0;
+let readingStart: ReturnType<typeof setTimeout> | null = null;
+let phoneLine: {
+  source: AudioBufferSourceNode;
+  filter: BiquadFilterNode;
+  gain: GainNode;
+} | null = null;
 const emit = () => listeners.forEach((listener) => listener());
 const patch = (change: Partial<typeof state>) => {
   state = { ...state, ...change };
@@ -138,6 +144,7 @@ function noiseHit(
   volume: number,
   cutoff: number,
   type: BiquadFilterType,
+  bus: GainNode = musicBus,
 ) {
   if (!context || !percussionBuffer) return;
   const source = context.createBufferSource();
@@ -148,7 +155,7 @@ function noiseHit(
   filter.frequency.setValueAtTime(cutoff, time);
   gain.gain.setValueAtTime(volume, time);
   gain.gain.exponentialRampToValueAtTime(0.001, time + duration);
-  source.connect(filter).connect(gain).connect(musicBus);
+  source.connect(filter).connect(gain).connect(bus);
   source.start(time);
   source.stop(time + duration + 0.01);
   source.onended = () => {
@@ -176,8 +183,7 @@ function drums(time: number, count: number) {
       gain.disconnect();
     };
   }
-  if (count % 8 === 2 || count % 8 === 6)
-    noiseHit(time, 0.12, 0.11, 2200, 'bandpass');
+  if (count % 8 === 2 || count % 8 === 6) noiseHit(time, 0.12, 0.11, 2200, 'bandpass');
   if (count % 2 === 1) noiseHit(time, 0.04, 0.035, 7800, 'highpass');
   if (count % 16 === 15) noiseHit(time, 0.1, 0.065, 6500, 'highpass');
 }
@@ -245,14 +251,7 @@ export async function unlockAudio() {
           const step = 60 / song.bpm / 2;
           const root = song.roots[Math.floor(beat / 16) % 4];
           const bassPattern = [0, 0, 7, 0, 0, 3, 7, 3];
-          tone(
-            musicBus,
-            nextBeat,
-            root - 12 + bassPattern[beat % 8],
-            step * 0.9,
-            0.13,
-            'sawtooth',
-          );
+          tone(musicBus, nextBeat, root - 12 + bassPattern[beat % 8], step * 0.9, 0.13, 'sawtooth');
           tone(
             musicBus,
             nextBeat,
@@ -263,14 +262,7 @@ export async function unlockAudio() {
           );
           if (beat % 2 === 1) {
             for (const interval of [0, state.track % 2 ? 3 : 4, 7])
-              tone(
-                musicBus,
-                nextBeat,
-                root + 12 + interval,
-                step * 1.6,
-                0.045,
-                'square',
-              );
+              tone(musicBus, nextBeat, root + 12 + interval, step * 1.6, 0.045, 'square');
           }
           drums(nextBeat, beat);
           nextBeat += step;
@@ -339,12 +331,14 @@ export function toggleCrowd() {
   void unlockAudio();
   levels();
 }
-export function mailboxChime() {
-  void unlockAudio().then(() => {
-    if (!context) return;
-    tone(effectsBus, context.currentTime, 76, 0.18, 0.7, 'sine');
-    tone(effectsBus, context.currentTime + 0.13, 83, 0.25, 0.5, 'sine');
-  });
+export async function mailboxChime() {
+  await unlockAudio();
+  if (!context || context.state !== 'running') return;
+  const time = context.currentTime;
+  noiseHit(time, 0.035, 0.8, 2300, 'highpass', effectsBus);
+  tone(effectsBus, time + 0.04, 65, 0.12, 0.45, 'sine');
+  tone(effectsBus, time + 0.04, 69, 0.12, 0.45, 'sine');
+  tone(effectsBus, time + 0.2, 81, 0.1, 0.6, 'sine');
 }
 export function crowdGoal() {
   if (!context || !state.crowd) return;
@@ -353,8 +347,39 @@ export function crowdGoal() {
   crowdBus.gain.setTargetAtTime(liveCrowd ? 0.16 : 0.055, context.currentTime + 1.5, 0.7);
 }
 
+function stopPhoneLine() {
+  if (!phoneLine) return;
+  phoneLine.source.stop();
+  phoneLine = null;
+}
+
+function startPhoneLine() {
+  if (!context || !noise?.buffer || context.state !== 'running') return;
+  stopPhoneLine();
+  const source = context.createBufferSource();
+  const filter = context.createBiquadFilter();
+  const gain = context.createGain();
+  source.buffer = noise.buffer;
+  source.loop = true;
+  filter.type = 'bandpass';
+  filter.frequency.value = 1700;
+  filter.Q.value = 0.7;
+  gain.gain.value = 0.035;
+  source.connect(filter).connect(gain).connect(effectsBus);
+  source.onended = () => {
+    source.disconnect();
+    filter.disconnect();
+    gain.disconnect();
+  };
+  source.start();
+  phoneLine = { source, filter, gain };
+}
+
 export function stopReading() {
   generation++;
+  if (readingStart !== null) clearTimeout(readingStart);
+  readingStart = null;
+  stopPhoneLine();
   if ('speechSynthesis' in window) window.speechSynthesis.cancel();
   patch({ speaking: false });
   levels();
@@ -367,7 +392,6 @@ export function readMailbox(messages: Message[], onMessage: (id: string) => void
     return;
   }
   if (!messages.length) return;
-  mailboxChime();
   patch({ speaking: true });
   levels();
   const token = generation;
@@ -390,6 +414,7 @@ export function readMailbox(messages: Message[], onMessage: (id: string) => void
   const next = () => {
     if (token !== generation) return;
     if (index >= entries.length) {
+      stopPhoneLine();
       patch({ speaking: false });
       levels();
       return;
@@ -398,10 +423,9 @@ export function readMailbox(messages: Message[], onMessage: (id: string) => void
     onMessage(entry.id);
     const utterance = new SpeechSynthesisUtterance(entry.text);
     utterance.lang = 'pt-BR';
-    utterance.rate = 1.3;
-    const voices = speechSynthesis
-      .getVoices()
-      .filter((voice) => /^pt[-_]br$/i.test(voice.lang));
+    utterance.rate = 1.55;
+    utterance.pitch = 0.96;
+    const voices = speechSynthesis.getVoices().filter((voice) => /^pt[-_]br$/i.test(voice.lang));
     utterance.voice =
       voices.find(
         (voice) => voice.localService && /natural|neural|enhanced|premium/i.test(voice.name),
@@ -419,7 +443,14 @@ export function readMailbox(messages: Message[], onMessage: (id: string) => void
     };
     speechSynthesis.speak(utterance);
   };
-  next();
+  void mailboxChime().then(() => {
+    if (token !== generation) return;
+    startPhoneLine();
+    readingStart = setTimeout(() => {
+      readingStart = null;
+      next();
+    }, 350);
+  });
 }
 
 export function disposeAudio() {

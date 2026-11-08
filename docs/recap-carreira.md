@@ -4,12 +4,12 @@
 
 | Tela/área               | Conteúdo                                                                                                                          |
 | ----------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| Menu                    | Continuar com um save; Carregar jogo com vários; nova carreira e exclusão confirmada no seletor                                  |
+| Menu                    | Continuar com um save; Carregar jogo com vários; nova carreira e exclusão confirmada no seletor                                   |
 | Nova carreira           | Mundo brasileiro 2026, identidade/retrato, clube, dificuldade e desafio                                                           |
 | Primeiro trabalho       | Contrato, tutorial e apresentação do capitão na caixa postal                                                                      |
 | Central                 | Calendário superior, próximo jogo, avanço, manager, caixa postal e elenco                                                         |
 | Notificações            | Caixa postal falada e conversas iniciadas exclusivamente pelos atletas                                                            |
-| Time: escalação         | Onze com fotos, banco ordenável de nove em quadrados; mesmas grades de banco/não relacionados ao substituir um titular           |
+| Time: escalação         | Onze com fotos, banco ordenável de nove em quadrados; mesmas grades de banco/não relacionados ao substituir um titular            |
 | Time: tática            | Onze formações, mentalidade, pressão, largura, construção e linha                                                                 |
 | Time: responsabilidades | Capitão e responsáveis pelas bolas paradas                                                                                        |
 | Time: jogadores         | Ficha expandida, camisa, contratos, venda/empréstimo, dispensa e treino de posições                                               |
@@ -73,13 +73,15 @@ A liga sub-20 tem oito clubes, 14 rodadas e 56 partidas, com tabela e resultados
 persistidos. A simulação juvenil é simplificada; participantes ganham 90 minutos,
 ritmo e desgaste. Não é uma animação ou tabela preenchida com placares fixos.
 
-Auxiliares têm conhecimento 1–5, estrelas por posição e salário semanal. O bônus
-do melhor contratado para a posição é:
+Auxiliares têm conhecimento 1–5, estrelas por posição e salário semanal. Há
+20 identidades; cada pessoa fica em um setor, com vários profissionais por setor
+até o orçamento salarial redistribuído dos jogadores. O bônus do melhor
+contratado em um setor responsável pela posição é:
 
 `(conhecimento + estrelas - 1) × 4%`
 
 Ele multiplica crescimento e treino de posição; a estimativa de dias usa o mesmo
-bônus. Não empilha quatro auxiliares nem concede gols instantâneos. A influência
+bônus. Não empilha auxiliares nem concede gols instantâneos. A influência
 nas partidas aparece pelo desenvolvimento dos atletas e sua familiaridade.
 Salários entram na folha; bronze pode ser a escolha economicamente adequada.
 

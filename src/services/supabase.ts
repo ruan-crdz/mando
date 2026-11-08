@@ -70,7 +70,18 @@ export type PortraitRequest = {
 export async function requestPortrait(manager: PortraitRequest, photo?: string) {
   await ensureSession();
   const { data, error } = await client().functions.invoke('ai-manager-avatar', {
-    body: { attemptId: crypto.randomUUID(), manager, ...(photo ? { photo } : {}) },
+    body: {
+      attemptId: crypto.randomUUID(),
+      manager: {
+        firstName: manager.firstName,
+        lastName: manager.lastName,
+        age: manager.age,
+        nationality: manager.nationality,
+        style: manager.style,
+        appearance: manager.appearance,
+      },
+      ...(photo ? { photo } : {}),
+    },
   });
   if (error) await functionFailure(error, 'Não foi possível gerar o retrato');
   return z.object({ url: z.string().url() }).parse(data).url;

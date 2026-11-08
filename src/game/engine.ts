@@ -26,6 +26,7 @@ import {
   medicalEffect,
   staffLevel,
   staffPayroll,
+  checkPlayerSalaryBudget,
   youthCoachEffect,
 } from './staff';
 import { economyMonth, trainingEffect, youthBonus } from './economy';
@@ -583,6 +584,7 @@ export function signProspect(career: Career, prospectId: string): Career {
 function promoteYoungster(career: Career, player: Player) {
   if (ageAt(player.birthDate, career.date) < 16)
     throw new Error('Só é possível promover atletas a partir de 16 anos.');
+  checkPlayerSalaryBudget(career, 5000);
   player.clubId = career.clubId;
   player.contractEnd = `${career.season + 3}-12-31`;
   player.wage = 5000;
@@ -641,6 +643,7 @@ export function promoteAcademyPlayer(career: Career, playerId: string): Career {
     throw new Error('Atleta não encontrado na base deste clube.');
   if (ageAt(player.birthDate, c.date) < 16)
     throw new Error('Só é possível promover atletas a partir de 16 anos.');
+  checkPlayerSalaryBudget(c, 5000);
   c.living.academyRoster = c.living.academyRoster.filter((item) => item.id !== playerId);
   player.contractEnd = `${c.season + 3}-12-31`;
   player.wage = 5000;

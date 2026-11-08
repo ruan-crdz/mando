@@ -124,8 +124,115 @@
   width: 100%;
 }
 .office-screen .office-route-links {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(8, minmax(0, 1fr));
+  align-self: stretch;
+  width: 100%;
+  min-width: 0;
+  overflow: visible;
   padding: 0;
+}
+.office-screen .office-route-links > button {
+  min-width: 0;
+  width: 100%;
+  justify-content: center;
+  white-space: normal;
+  padding: 8px 4px;
+  font-size: clamp(10px, 0.95vw, 13px);
+  line-height: 1.2;
+}
+.office-screen .office-route-links > button svg {
+  flex-shrink: 0;
+  width: 14px;
+  height: 14px;
+}
+.save-status[hidden] {
+  display: none;
+}
+.assistant-budget {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+.assistant-budget p {
+  margin: 4px 0 0;
+}
+.office-screen .finance-layout {
+  grid-template-rows: auto auto minmax(260px, 1fr);
+  overflow-y: auto;
+}
+.office-screen .finance-layout > .assistant-budget {
+  grid-column: 1 / -1;
+}
+.office-screen .finance-layout > .ledger {
+  grid-row: 3;
+}
+.assistant-budget-values {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  font-size: 12px;
+}
+.assistant-budget-values span {
+  display: grid;
+  gap: 4px;
+}
+.assistant-sector {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  min-width: 0;
+}
+.assistant-sector > .panel-heading {
+  flex-wrap: wrap;
+}
+.assistant-sector .assistant-card {
+  display: grid;
+  gap: 8px;
+}
+.office-screen .staff-layout.manager-customization-layout {
+  grid-template-columns: minmax(0, 1fr);
+  width: 100%;
+}
+.office-screen .profile-panel.manager-customization {
+  grid-template-columns: minmax(180px, 260px) minmax(0, 1fr);
+  align-items: start;
+  width: 100%;
+}
+.manager-customization-identity {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  min-width: 0;
+}
+.office-screen .manager-customization-identity .manager-portrait {
+  width: 100%;
+  height: auto;
+  min-height: 0;
+  max-height: 340px;
+  aspect-ratio: 4 / 5;
+  object-fit: contain;
+  object-position: center top;
+  align-self: start;
+}
+.manager-customization-fields {
+  min-width: 0;
+}
+.manager-customization-fields .manager-edit-form {
+  margin: 0;
+}
+@media (max-width: 1000px) {
+  .office-screen .office-route-links {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+  .assistant-budget-values {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 700px) {
+  .office-screen .profile-panel.manager-customization {
+    grid-template-columns: minmax(140px, 180px) minmax(0, 1fr);
+  }
 }
 .office-screen .board-layout {
   grid-template-columns: minmax(0, 1fr);
@@ -189,15 +296,142 @@
   font-size: 12px;
   margin: 0;
 }
+.academy-tournament-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 20px;
+}
+.academy-tournament-header h2 {
+  margin: 4px 0 8px;
+}
+.academy-tournament-summary {
+  display: flex;
+  flex-shrink: 0;
+  gap: 22px;
+}
+.academy-tournament-summary > span {
+  display: grid;
+  gap: 5px;
+  color: var(--mando-text-muted);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+}
+.academy-tournament-summary strong {
+  color: var(--mando-cyan);
+  font-size: 22px;
+  letter-spacing: 0;
+}
+.academy-tournament-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+  gap: 24px;
+  align-items: start;
+}
+.academy-tournament-layout > section {
+  min-width: 0;
+  padding: 16px;
+  background: var(--mando-surface);
+  border: 1px solid var(--mando-border);
+  border-radius: var(--mando-radius-panel);
+}
+.academy-tournament-layout h3 {
+  margin: 0 0 14px;
+  font-size: 19px;
+}
+.academy-standings table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+.academy-standings th,
+.academy-standings td {
+  padding: 11px 7px;
+  text-align: center;
+  border-bottom: 1px solid var(--mando-border);
+}
+.academy-standings th {
+  font-size: 10px;
+  color: var(--mando-text-muted);
+  background: var(--mando-surface-raised);
+}
+.academy-standings th:nth-child(2),
+.academy-standings td:nth-child(2) {
+  text-align: left;
+}
+.academy-table-club {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.academy-standings .club-badge.small {
+  width: 28px;
+  height: 32px;
+  flex-shrink: 0;
+}
+.academy-standings tr.your-club {
+  background: rgba(54, 214, 231, 0.1);
+  color: var(--mando-cyan);
+  font-weight: 700;
+}
+.academy-standings td:nth-child(3) {
+  font-weight: 800;
+}
 .academy-fixture-list {
   display: grid;
-  gap: 7px;
+  gap: 8px;
 }
 .academy-fixture-list article {
-  display: flex;
-  gap: 14px;
-  padding: 10px;
-  border-bottom: 1px solid var(--mando-border);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 8px 12px;
+  padding: 12px;
+  border: 1px solid var(--mando-border);
+  border-radius: var(--mando-radius-panel);
+  background: var(--mando-surface-raised);
+  font-size: 12px;
+}
+.academy-fixture-list time {
+  grid-column: 1 / -1;
+  color: var(--mando-text-muted);
+  font-size: 10px;
+}
+.academy-fixture-list article > span:first-of-type {
+  text-align: right;
+}
+.academy-fixture-list article > strong {
+  padding: 5px 9px;
+  color: var(--mando-text);
+  background: var(--mando-bg);
+  font-size: 16px;
+  white-space: nowrap;
+}
+.academy-fixture-list .your-team {
+  font-weight: 700;
+}
+.academy-fixture-list article.next-game {
+  border-color: var(--mando-cyan);
+}
+.academy-fixture-list article.next-game time {
+  color: var(--mando-cyan);
+}
+@media (max-width: 1000px) {
+  .academy-tournament-header {
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  .academy-tournament-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+@media (max-width: 700px) {
+  .office-screen .finance-layout > .ledger {
+    grid-column: 1;
+    grid-row: auto;
+  }
 }
 .manager-edit-form {
   display: grid;

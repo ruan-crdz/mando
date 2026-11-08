@@ -19,6 +19,9 @@ e é persistida no save. Saves anteriores recebem uma base sem perder seus atlet
   cálculo diário usado nos profissionais e influência real dos auxiliares.
 - **Torneio de base:** liga sub-20 com oito clubes e 14 rodadas, tabela,
   calendário e resultados. Os jogos são simulados ao avançar a data.
+  Cabeçalho mostra posição, pontos e próximo jogo. Classificação com escudos e
+  calendário ocupam painéis lado a lado; o clube e o próximo jogo são destacados.
+  Em larguras menores os painéis ficam empilhados. RS permite rolar o conteúdo.
 
 ## Controles e estados
 

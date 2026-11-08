@@ -5,6 +5,8 @@ import { createDemoWorld } from './world';
 import { familiarity, LEARNED, trainingGain } from './positions';
 import {
   hireAssistant,
+  fireAssistant,
+  assistantTrainingBonus,
   assistantCandidates,
   lineupExport,
   lineupImportError,
@@ -14,7 +16,7 @@ import {
   syncBenchWithLineup,
 } from './squadManagement';
 import { ageAt } from './random';
-import { staffPayroll } from './staff';
+import { assistantPayroll, salaryBudgets, setAssistantSalaryBudget, staffPayroll } from './staff';
 
 const world = createDemoWorld();
 const manager: Manager = {
@@ -146,13 +148,88 @@ describe('gestão do elenco', () => {
     );
   });
 
-  it('contrata apenas um auxiliar por área com salário limitado e dados completos', () => {
-    const career = start();
+  it('contrata vários auxiliares por setor sem repetir a identidade em outro cargo', () => {
+    const career = setAssistantSalaryBudget(start(), 100000);
     const candidate = assistantCandidates(career, 'ataque')[2];
     const hired = hireAssistant(career, 'ataque', candidate.id!);
-    expect(hired.assistantCoaches.ataque?.stars.ST).toBe(candidate.stars.ST);
-    expect(hired.assistantCoaches.ataque?.wageWeekly).toBeLessThanOrEqual(5000);
+    expect(hired.assistantCoaches[candidate.id!].stars.ST).toBe(candidate.stars.ST);
+    expect(hired.assistantCoaches[candidate.id!].area).toBe('ataque');
     expect(staffPayroll(hired)).toBeGreaterThan(staffPayroll(start()));
-    expect(() => hireAssistant(hired, 'ataque', candidate.id!)).toThrow(/ocupada/);
+    expect(() => hireAssistant(hired, 'defesa', candidate.id!)).toThrow(/já está contratado/);
+    expect(assistantCandidates(hired, 'meio').some((item) => item.name === candidate.name)).toBe(
+      false,
+    );
+    let updated = hired;
+    for (const coach of assistantCandidates(hired, 'ataque').slice(0, 5))
+      updated = hireAssistant(updated, 'ataque', coach.id!);
+    expect(Object.values(updated.assistantCoaches)).toHaveLength(6);
+    expect(Object.values(updated.assistantCoaches).every((coach) => coach.area === 'ataque')).toBe(
+      true,
+    );
+    const fired = fireAssistant(updated, candidate.id!);
+    expect(assistantPayroll(fired)).toBeLessThan(assistantPayroll(updated));
+    expect(assistantCandidates(fired, 'defesa').some((item) => item.id === candidate.id)).toBe(
+      true,
+    );
+  });
+
+  it('mantém vinte identidades e características estáveis entre setores e temporadas', () => {
+    const career = start();
+    const candidates = assistantCandidates(career, 'ataque');
+    expect(candidates).toHaveLength(20);
+    expect(new Set(candidates.map((coach) => coach.id)).size).toBe(20);
+    expect(new Set(candidates.map((coach) => coach.name)).size).toBe(20);
+    expect(assistantCandidates({ ...career, season: 2027 }, 'goleiro')).toEqual(candidates);
+  });
+
+  it('redistribui o limite salarial sem gastar caixa e respeita os compromissos', () => {
+    const career = start();
+    const before = salaryBudgets(career);
+    const updated = setAssistantSalaryBudget(career, 20000);
+    const after = salaryBudgets(updated);
+    expect(after.players + after.assistants).toBe(before.players + before.assistants);
+    expect(after.players).toBe(before.players - 20000);
+    expect(updated.finances[career.clubId].cash).toBe(career.finances[career.clubId].cash);
+    expect(() => setAssistantSalaryBudget(career, before.available + 1)).toThrow(
+      /salários dos jogadores/,
+    );
+    const candidate = assistantCandidates(career, 'ataque')[0];
+    expect(() => hireAssistant(career, 'ataque', candidate.id!)).toThrow(/Orçamento salarial/);
+    const hired = hireAssistant(updated, 'ataque', candidate.id!);
+    expect(() => setAssistantSalaryBudget(hired, 0)).toThrow(/salários dos auxiliares/);
+    expect(careerSchema.parse(hired).finances[career.clubId].assistantWageBudget).toBe(20000);
+  });
+
+  it('regulariza auxiliares legados duplicados e rejeita identidades novas repetidas', () => {
+    const career = start();
+    const coach = assistantCandidates(career, 'ataque')[0];
+    career.assistantCoaches = {
+      ataque: { ...coach, id: 'old-ataque' },
+      meio: { ...coach, id: 'old-meio' },
+    };
+    const migrated = careerSchema.parse(career);
+    expect(Object.values(migrated.assistantCoaches)).toHaveLength(1);
+    expect(migrated.assistantCoaches.ataque.area).toBe('ataque');
+    expect(migrated.messages[0].title).toBe('Cargos dos auxiliares regularizados');
+    expect(careerSchema.parse(migrated).messages).toHaveLength(migrated.messages.length);
+    expect(() =>
+      careerSchema.parse({
+        ...career,
+        assistantCoaches: {
+          first: { ...coach, area: 'ataque' },
+          second: { ...coach, area: 'meio', name: 'Nome alterado' },
+        },
+      }),
+    ).toThrow(/mais de um cargo/);
+  });
+
+  it('aplica somente o melhor bônus do setor responsável pela posição', () => {
+    const career = setAssistantSalaryBudget(start(), 50000);
+    const candidates = assistantCandidates(career, 'ataque');
+    const hired = hireAssistant(career, 'ataque', candidates[4].id!);
+    expect(assistantTrainingBonus(hired, 'ST')).toBeGreaterThan(0);
+    expect(assistantTrainingBonus(hired, 'CM')).toBe(0);
+    const second = hireAssistant(hired, 'ataque', candidates[0].id!);
+    expect(assistantTrainingBonus(second, 'ST')).toBe(assistantTrainingBonus(hired, 'ST'));
   });
 });

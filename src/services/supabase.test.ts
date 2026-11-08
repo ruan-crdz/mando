@@ -60,3 +60,24 @@ it('mantém a validação de respostas bem-sucedidas', async () => {
   invoke.mockResolvedValue({ data: { url: 'https://example.test/portrait.png' }, error: null });
   await expect(api.requestPortrait(manager)).resolves.toBe('https://example.test/portrait.png');
 });
+
+it('envia apenas os campos do retrato, mesmo quando recebe o manager completo do save', async () => {
+  invoke.mockResolvedValue({ data: { url: 'https://example.test/portrait.png' }, error: null });
+  const fullManager = {
+    ...manager,
+    nationality: 'Brasil',
+    birthDate: '1990-01-01',
+    countryRegion: 'Brasil',
+    birthRegion: 'Sudeste',
+    gender: 'Homem',
+    formOfAddress: 'Sr.',
+    avatar: 'https://example.test/old-portrait.png',
+  };
+  await api.requestPortrait(fullManager);
+  expect(invoke).toHaveBeenCalledWith('ai-manager-avatar', {
+    body: {
+      attemptId: expect.any(String),
+      manager: { ...manager, nationality: 'Brasil' },
+    },
+  });
+});

@@ -19,11 +19,15 @@ contextuais e têm cooldown global e individual.
 ## Caixa postal com voz
 
 - Y/△ inicia ou interrompe a leitura de todas as mensagens.
-- Um toque sonoro anuncia a caixa postal; a seleção acompanha a leitura.
+- Clique de conexão, tom telefônico e sinal curto anunciam a caixa postal;
+  uma ambiência de linha telefônica acompanha a leitura.
 - Usa voz pt-BR do navegador, priorizando vozes naturais locais quando disponíveis.
-- Lê a 1,3× e agrupa frases sem cortar palavras para reduzir pausas artificiais.
+- Lê a 1,55× e agrupa frases sem cortar palavras para reduzir pausas artificiais.
 - A música abaixa durante a fala. A leitura continua ao navegar para outras áreas;
   o botão da caixa postal interrompe a reprodução.
+- Voz e ambiência encerram juntas ao parar ou concluir a última mensagem.
+  A voz nativa do navegador não passa por um filtro de áudio; o efeito de
+  telefone é produzido pelos sons de conexão e da linha.
 - Ausência de voz, permissão negada ou falha de reprodução gera aviso explícito.
 
 ## Navegação e acessibilidade

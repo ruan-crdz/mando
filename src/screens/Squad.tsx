@@ -45,13 +45,14 @@ import {
 } from '../game/positions';
 import {
   applySavedLineup,
-  ASSISTANT_STAFF_LIMIT,
+  assistantArea,
   fireAssistant,
   hireAssistant,
   assistantCandidates,
   lineupExport,
   lineupImportError,
   positionTrainingEta,
+  positionsForArea,
   replaceBenchPlayer,
   saveLineup,
   selectBenchPlayer,
@@ -61,6 +62,8 @@ import {
 import { HeatMap } from '../components/HeatMap';
 import { PlayerFace } from '../components/PlayerFace';
 import { PlayerStatsPanel } from '../components/PlayerStatsPanel';
+import { AssistantSalaryBudget } from '../components/AssistantSalaryBudget';
+import { assistantPayroll, salaryBudgets } from '../game/staff';
 import {
   formations,
   positions,
@@ -493,8 +496,8 @@ export function Squad({
           : benchTarget
             ? 'Escolha quem vai sair do banco.'
             : benchOrderId
-              ? 'Selecione outro reserva para trocar a ordem do banco.'
-              : 'Selecione dois reservas para trocar a ordem. Para incluir um atleta de fora, selecione-o e envie ao banco.'}
+              ? 'Selecione um titular para substituir ou outro reserva para trocar a ordem.'
+              : 'Selecione um atleta e depois um titular para substituí-lo. Dois reservas trocam a ordem; a seta envia um não relacionado ao banco.'}
       </p>
       <div
         className={`bench-player-grid ${benchTarget && !slotPicking ? 'choosing-target' : ''}`}
@@ -1021,7 +1024,8 @@ export function Squad({
         <Modal title="Escolher auxiliar" onClose={() => setHiringArea(null)} wide>
           <p>
             Compare salário, conhecimento e estrelas por posição. A contratação só acontece ao
-            confirmar um candidato.
+            confirmar um candidato. Cada profissional só pode trabalhar em um setor. Disponível:{' '}
+            {money(salaryBudgets(c).assistants - assistantPayroll(c))}/mês.
           </p>
           <div className="assistant-candidates" data-stick-scroll>
             {assistantCandidates(c, hiringArea).map((coach) => (
@@ -1036,9 +1040,11 @@ export function Squad({
                 <p>
                   {coach.tacticalVision} · conhecimento {coach.skill}/5
                 </p>
-                <strong>{money(coach.wageWeekly)}/semana</strong>
+                <strong>
+                  {money(coach.wageWeekly)}/semana · {money((coach.wageWeekly * 52) / 12)}/mês
+                </strong>
                 <div className="assistant-stars">
-                  {positions.map((position) => (
+                  {positionsForArea[hiringArea].map((position) => (
                     <span key={position}>
                       {position} {'★'.repeat(coach.stars[position])}
                       {'☆'.repeat(5 - coach.stars[position])}
@@ -1047,11 +1053,19 @@ export function Squad({
                 </div>
                 <p>
                   Evolução e treino de posição: +{coach.skill * 4}% a +
-                  {(coach.skill + Math.max(...Object.values(coach.stars)) - 1) * 4}% conforme as
-                  estrelas.
+                  {(coach.skill +
+                    Math.max(
+                      ...positionsForArea[hiringArea].map((position) => coach.stars[position]),
+                    ) -
+                    1) *
+                    4}
+                  % conforme as estrelas.
                 </p>
                 <button
                   className="primary"
+                  disabled={
+                    assistantPayroll(c) + (coach.wageWeekly * 52) / 12 > salaryBudgets(c).assistants
+                  }
                   onClick={() => {
                     const id = coach.id;
                     if (!id) {
@@ -1153,7 +1167,9 @@ export function Squad({
                     style={{ left: `${coordinates[i].x}%`, top: `${coordinates[i].y}%` }}
                     onClick={() => {
                       setView('lineup');
-                      if (picking?.kind === 'slot' && !selected) swapSlots(picking.index, i);
+                      const incoming = outsideId ?? benchOrderId;
+                      if (incoming) changeSlot(i, incoming);
+                      else if (picking?.kind === 'slot' && !selected) swapSlots(picking.index, i);
                       else {
                         returnFocus.current = `[data-slot="${i}"]`;
                         setPicking(selected ? null : { kind: 'slot', index: i });
@@ -1477,14 +1493,13 @@ export function Squad({
                     <p className="eyebrow">COMISSÃO TÉCNICA</p>
                     <h2>Auxiliares por setor</h2>
                   </div>
-                  <span>
-                    {Object.keys(c.assistantCoaches).length}/{ASSISTANT_STAFF_LIMIT} ·{' '}
-                    {ASSISTANT_STAFF_LIMIT - Object.keys(c.assistantCoaches).length} vagas
-                  </span>
+                  <span>{Object.keys(c.assistantCoaches).length} auxiliares contratados</span>
                 </div>
+                <AssistantSalaryBudget career={c} onChange={onChange} onError={onError} />
                 <p className="muted small">
-                  Cada setor tem uma vaga. O salário semanal entra nas despesas mensais da comissão
-                  (52 semanas ÷ 12); a contratação não cobra taxa inicial.
+                  Cada setor aceita vários auxiliares dentro do orçamento. Uma pessoa ocupa apenas
+                  um setor. Para cada posição, vale o melhor auxiliar do setor responsável, sem
+                  somar bônus repetidos. Não há taxa inicial.
                   {' No controle: '}
                   <ControllerButtonHint action="confirm" label="Selecionar" /> para contratar ou
                   demitir.
@@ -1497,61 +1512,68 @@ export function Squad({
                       defesa: 'Defesa',
                       goleiro: 'Goleiros',
                     };
-                    const coach = c.assistantCoaches[area];
+                    const coaches = Object.entries(c.assistantCoaches).filter(
+                      ([key, coach]) => assistantArea(key, coach) === area,
+                    );
                     return (
-                      <article className="assistant-card" key={area}>
-                        <div>
-                          <p className="eyebrow">{labels[area]}</p>
-                          {coach ? (
-                            <>
-                              <h3>{coach.name}</h3>
-                              <p>
-                                Visão tática: <strong>{coach.tacticalVision}</strong>
-                              </p>
-                              <p>
-                                Conhecimento: <strong>{coach.skill}/5</strong> ·{' '}
-                                {money(coach.wageWeekly)}/semana
-                              </p>
-                              <p>
-                                Treino por posição: até +
-                                {Math.round(
-                                  (coach.skill + Math.max(...Object.values(coach.stars)) - 1) * 4,
-                                )}
-                                % de evolução.
-                              </p>
-                              <div className="assistant-stars">
-                                {Object.entries(coach.stars)
-                                  .filter(([position]) =>
-                                    area === 'goleiro' ? position === 'GK' : position !== 'GK',
-                                  )
-                                  .map(([position, stars]) => (
-                                    <span key={position}>
-                                      {position}{' '}
-                                      {Array.from({ length: 5 }, (_, i) =>
-                                        i < stars ? '★' : '☆',
-                                      ).join('')}
-                                    </span>
-                                  ))}
-                              </div>
-                              <button
-                                type="button"
-                                className="danger-text"
-                                onClick={() => apply(() => fireAssistant(c, area))}
-                              >
-                                <UserMinus size={15} /> Demitir auxiliar
-                              </button>
-                            </>
-                          ) : (
-                            <>
-                              <h3>Vaga disponível</h3>
-                              <p>Contrate um auxiliar para este setor.</p>
-                              <button type="button" onClick={() => setHiringArea(area)}>
-                                <UserPlus size={15} /> Contratar auxiliar
-                              </button>
-                            </>
-                          )}
+                      <section className="assistant-sector" key={area} aria-label={labels[area]}>
+                        <div className="panel-heading">
+                          <h3>
+                            {labels[area]} · {coaches.length}
+                          </h3>
+                          <button type="button" onClick={() => setHiringArea(area)}>
+                            <UserPlus size={15} /> Contratar auxiliar
+                          </button>
                         </div>
-                      </article>
+                        {!coaches.length && <p className="muted">Nenhum auxiliar neste setor.</p>}
+                        {coaches.map(([id, coach]) => (
+                          <article className="assistant-card" key={id}>
+                            <h3>{coach.name}</h3>
+                            <p>
+                              Visão tática: <strong>{coach.tacticalVision}</strong>
+                            </p>
+                            <p>
+                              Conhecimento: <strong>{coach.skill}/5</strong> ·{' '}
+                              {money(coach.wageWeekly)}/semana
+                            </p>
+                            <p>
+                              Treino por posição: até +
+                              {Math.round(
+                                (coach.skill +
+                                  Math.max(
+                                    ...positionsForArea[area].map(
+                                      (position) => coach.stars[position],
+                                    ),
+                                  ) -
+                                  1) *
+                                  4,
+                              )}
+                              % de evolução.
+                            </p>
+                            <div className="assistant-stars">
+                              {Object.entries(coach.stars)
+                                .filter(([position]) =>
+                                  positionsForArea[area].some((item) => item === position),
+                                )
+                                .map(([position, stars]) => (
+                                  <span key={position}>
+                                    {position}{' '}
+                                    {Array.from({ length: 5 }, (_, i) =>
+                                      i < stars ? '★' : '☆',
+                                    ).join('')}
+                                  </span>
+                                ))}
+                            </div>
+                            <button
+                              type="button"
+                              className="danger-text"
+                              onClick={() => apply(() => fireAssistant(c, id))}
+                            >
+                              <UserMinus size={15} /> Demitir auxiliar
+                            </button>
+                          </article>
+                        ))}
+                      </section>
                     );
                   })}
                 </div>

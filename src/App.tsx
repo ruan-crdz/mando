@@ -873,7 +873,6 @@ function Game() {
                   onManager={(manager) =>
                     act(() => {
                       setCareer(updateManager(career, manager));
-                      setNotice('Personalização do manager salva.');
                     })
                   }
                   onPromote={(id) =>
@@ -977,7 +976,7 @@ function Game() {
           )}
         </div>
         {career && screen === 'career' && (
-          <span className={`save-status ${saveState}`} role="status">
+          <span className={`save-status ${saveState}`} role="status" hidden={saveState !== 'error'}>
             {saveState === 'saving' ? (
               <LoaderCircle size={15} className="spin" />
             ) : saveState === 'saved' ? (

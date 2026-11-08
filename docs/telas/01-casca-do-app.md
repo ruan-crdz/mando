@@ -8,7 +8,7 @@ Moldura global do MANDO. Controla a entrada no jogo, a navegação entre as áre
 
 - **Menu principal:** lista local de carreiras, continuar, nova carreira e excluir save.
 - **Criação do manager:** fluxo de identidade e clube escolhido.
-- **Carreira:** barra de navegação, área de conteúdo da tela ativa, dicas de controle e indicador de salvamento.
+- **Carreira:** barra de navegação, área de conteúdo da tela ativa e dicas de controle; salvamento silencioso.
 - **Partida:** substitui o conteúdo da carreira enquanto houver `activeMatch`; a navegação principal fica oculta.
 
 ## Navegação da carreira
@@ -27,7 +27,8 @@ Mouse, teclado e controle podem navegar. L1/R1 ou LB/RB alternam áreas; o foco 
 ## Cabeçalho e rodapé
 
 - Identidade do MANDO, área atual, clube/data/caixa e estado de conexão quando aplicável.
-- O rodapé apresenta glifos de controle correspondentes ao dispositivo e estado do save local: salvando, salvo ou erro.
+- O rodapé apresenta glifos de controle correspondentes ao dispositivo. Salvando
+  e salvo permanecem ocultos; somente erro de persistência é exibido.
 - Cada atualização da carreira grava localmente; o backup na nuvem é consolidado após as ações e tenta sincronizar ao voltar a ficar online ou ocultar a página. O App preserva a versão local mais recente mesmo se uma sincronização antiga terminar depois.
 
 ## Modais e overlays globais
@@ -62,7 +63,7 @@ Os modais compartilham foco preso, ação Voltar, restauração de foco e navega
 ## Invariantes para o redesign
 
 1. Manter as seis áreas e sua ordem.
-2. Preservar o estado visível de salvamento e reportar falhas.
+2. Salvar em segundo plano sem popup/indicador de sucesso e reportar falhas.
 3. Todo modal precisa funcionar com controle, mouse e teclado.
 4. Não adicionar conquistas, coletivas, Seleção ou páginas fora do escopo.
    Áudio autorizado: música original, torcida e leitura da caixa postal.

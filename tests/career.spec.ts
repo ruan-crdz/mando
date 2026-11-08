@@ -72,16 +72,38 @@ test('criação, todas as abas, negociação, avanço e save/load persistente', 
     return [...rows.values()];
   });
   expect(pitchRows).toEqual([1, 4, 3, 3]);
+  const benchPlayer = page
+    .locator('[data-bench-player]:not(:disabled):not([aria-label*=", GK,"])')
+    .first();
+  const benchName = (await benchPlayer.getAttribute('aria-label'))!.split(',')[0];
+  await benchPlayer.click();
+  await page.locator('[data-slot="10"]').click();
+  await expect(page.locator('[data-slot="10"]')).toHaveAttribute(
+    'aria-label',
+    new RegExp(benchName),
+  );
   await page.getByRole('button', { name: 'Responsabilidades' }).click();
   await page.locator('.role-card[data-role="Capitão"]').click();
   await expect(page.locator('.player-card').first()).toBeVisible();
   await page.getByRole('button', { name: 'Comissão', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Auxiliares por setor' })).toBeVisible();
+  await page
+    .getByRole('textbox', { name: 'Orçamento mensal dos auxiliares', exact: true })
+    .fill('20000');
   await page.getByRole('button', { name: 'Contratar auxiliar', exact: true }).first().click();
   const assistantDialog = page.getByRole('dialog', { name: 'Escolher auxiliar' });
-  await expect(assistantDialog.locator('.assistant-card')).toHaveCount(5);
+  await expect(assistantDialog.locator('.assistant-card')).toHaveCount(20);
   await assistantDialog.getByRole('button', { name: 'Contratar Ana Ribeiro' }).click();
   await expect(page.locator('.assistant-grid')).toContainText('Ana Ribeiro');
+  await page.getByRole('button', { name: 'Contratar auxiliar', exact: true }).first().click();
+  await expect(assistantDialog.locator('.assistant-card')).toHaveCount(19);
+  await expect(assistantDialog.getByRole('button', { name: 'Contratar Ana Ribeiro' })).toHaveCount(
+    0,
+  );
+  await assistantDialog.getByRole('button', { name: 'Contratar Lucas Ferreira' }).click();
+  await expect(
+    page.getByRole('region', { name: 'Ataque', exact: true }).locator('.assistant-card'),
+  ).toHaveCount(2);
   await page
     .getByRole('navigation', { name: 'Áreas do clube' })
     .getByRole('button', { name: /TRANSFERÊNCIAS/ })
@@ -93,7 +115,9 @@ test('criação, todas as abas, negociação, avanço e save/load persistente', 
   );
   expect(photoIndex).toBeGreaterThanOrEqual(0);
   const marketFace = marketRows.nth(photoIndex).locator('.player-face.face-tier');
-  const tierBackground = await marketFace.evaluate((face) => getComputedStyle(face).backgroundImage);
+  const tierBackground = await marketFace.evaluate(
+    (face) => getComputedStyle(face).backgroundImage,
+  );
   expect(tierBackground).toContain('gradient');
   await marketFace.locator('img').dispatchEvent('error');
   await expect(marketFace).toHaveClass(/generated/);
@@ -441,7 +465,8 @@ test('controle define data de nascimento na criação e no perfil do manager', a
   ).toContainText('✕');
   await page.getByRole('button', { name: /Salvar personalização/ }).focus();
   await press(0);
-  await expect(page.getByText('Personalização do manager salva.')).toBeVisible();
+  await expect(page.getByText('Personalização do manager salva.')).toHaveCount(0);
+  await expect(page.locator('.save-status')).toBeHidden();
   await expect(page.locator('.save-status')).toHaveText(/SALVO/);
   await page.reload();
   await page.getByRole('button', { name: /CONTINUAR CARREIRA/ }).click();

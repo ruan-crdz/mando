@@ -9,7 +9,7 @@ import { PlayerFace } from './PlayerFace';
 import { PlayerStatsPanel } from './PlayerStatsPanel';
 import { ControllerButtonHint } from '../controller/ControllerButtonHint';
 import { ChipGroup, OptionCycler } from './controls';
-import { dateLabel } from './ui';
+import { Badge, dateLabel } from './ui';
 
 export function AcademyPanel({
   career: c,
@@ -280,55 +280,100 @@ export function AcademyPanel({
         a.clubId.localeCompare(b.clubId),
     );
   const name = (id: string) => world.clubs.find((club) => club.id === id)?.name ?? id;
+  const ownFixtures = fixtures.filter(
+    (fixture) => fixture.homeId === c.clubId || fixture.awayId === c.clubId,
+  );
+  const nextFixture = ownFixtures.find((fixture) => fixture.homeGoals === undefined);
+  const ownPosition = rows.findIndex((row) => row.clubId === c.clubId);
   return (
     <section className="panel academy-tournament" data-stick-scroll>
-      <h2>Liga de base Sub-20 · {c.season}</h2>
-      <p>
-        8 clubes · 14 rodadas · ida e volta. Simulação aos sábados pelo calendário. Participar
-        concede minutos e ritmo que influenciam o desenvolvimento.
-      </p>
+      <header className="academy-tournament-header">
+        <div>
+          <p className="eyebrow">ACADEMIA · COMPETIÇÃO</p>
+          <h2>Liga de base Sub-20 · {c.season}</h2>
+          <p className="muted small">
+            8 clubes · 14 rodadas · ida e volta. Jogos aos sábados; minutos e ritmo contam no
+            desenvolvimento dos atletas.
+          </p>
+        </div>
+        <div className="academy-tournament-summary">
+          <span>
+            POSIÇÃO <strong>{ownPosition >= 0 ? `${ownPosition + 1}º` : '—'}</strong>
+          </span>
+          <span>
+            PONTOS <strong>{rows[ownPosition]?.points ?? 0}</strong>
+          </span>
+          <span>
+            PRÓXIMO JOGO <strong>{nextFixture ? dateLabel(nextFixture.date) : 'Encerrado'}</strong>
+          </span>
+        </div>
+      </header>
       {fixtures.every((fixture) => fixture.homeGoals !== undefined) && rows[0] && (
         <h3>Campeão: {name(rows[0].clubId)}</h3>
       )}
-      <table>
-        <thead>
-          <tr>
-            <th>#</th>
-            <th>CLUBE</th>
-            <th>P</th>
-            <th>J</th>
-            <th>GP</th>
-            <th>GC</th>
-            <th>SG</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row, index) => (
-            <tr key={row.clubId} className={row.clubId === c.clubId ? 'your-club' : ''}>
-              <td>{index + 1}</td>
-              <td>{name(row.clubId)}</td>
-              <td>{row.points}</td>
-              <td>{row.played}</td>
-              <td>{row.gf}</td>
-              <td>{row.ga}</td>
-              <td>{row.gf - row.ga}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-      <h3>Calendário do seu clube</h3>
-      <div className="academy-fixture-list">
-        {fixtures
-          .filter((fixture) => fixture.homeId === c.clubId || fixture.awayId === c.clubId)
-          .map((fixture) => (
-            <article key={fixture.id}>
-              <small>{dateLabel(fixture.date)}</small>
-              <span>
-                {name(fixture.homeId)} {fixture.homeGoals ?? '—'} × {fixture.awayGoals ?? '—'}{' '}
-                {name(fixture.awayId)}
-              </span>
-            </article>
-          ))}
+      <div className="academy-tournament-layout">
+        <section className="academy-standings" aria-label="Classificação da base">
+          <h3>Classificação</h3>
+          <table aria-label="Classificação da liga Sub-20">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>CLUBE</th>
+                <th>P</th>
+                <th>J</th>
+                <th>GP</th>
+                <th>GC</th>
+                <th>SG</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row, index) => {
+                const club = world.clubs.find((item) => item.id === row.clubId);
+                return (
+                  <tr key={row.clubId} className={row.clubId === c.clubId ? 'your-club' : ''}>
+                    <td>{index + 1}</td>
+                    <td>
+                      <span className="academy-table-club">
+                        {club && <Badge club={club} size="small" />}
+                        {name(row.clubId)}
+                      </span>
+                    </td>
+                    <td>{row.points}</td>
+                    <td>{row.played}</td>
+                    <td>{row.gf}</td>
+                    <td>{row.ga}</td>
+                    <td>{row.gf - row.ga}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </section>
+        <section className="academy-schedule" aria-label="Calendário da base">
+          <h3>Calendário do seu clube</h3>
+          <div className="academy-fixture-list">
+            {ownFixtures.map((fixture, index) => (
+              <article
+                key={fixture.id}
+                className={fixture.id === nextFixture?.id ? 'next-game' : ''}
+              >
+                <time dateTime={fixture.date}>
+                  Rodada {index + 1} · {dateLabel(fixture.date)}
+                  {fixture.id === nextFixture?.id ? ' · PRÓXIMO' : ''}
+                </time>
+                <span className={fixture.homeId === c.clubId ? 'your-team' : ''}>
+                  {name(fixture.homeId)}
+                </span>
+                <strong>
+                  {fixture.homeGoals ?? '—'} × {fixture.awayGoals ?? '—'}
+                </strong>
+                <span className={fixture.awayId === c.clubId ? 'your-team' : ''}>
+                  {name(fixture.awayId)}
+                </span>
+              </article>
+            ))}
+          </div>
+        </section>
       </div>
     </section>
   );

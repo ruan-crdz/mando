@@ -21,12 +21,84 @@ export const staffHireCost = (level: number) => 250000 * level;
 /** Salário mensal, debitado no fechamento do mês. */
 export const staffWage = (level: number) => 15000 * level;
 
-export const staffPayroll = (c: Career) =>
-  staffRoles.reduce((n, role) => n + staffWage(staffLevel(c, role)), 0) +
-  Object.values(c.assistantCoaches ?? {}).reduce(
+export const assistantPayroll = (c: Career) =>
+  Object.values(c.assistantCoaches).reduce(
     (total, assistant) => total + assistant.wageWeekly * (52 / 12),
     0,
   );
+
+export function playerSalaryCommitment(c: Career) {
+  const academy = new Set(c.living.academyRoster.map((player) => player.id));
+  let total = 0;
+  for (const [id, state] of Object.entries(c.players)) {
+    if (academy.has(id)) continue;
+    if (state.clubId === c.clubId)
+      total += state.loanFrom && state.loan ? (state.wage * state.loan.wagePct) / 100 : state.wage;
+    else if (state.loanFrom === c.clubId && state.loan) total += state.wage;
+  }
+  for (const contract of c.preContracts)
+    if (
+      contract.clubId === c.clubId &&
+      !contract.joined &&
+      c.players[contract.playerId]?.clubId !== c.clubId
+    )
+      total += contract.wage;
+  return Math.ceil(total);
+}
+
+export function salaryBudgets(c: Career) {
+  const finance = c.finances[c.clubId];
+  const committed = playerSalaryCommitment(c);
+  const assistants = finance.assistantWageBudget ?? Math.ceil(assistantPayroll(c));
+  const players =
+    finance.playerWageBudget ?? Math.max(committed, Math.ceil(committed * 1.25) - assistants);
+  return { players, assistants, committed, available: Math.max(0, players - committed) };
+}
+
+export function setAssistantSalaryBudget(career: Career, monthly: number): Career {
+  if (!Number.isInteger(monthly) || monthly < 0)
+    throw new Error('Informe um orçamento mensal válido para os auxiliares.');
+  const budget = salaryBudgets(career);
+  if (monthly < Math.ceil(assistantPayroll(career)))
+    throw new Error('O orçamento não pode ficar abaixo dos salários dos auxiliares contratados.');
+  const players = budget.players + budget.assistants - monthly;
+  if (players < budget.committed)
+    throw new Error(
+      'Essa redistribuição não deixa orçamento suficiente para os salários dos jogadores.',
+    );
+  return {
+    ...career,
+    finances: {
+      ...career.finances,
+      [career.clubId]: {
+        ...career.finances[career.clubId],
+        playerWageBudget: players,
+        assistantWageBudget: monthly,
+      },
+    },
+  };
+}
+
+export function checkPlayerSalaryBudget(c: Career, increase: number, arrivingPlayerId?: string) {
+  if (c.finances[c.clubId].playerWageBudget === undefined) return;
+  const budget = salaryBudgets(c);
+  const reserved = arrivingPlayerId
+    ? (c.preContracts.find(
+        (contract) =>
+          contract.playerId === arrivingPlayerId &&
+          contract.clubId === c.clubId &&
+          !contract.joined,
+      )?.wage ?? 0)
+    : 0;
+  if (increase <= reserved) return;
+  if (budget.committed + increase - reserved > budget.players)
+    throw new Error(
+      'Orçamento salarial dos jogadores insuficiente. Redistribua o orçamento da comissão ou reduza a folha.',
+    );
+}
+
+export const staffPayroll = (c: Career) =>
+  staffRoles.reduce((n, role) => n + staffWage(staffLevel(c, role)), 0) + assistantPayroll(c);
 
 export const fitnessEffect = (level: number) => ({
   /** Desgaste a menos em campo. */

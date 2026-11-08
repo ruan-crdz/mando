@@ -4,7 +4,7 @@ import { reconcileSquad, squad } from './matches';
 import { transferWindow } from './calendar';
 import { clubById, foreignClubs, isForeign } from './npc';
 import { notify as inbox, recordMove } from './chronicle';
-import { directorEffect, staffLevel } from './staff';
+import { checkPlayerSalaryBudget, directorEffect, staffLevel } from './staff';
 import { addLedger, agentOf, clubRights, settleFee } from './market';
 import {
   type Career,
@@ -244,6 +244,11 @@ export function createOffer(
       throw new Error('Para usar um atleta na troca, o clube precisa possuir 100% dos direitos.');
     checkOutgoing(c, world, exchangePlayerId, c.clubId);
   }
+  checkPlayerSalaryBudget(
+    c,
+    wage - (exchangePlayerId ? c.players[exchangePlayerId].wage : 0),
+    playerId,
+  );
   const minimum = askingPrice(c, world, player) * difficultyFactor(c) * dealFactor(rights, sellOn);
   const first = !existing;
   const offer: Offer = existing || {
@@ -488,8 +493,7 @@ function clubDecision(c: Career, world: World, offer: Offer) {
     return;
   }
   const midpoint =
-    offer.minimum -
-    (offer.minimum - amount) * directorEffect(staffLevel(c, 'director')).concession;
+    offer.minimum - (offer.minimum - amount) * directorEffect(staffLevel(c, 'director')).concession;
   const ask = Math.min(offer.ask ?? Infinity, roundUp(Math.max(amount * 1.04, midpoint), 100000));
   const fee = Math.max(offer.fee + 50000, roundUp(ask - exVal, 50000));
   offer.ask = ask;
@@ -563,7 +567,12 @@ export function respondCounter(
         : { wage: offer.wage, years: offer.years, bonus: offer.bonus }
       : offer.loan
         ? { fee, loan: offer.loan }
-        : { fee, exchangePlayerId: offer.exchangePlayerId, rights: offer.rights, sellOn: offer.sellOn }),
+        : {
+            fee,
+            exchangePlayerId: offer.exchangePlayerId,
+            rights: offer.rights,
+            sellOn: offer.sellOn,
+          }),
     text:
       offer.stage === 'player'
         ? offer.loan
@@ -584,7 +593,7 @@ export function respondCounter(
 export function completeTransfer(c: Career, world: World, offer: Offer) {
   if (!transferWindow(c.date)) throw new Error('Transferência fora da janela.');
   const buyer = financeOf(c, world, offer.fromClubId);
-  if (c.players[offer.playerId].clubId !== offer.toClubId)
+  if (c.players[offer.playerId]?.clubId !== offer.toClubId)
     throw new Error('O atleta já mudou de clube.');
   const bonus = offer.bonus || 0;
   const fees = offer.fromClubId === c.clubId ? commissionOf(offer.playerId, offer.fee) : 0;
@@ -592,10 +601,22 @@ export function completeTransfer(c: Career, world: World, offer: Offer) {
     throw new Error('O comprador não tem mais orçamento suficiente.');
   checkOutgoing(c, world, offer.playerId, offer.toClubId);
   if (offer.exchangePlayerId) {
-    if (c.players[offer.exchangePlayerId].clubId !== offer.fromClubId)
+    if (c.players[offer.exchangePlayerId]?.clubId !== offer.fromClubId)
       throw new Error('Atleta de troca indisponível.');
     checkOutgoing(c, world, offer.exchangePlayerId, offer.fromClubId);
   }
+  if (offer.fromClubId === c.clubId)
+    checkPlayerSalaryBudget(
+      c,
+      offer.wage - (offer.exchangePlayerId ? c.players[offer.exchangePlayerId].wage : 0),
+      offer.playerId,
+    );
+  else if (offer.toClubId === c.clubId && offer.exchangePlayerId)
+    checkPlayerSalaryBudget(
+      c,
+      c.players[offer.exchangePlayerId].wage - c.players[offer.playerId].wage,
+      offer.exchangePlayerId,
+    );
   const outgoingIds = new Set(
     [offer.playerId, offer.exchangePlayerId].filter((id): id is string => Boolean(id)),
   );
@@ -656,7 +677,15 @@ export function completeTransfer(c: Career, world: World, offer: Offer) {
   delete p.listed;
   offer.status = 'completed';
   if (offer.toClubId === c.clubId) c.sales += net;
-  recordMove(c, world, offer.playerId, offer.toClubId, offer.fromClubId, offer.fee, isForeign(offer.fromClubId) ? 'exterior' : 'compra');
+  recordMove(
+    c,
+    world,
+    offer.playerId,
+    offer.toClubId,
+    offer.fromClubId,
+    offer.fee,
+    isForeign(offer.fromClubId) ? 'exterior' : 'compra',
+  );
   reconcileSquad(c, world);
 }
 
@@ -896,7 +925,11 @@ function validateLoanRequest(req: LoanRequest) {
     throw new Error('Escolha uma duração de empréstimo entre 1 e 12 meses.');
   if (!Number.isFinite(req.wagePct) || req.wagePct < 0 || req.wagePct > 100)
     throw new Error('Informe uma participação salarial entre 0% e 100%.');
-  if (!Number.isFinite(req.fee) || req.fee < 0 || (req.bonus !== undefined && (!Number.isFinite(req.bonus) || req.bonus < 0)))
+  if (
+    !Number.isFinite(req.fee) ||
+    req.fee < 0 ||
+    (req.bonus !== undefined && (!Number.isFinite(req.bonus) || req.bonus < 0))
+  )
     throw new Error('Informe uma taxa e luvas válidas.');
   if (req.option !== undefined && (!Number.isFinite(req.option) || req.option <= 0))
     throw new Error('Informe um valor positivo para a opção de compra.');
@@ -940,7 +973,10 @@ export function loanAsk(c: Career, world: World, player: Player, months: number)
   const young = ageAt(player.birthDate, c.date) <= 21;
   const price = askingPrice(c, world, player) * difficultyFactor(c);
   return {
-    fee: roundUp(marketValue(c, player) * 0.1 * (months / 12) * (young ? 0.5 : 1) * difficultyFactor(c), 50000),
+    fee: roundUp(
+      marketValue(c, player) * 0.1 * (months / 12) * (young ? 0.5 : 1) * difficultyFactor(c),
+      50000,
+    ),
     wagePct: young ? 60 : 100,
     option: roundUp(price, 100000),
     obligation: roundUp(price * 0.85, 100000),
@@ -1005,9 +1041,13 @@ export function loanOutlook(
   const ask = loanAsk(c, world, player, terms.months);
   const blocked = loanBlock(c, world, player);
   const target = Math.min(loanTarget(ask, terms, wage), previousAsk ?? Infinity);
-  let club = Math.round(clamp(((loanValue(fee, terms, wage) / Math.max(1, target) - 0.7) / 0.3) * 100));
-  if ((terms.option !== undefined && terms.option < ask.option) ||
-    (terms.obligation && terms.obligation.fee < ask.obligation))
+  let club = Math.round(
+    clamp(((loanValue(fee, terms, wage) / Math.max(1, target) - 0.7) / 0.3) * 100),
+  );
+  if (
+    (terms.option !== undefined && terms.option < ask.option) ||
+    (terms.obligation && terms.obligation.fee < ask.obligation)
+  )
     club = Math.min(club, 30);
   if (blocked) club = 0;
   const athlete = loanHappy(c, world, player) || bonus >= loanBonusAsk(c, player) ? 100 : 20;
@@ -1025,7 +1065,13 @@ export function createLoanOffer(
   if (!transferWindow(c.date)) throw new Error('A janela de transferências está fechada.');
   const player = world.players.find((p) => p.id === playerId);
   const state = c.players[playerId];
-  if (!player || !state?.clubId || state.clubId === c.clubId || state.loanFrom || isForeign(state.clubId))
+  if (
+    !player ||
+    !state?.clubId ||
+    state.clubId === c.clubId ||
+    state.loanFrom ||
+    isForeign(state.clubId)
+  )
     throw new Error('Este jogador não está disponível para empréstimo.');
   if (c.challenge === 'Só a base' && ageAt(player.birthDate, c.date) > 23)
     throw new Error('Este desafio permite contratar apenas jogadores de até 23 anos.');
@@ -1054,6 +1100,7 @@ export function createLoanOffer(
     fee = existing!.fee;
     terms = existing!.loan!;
   }
+  checkPlayerSalaryBudget(c, (state.wage * terms.wagePct) / 100, playerId);
   const bonus = Math.max(0, Math.round(req.bonus || 0));
   checkBudget(c, fee, bonus, commissionOf(playerId, fee));
   checkOutgoing(c, world, playerId, ownerId);
@@ -1172,7 +1219,10 @@ function loanClubDecision(c: Career, world: World, offer: Offer) {
   const wagePart = (wagePct / 100) * wage * terms.months;
   const needed = Math.max(0, target - wagePart);
   const concession = directorEffect(staffLevel(c, 'director')).concession;
-  const fee = roundUp(Math.max(offer.fee, needed - Math.max(0, needed - offer.fee) * concession), 50000);
+  const fee = roundUp(
+    Math.max(offer.fee, needed - Math.max(0, needed - offer.fee) * concession),
+    50000,
+  );
   const counter: LoanTerms = {
     ...terms,
     wagePct,
@@ -1244,6 +1294,7 @@ function completeLoan(c: Career, world: World, offer: Offer) {
   if (!transferWindow(c.date)) throw new Error('Empréstimo fora da janela.');
   const s = c.players[offer.playerId];
   if (s.clubId !== offer.toClubId || s.loanFrom) throw new Error('O atleta já mudou de clube.');
+  checkPlayerSalaryBudget(c, (s.wage * offer.loan!.wagePct) / 100, offer.playerId);
   if (addMonths(c.date, offer.loan!.months) > s.contractEnd)
     throw new Error('O empréstimo ultrapassaria o contrato atual do atleta.');
   checkOutgoing(c, world, offer.playerId, offer.toClubId);
@@ -1254,14 +1305,31 @@ function completeLoan(c: Career, world: World, offer: Offer) {
     throw new Error('O clube não tem mais orçamento suficiente.');
   f.cash -= offer.fee + bonus + commission;
   f.transferBudget -= offer.fee;
-  f.history.push({ date: c.date, income: 0, expenses: offer.fee + bonus + commission, balance: f.cash });
+  f.history.push({
+    date: c.date,
+    income: 0,
+    expenses: offer.fee + bonus + commission,
+    balance: f.cash,
+  });
   const owner = c.finances[offer.toClubId];
   if (owner && offer.fee) {
     owner.cash += offer.fee;
     owner.history.push({ date: c.date, income: offer.fee, expenses: 0, balance: owner.cash });
   }
-  addLedger(c, { playerId: offer.playerId, kind: 'emprestimo', from: c.clubId, to: offer.toClubId, amount: offer.fee });
-  addLedger(c, { playerId: offer.playerId, kind: 'comissao', from: c.clubId, to: agentOf(offer.playerId).name, amount: commission });
+  addLedger(c, {
+    playerId: offer.playerId,
+    kind: 'emprestimo',
+    from: c.clubId,
+    to: offer.toClubId,
+    amount: offer.fee,
+  });
+  addLedger(c, {
+    playerId: offer.playerId,
+    kind: 'comissao',
+    from: c.clubId,
+    to: agentOf(offer.playerId).name,
+    amount: commission,
+  });
   const terms = offer.loan!;
   s.loanFrom = offer.toClubId;
   s.loanUntil = addMonths(c.date, terms.months);
@@ -1289,7 +1357,13 @@ export function loanOutPlayer(
   const player = world.players.find((p) => p.id === playerId);
   const state = c.players[playerId];
   const dest = c.finances[destinationId];
-  if (!player || state?.clubId !== c.clubId || state.loanFrom || destinationId === c.clubId || !dest)
+  if (
+    !player ||
+    state?.clubId !== c.clubId ||
+    state.loanFrom ||
+    destinationId === c.clubId ||
+    !dest
+  )
     throw new Error('O jogador ou clube de destino não está disponível.');
   validateLoanRequest(req);
   if (addMonths(c.date, req.months) > state.contractEnd)
@@ -1306,7 +1380,9 @@ export function loanOutPlayer(
       `O ${name} recusou: taxa e salário acima do que ${player.name} vale emprestado (taxa máx. ~${money(Math.max(0, roundUp(limit - wagePart, 50000)))}).`,
     );
   if (terms.obligation && terms.obligation.fee > ask.option * 1.05)
-    throw new Error(`O ${name} recusou a obrigação de compra: aceita no máximo ~${money(roundUp(ask.option * 1.05, 100000))}.`);
+    throw new Error(
+      `O ${name} recusou a obrigação de compra: aceita no máximo ~${money(roundUp(ask.option * 1.05, 100000))}.`,
+    );
   if (dest.cash < fee || dest.transferBudget < fee)
     throw new Error(`O ${name} não tem orçamento para pagar a taxa.`);
   dest.cash -= fee;
@@ -1339,7 +1415,8 @@ function buyOut(c: Career, world: World, playerId: string, from: string, to: str
   }
   s.clubId = from;
   const { net } = settleFee(c, world, { playerId, from, to, fee, budgetShare: 0.6 });
-  if (to === c.clubId) addLedger(c, { playerId, kind: 'opcao', from: c.clubId, to: from, amount: fee });
+  if (to === c.clubId)
+    addLedger(c, { playerId, kind: 'opcao', from: c.clubId, to: from, amount: fee });
   if (from === c.clubId) {
     c.sales += net;
     addLedger(c, { playerId, kind: 'opcao', from: to, to: c.clubId, amount: net });
@@ -1491,6 +1568,7 @@ export function signPreContract(
   if (wage < requiredWage(c, player)) throw new Error('O salário está abaixo do pedido do atleta.');
   if (c.preContracts.some((contract) => contract.playerId === playerId && !contract.joined))
     throw new Error('Já existe um pré-contrato para este jogador.');
+  checkPlayerSalaryBudget(c, wage);
   c.preContracts.push({ playerId, clubId: c.clubId, wage, joined: false });
   c.messages.unshift({
     id: `precontract-${hash(`${c.id}:${playerId}:${c.date}`)}`,
@@ -1507,11 +1585,7 @@ export function signPreContract(
   return c;
 }
 
-export function exerciseReleaseClause(
-  career: Career,
-  world: World,
-  playerId: string,
-): Career {
+export function exerciseReleaseClause(career: Career, world: World, playerId: string): Career {
   const c = structuredClone(career);
   if (!transferWindow(c.date)) throw new Error('A janela de transferências está fechada.');
   const player = world.players.find((p) => p.id === playerId);
@@ -1588,9 +1662,7 @@ export function releasePlayer(career: Career, world: World, playerId: string): C
   if (c.lineup.includes(playerId)) {
     const remaining = squad(c, world).filter(
       (p) =>
-        p.id !== playerId &&
-        c.players[p.id].injuryDays === 0 &&
-        c.players[p.id].suspension === 0,
+        p.id !== playerId && c.players[p.id].injuryDays === 0 && c.players[p.id].suspension === 0,
     );
     if (remaining.length < 11)
       throw new Error('A dispensa deixaria o clube sem onze atletas disponíveis.');
@@ -1613,7 +1685,8 @@ export function renewalTerms(c: Career, playerId: string, months = 36) {
   const p = c.players[playerId];
   // Empresário influente endurece a renovação (salário e luvas mais altos).
   const agent = (agentOf(playerId).influence - 1) * 0.025;
-  const increase = (c.difficulty === 'Profissional' ? 1.18 : 1.1) - (months < 12 ? 0.05 : 0) + agent;
+  const increase =
+    (c.difficulty === 'Profissional' ? 1.18 : 1.1) - (months < 12 ? 0.05 : 0) + agent;
   const wage = Math.round(p.wage * increase);
   const bonus = Math.round(wage * Math.max(0.5, (2 * months) / 36) * (1 + agent * 2));
   const start = p.contractEnd > c.date ? p.contractEnd : c.date;
@@ -1628,6 +1701,7 @@ export function renewContract(career: Career, world: World, playerId: string, mo
     throw new Error('Escolha uma renovação entre 6 meses e 5 anos.');
   const player = world.players.find((p) => p.id === playerId)!;
   const { wage, bonus, contractEnd } = renewalTerms(c, playerId, months);
+  checkPlayerSalaryBudget(c, wage - c.players[playerId].wage);
   if (c.finances[c.clubId].cash < bonus)
     throw new Error('Saldo insuficiente para as luvas de renovação.');
   c.finances[c.clubId].cash -= bonus;

@@ -43,7 +43,7 @@ O estado `view` é **local** do componente (volta a `'lineup'` sempre que a tela
 - Clicar em outro item do menu do header (mouse) — funciona mesmo com `detail` aberto (o `detail` não é limpo; ver Problemas).
 - Ir ao menu principal limpa `detail` (`menu()` → `setDetail(null)`).
 
-**Rodapé global** (sempre visível na carreira, `App.tsx`): dicas `✕/A Selecionar`, `○/B Voltar`, `□/X Avançar dia`, `R2/RT Sub-menu`, `Options/☰ Pausa` + indicador de salvamento.
+**Rodapé global** (sempre visível na carreira, `App.tsx`): dicas de controle. O salvamento ocorre em segundo plano, sem indicador de sucesso ou popup; somente falhas são exibidas.
 
 ## Arquivos-fonte
 
@@ -657,11 +657,22 @@ Editor "Posições e treino" (dentro da linha expandida no painel direito):
 
 ## Fase 3: auxiliares por setor
 
-- A quinta sub-aba, **Comissão**, mostra quatro vagas: **Ataque**, **Meio-campo**, **Defesa** e **Goleiros**. Cada vaga permite contratar ou demitir um auxiliar; o cabeçalho informa vagas ocupadas e livres.
+- A quinta sub-aba, **Comissão**, mostra quatro setores: **Ataque**, **Meio-campo**, **Defesa** e **Goleiros**. Cada setor aceita vários auxiliares, limitados pelo orçamento salarial, sem teto artificial de quantidade.
 - Cada auxiliar exibe nome, visão tática, conhecimento, salário semanal e estrelas por posição. A contratação não cobra taxa inicial; a folha semanal é contabilizada nas despesas mensais da comissão (52 semanas ÷ 12).
 - O save antigo recebe `assistantCoaches: {}` ao ser carregado; a ausência do campo continua válida para compatibilidade.
-- Contratar abre cinco candidatos com tier bronze/prata/ouro, salário,
-  conhecimento, visão e estrelas; só o candidato escolhido é contratado.
+- Contratar abre um catálogo de 20 profissionais únicos com tier bronze/prata/ouro,
+  salário, conhecimento, visão e estrelas. Uma pessoa só ocupa um setor;
+  contratados desaparecem das listas de todos os setores. Demissão é individual.
+- O orçamento mensal da comissão é ajustado retirando limite do orçamento salarial
+  dos jogadores, sem descontar caixa. Contratos e promoções respeitam o limite
+  restante. Sem configuração anterior, a margem inicial disponível é 25% da folha.
+- Atribuições duplicadas de saves antigos são regularizadas com aviso na caixa postal.
 - O melhor bônus por posição, `(conhecimento + estrelas − 1) × 4%`, acelera
-  crescimento e treino de posição, com estimativa de dias coerente. Não
+  crescimento e treino de posição apenas nos setores responsáveis, com estimativa de dias coerente. Não
   empilha nem adiciona gols diretamente. As provas estão no recap da carreira.
+
+## Trocas na escalação
+
+Selecionar titular e depois reserva, ou reserva/não relacionado e depois titular,
+executa a mesma troca e valida disponibilidade e posição de goleiro. Dois reservas
+trocam a ordem; a seta continua enviando um não relacionado ao banco.

@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { available, syncBenchWithLineup } from './matches';
 import { ageAt, hash } from './random';
 import { familiarity, LEARNED, trainingGain } from './positions';
+import { assistantPayroll, salaryBudgets } from './staff';
 import {
   assistantAreas,
   formations,
@@ -15,7 +16,6 @@ import {
   type World,
 } from './types';
 
-export const ASSISTANT_STAFF_LIMIT = 4;
 export { syncBenchWithLineup };
 const lineupFileSchema = z.object({
   format: z.literal('mando-lineup'),
@@ -141,82 +141,114 @@ export function applySavedLineup(career: Career, index: number, world: World): C
   };
 }
 
-const assistantTemplates: Record<
-  AssistantArea,
-  {
-    name: string;
-    vision: 'Ofensivo' | 'Retranqueiro' | 'Pressão' | 'Posse' | 'Contra-ataque';
-    skill: number;
-  }
-> = {
-  ataque: { name: 'Rafael Nascimento', vision: 'Ofensivo', skill: 3 },
-  meio: { name: 'Marina Alves', vision: 'Posse', skill: 3 },
-  defesa: { name: 'Bruno Carvalho', vision: 'Retranqueiro', skill: 3 },
-  goleiro: { name: 'Diego Martins', vision: 'Pressão', skill: 3 },
+export const positionsForArea: Record<AssistantArea, Position[]> = {
+  ataque: ['LW', 'RW', 'ST', 'AM'],
+  meio: ['DM', 'CM', 'AM'],
+  defesa: ['CB', 'LB', 'RB', 'DM'],
+  goleiro: ['GK'],
 };
 
+export function assistantArea(key: string, coach: AssistantCoach): AssistantArea {
+  const area = coach.area ?? assistantAreas.find((item) => item === key);
+  if (!area) throw new Error('Auxiliar sem setor válido.');
+  return area;
+}
+
 export function assistantCandidates(career: Career, area: AssistantArea): AssistantCoach[] {
-  const positionsForArea: Record<AssistantArea, Position[]> = {
-    ataque: ['LW', 'RW', 'ST', 'AM'],
-    meio: ['DM', 'CM', 'AM'],
-    defesa: ['CB', 'LB', 'RB', 'DM'],
-    goleiro: ['GK'],
-  };
-  const names = ['Lucas Ferreira', 'Ana Ribeiro', 'Caio Mendes', 'Elisa Rocha', 'Pedro Santos'];
-  return names.map((name, index) => {
-    const skill = index + 1;
-    const id = `assistant-${career.season}-${area}-${index}`;
-    const specialty =
-      positionsForArea[area][hash(`${career.seed}:${id}`) % positionsForArea[area].length];
-    const stars = Object.fromEntries(
-      positionSchema.options.map((position) => [
-        position,
-        position === specialty
-          ? Math.min(5, skill + 1)
-          : positionsForArea[area].includes(position)
-            ? Math.max(1, skill - 1)
-            : 1,
-      ]),
-    ) as Record<Position, number>;
-    return {
-      id,
-      name,
-      skill,
-      stars,
-      tacticalVision: assistantTemplates[area].vision,
-      wageWeekly: [600, 1100, 2100, 3400, 5000][index],
-    };
-  });
+  if (!assistantAreas.includes(area)) throw new Error('Área de comissão inválida.');
+  const names = [
+    'Lucas Ferreira',
+    'Ana Ribeiro',
+    'Caio Mendes',
+    'Elisa Rocha',
+    'Pedro Santos',
+    'André Lima',
+    'Beatriz Costa',
+    'Daniel Souza',
+    'Fernanda Reis',
+    'Gustavo Almeida',
+    'Helena Duarte',
+    'Igor Teixeira',
+    'Joana Barros',
+    'Leandro Melo',
+    'Mariana Azevedo',
+    'Nicolas Ramos',
+    'Olívia Nunes',
+    'Paulo Vieira',
+    'Renata Lopes',
+    'Tiago Cardoso',
+  ];
+  const employed = new Set(Object.values(career.assistantCoaches).map((coach) => coach.name));
+  return names
+    .map((name, index) => {
+      const skill = (index % 5) + 1;
+      const id = `assistant-${index}`;
+      const specialtyArea = assistantAreas[Math.floor(index / 5)];
+      const specialty =
+        positionsForArea[specialtyArea][
+          hash(`${career.seed}:${id}`) % positionsForArea[specialtyArea].length
+        ];
+      const stars = Object.fromEntries(
+        positionSchema.options.map((position) => [
+          position,
+          position === specialty
+            ? Math.min(5, skill + 1)
+            : positionsForArea[specialtyArea].includes(position)
+              ? Math.max(1, skill - 1)
+              : 1,
+        ]),
+      ) as Record<Position, number>;
+      return {
+        id,
+        name,
+        skill,
+        stars,
+        tacticalVision: (['Ofensivo', 'Posse', 'Retranqueiro', 'Pressão'] as const)[
+          Math.floor(index / 5)
+        ],
+        wageWeekly: [600, 1100, 2100, 3400, 5000][index % 5],
+      };
+    })
+    .filter((coach) => !employed.has(coach.name));
 }
 
 export function assistantTrainingBonus(career: Career, position: Position): number {
   return Math.max(
     0,
-    ...Object.values(career.assistantCoaches).map(
-      (coach) => (coach.skill + coach.stars[position] - 1) * 0.04,
+    ...Object.entries(career.assistantCoaches).map(([key, coach]) =>
+      positionsForArea[assistantArea(key, coach)].includes(position)
+        ? (coach.skill + coach.stars[position] - 1) * 0.04
+        : 0,
     ),
   );
 }
 
 export function hireAssistant(career: Career, area: AssistantArea, candidateId: string): Career {
   if (!assistantAreas.includes(area)) throw new Error('Área de comissão inválida.');
-  if (career.assistantCoaches[area]) throw new Error('Esta vaga já está ocupada.');
-  if (Object.keys(career.assistantCoaches).length >= ASSISTANT_STAFF_LIMIT)
-    throw new Error('O limite de auxiliares da comissão foi atingido.');
+  if (Object.values(career.assistantCoaches).some((coach) => coach.id === candidateId))
+    throw new Error('Este auxiliar já está contratado em um setor.');
   const candidate = assistantCandidates(career, area).find((coach) => coach.id === candidateId);
   if (!candidate) throw new Error('Auxiliar não encontrado na lista de candidatos.');
+  if (
+    assistantPayroll(career) + candidate.wageWeekly * (52 / 12) >
+    salaryBudgets(career).assistants
+  )
+    throw new Error(
+      'Orçamento salarial dos auxiliares insuficiente. Redistribua o orçamento antes de contratar.',
+    );
   return {
     ...career,
     assistantCoaches: {
       ...career.assistantCoaches,
-      [area]: candidate,
+      [candidateId]: { ...candidate, area },
     },
   };
 }
 
-export function fireAssistant(career: Career, area: AssistantArea): Career {
+export function fireAssistant(career: Career, id: string): Career {
+  if (!career.assistantCoaches[id]) throw new Error('Auxiliar contratado não encontrado.');
   const assistantCoaches = { ...career.assistantCoaches };
-  delete assistantCoaches[area];
+  delete assistantCoaches[id];
   return { ...career, assistantCoaches };
 }
 

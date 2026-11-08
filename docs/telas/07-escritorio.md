@@ -20,10 +20,16 @@ Oito opções no mesmo nível, nesta ordem:
 8. Personalização
 
 LT/RT ou L2/R2 percorrem estas oito opções. Não há as três abas antigas.
+As oito opções ocupam a largura disponível, sem rolagem horizontal; em larguras
+menores são organizadas em duas linhas de quatro.
 
 ## Orçamento
 
 Apresenta o caixa do clube e os dados financeiros registrados na carreira, incluindo lançamentos de receitas e despesas e histórico de saldo. A tela não oferece gerenciamento de bilheteria, patrocínio, instalações, torcida ou clima econômico.
+
+O orçamento salarial dos auxiliares pode ser redistribuído a partir do limite
+mensal dos jogadores, sem movimentar caixa. O editor também aparece na Comissão;
+respeita salários contratados, empréstimos e pré-contratos reservados.
 
 ## Objetivos e mercado
 
@@ -41,6 +47,9 @@ da criação limita a data à idade de 18 a 85 anos na data da carreira e ajusta
 dias inválidos ao trocar mês ou ano. Dia, mês e ano são alterados com ←/→ após
 selecionar o campo com ✕/A; ✕/A ou ○/B conclui a edição. X/□ salva o formulário
 validado e recalcula a idade. Retrato por câmera/IA continua disponível quando o serviço está configurado.
+O painel usa toda a largura, com retrato proporcional alinhado ao topo e campos
+ao lado. A gravação não exibe toast de sucesso. A geração de retrato envia
+somente os campos aceitos pela IA, sem incluir campos extras do save.
 
 ## Acessos da tela
 
