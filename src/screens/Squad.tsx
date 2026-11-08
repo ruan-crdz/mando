@@ -1052,14 +1052,16 @@ export function Squad({
                   ))}
                 </div>
                 <p>
-                  Evolução e treino de posição: +{coach.skill * 4}% a +
-                  {(coach.skill +
-                    Math.max(
-                      ...positionsForArea[hiringArea].map((position) => coach.stars[position]),
-                    ) -
-                    1) *
-                    4}
-                  % conforme as estrelas.
+                  {(() => {
+                    const stars = positionsForArea[hiringArea].map(
+                      (position) => coach.stars[position],
+                    );
+                    const low = (coach.skill + Math.min(...stars) - 1) * 4;
+                    const high = (coach.skill + Math.max(...stars) - 1) * 4;
+                    return low === high
+                      ? `Evolução e treino de posição: +${high}% em todas as posições do setor.`
+                      : `Evolução e treino de posição: +${low}% a +${high}% conforme as estrelas.`;
+                  })()}
                 </p>
                 <button
                   className="primary"
