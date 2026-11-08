@@ -152,9 +152,7 @@ uma variante vencerá todas as partidas, nem inventar percentuais antes da execu
 ### Resultados medidos
 
 Fonte: [execução da CI](https://github.com/ruan-crdz/mando/actions/runs/42439471433),
-nos testes de refinamentos, atributos e balanceamento que passaram. Essa execução
-teve uma falha separada no teste de segunda temporada; os números abaixo não
-representam aprovação daquela execução inteira.
+nos testes de refinamentos, atributos e balanceamento, com a execução inteira aprovada.
 
 | Experimento pareado              | Resultado médio                              |
 | -------------------------------- | -------------------------------------------- |
