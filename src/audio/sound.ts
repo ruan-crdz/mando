@@ -483,7 +483,7 @@ export function readMailbox(messages: Message[], onMessage: (id: string) => void
     onMessage(entry.id);
     const utterance = new SpeechSynthesisUtterance(entry.text);
     utterance.lang = 'pt-BR';
-    utterance.rate = 1.55;
+    utterance.rate = 1.9;
     utterance.pitch = 0.96;
     const voices = speechSynthesis.getVoices().filter((voice) => /^pt[-_]br$/i.test(voice.lang));
     utterance.voice =
